@@ -1,1 +1,3 @@
-# CS487_Final_Project
+# CS487 Final Project
+
+GenAI-assisted automatic program repair script. 
