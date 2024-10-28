@@ -1,0 +1,9 @@
+afl/
+
+main/executables/
+main/bugLog/
+main/executables_afl/
+main/output/
+
+.env
+.DS_Store
