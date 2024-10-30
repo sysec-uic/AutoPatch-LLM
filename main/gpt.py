@@ -1,5 +1,5 @@
+import openai
 from openai import OpenAI
-from dotenv import load_dotenv
 import os
 
 def ask_llm_for_patch(client, code, sanitizer_output):
@@ -9,23 +9,14 @@ def ask_llm_for_patch(client, code, sanitizer_output):
             {
                 "role": "user",
                 "content": prompt,
-            },
-            {
-                "role": "user",
-                "content": prompt,
             }
         ],
-        model="text-embedding-ada-002",
+        model="gpt-4o-mini",
     )
-    #return chat_completion.choices[0].message
-    return chat_completion['choices'][0]['text']
+    return chat_completion.choices[0].message.content
 
 def main():
-    # Load the openai API key from .env file
-    load_dotenv()
-    global client
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
+    client = OpenAI(api_key=os.environ["OPEN_API_KEY"])
     res = ask_llm_for_patch(client, "Hello", "Hello!")
     print(res)
 
