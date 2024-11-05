@@ -1,9 +1,9 @@
 afl-2.52b/
 
-main/executables/
 main/bugLog/
+main/executables/
 main/executables_afl/
 main/output/
+main/patched_codes/
 
-.env
 .DS_Store
