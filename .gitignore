@@ -3,7 +3,7 @@ afl-2.52b/
 main/bugLog/
 main/executables/
 main/executables_afl/
-main/output/
+main/output*
 main/patched_codes/
 
 .DS_Store
