@@ -1,13 +1,12 @@
 #include <stdio.h>
- 
-int main(int argc, char **argv) {
-    char str[128];
-    char *secret = "This is a secret!\n";
- 
-    printf("Enter a string: ");
-    scanf("%s", str);
-    
-    printf(str);
- 
-    return 0;
+
+int main() {
+    int secret = 0xdeadbeef;
+    char name[100] = {0};
+    read(0, name, 0x100);
+    if (secret == 0x1337) {
+        puts("Wow! Here's a secret.");
+    } else {
+        puts("I guess you're not cool enough to see my secret");
+    }
 }

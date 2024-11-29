@@ -1,5 +1,4 @@
 import subprocess
-import openai
 from openai import OpenAI
 import os
 
@@ -16,7 +15,6 @@ patched_codes_path = "patched_codes/"
 # Other global variables
 max_tries = 3 # Maximum number of GPT queries per code
 timeouts = [30, 60, 120] # Increasing timeouts so that it's more likely to find crashes on complex codes
-def_timeout = 10 # Default timeout for executing a command
 
 # Command to solve fuzzer issues
 # echo core | sudo tee /proc/sys/kernel/core_pattern
@@ -37,7 +35,7 @@ def run_sanitizer(program_path, isCodebase=True):
             stderr=subprocess.PIPE,
             stdout=subprocess.PIPE,
             universal_newlines=True,
-            timeout=def_timeout,
+            timeout=timeouts[0],
             shell=True
         )
     except Exception as e:
@@ -56,7 +54,7 @@ def run_sanitizer(program_path, isCodebase=True):
                 stderr=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 universal_newlines=True,
-                timeout=def_timeout,
+                timeout=timeouts[0],
                 shell=True
             )
         except Exception as e:
@@ -66,6 +64,8 @@ def run_sanitizer(program_path, isCodebase=True):
 
 # Compile the code for the fuzzer and run it
 def run_fuzzer(program_path, timeout_fuzzer, isCodebase=True):
+    print(f"Searching {program_path} for crashes...")
+
     executable_name = program_path[:-2]
 
     if isCodebase: # Source file is in the codebase
@@ -79,7 +79,7 @@ def run_fuzzer(program_path, timeout_fuzzer, isCodebase=True):
             stderr=subprocess.PIPE,
             stdout=subprocess.PIPE,
             universal_newlines=True,
-            timeout=def_timeout,
+            timeout=timeouts[0],
             shell=True
         )
     except Exception as e:
@@ -129,7 +129,7 @@ def run_file(executable_path, input, inputFromFile=False):
                 stderr=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 universal_newlines=True,
-                timeout=def_timeout,
+                timeout=timeouts[0],
                 shell=True
             )
             return result.stderr
@@ -144,7 +144,7 @@ def run_file(executable_path, input, inputFromFile=False):
                 stderr=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 universal_newlines=True,
-                timeout=def_timeout,
+                timeout=timeouts[0],
                 shell=True
             )
             return result.stderr
@@ -163,7 +163,8 @@ def ask_gpt_for_patch(client, code, sanitizer_output=None, crashes=None):
     if crashes is not None:
         prompt += f"""The sanitizer detected this issues: \n{sanitizer_output}
         The fuzzer detected some crashes, here are some input that caused the crashes: \n{crashes_list}\n\n"""
-    prompt += "Please provide a patch to fix this issue."
+    prompt += """Please provide a patch to fix this issue. Don't change the meaning at all, keep it simple, don't add
+        any comments and solve the issues in the easiest possible way"""
     
     # GPT APIs invocation
     chat_completion = client.chat.completions.create(
@@ -197,7 +198,7 @@ def main():
             stderr=subprocess.PIPE,
             stdout=subprocess.PIPE,
             universal_newlines=True,
-            timeout=def_timeout,
+            timeout=timeouts[0],
             shell=True
         )
     except Exception as e:
@@ -267,19 +268,22 @@ def main():
                             stderr=subprocess.PIPE,
                             stdout=subprocess.PIPE,
                             universal_newlines=True,
-                            timeout=def_timeout,
+                            timeout=timeouts[0],
                             shell=True
                         )
                     except Exception as e:
                         print(f"Error: {e}")
             
             if not hasCrashed:
-                print(f"Patched code for {code} correctly working")
+                if not crashes_inputs: # The code is not syntactically correct and we didn't find any crash
+                    print(f"Patched code for {code} potentially working: no crashes were found to test edge cases")
+                else:
+                    print(f"Patched code for {code} correctly working")
                 break
             else:
                 print(f"Patched code for {code} not properly working")
 
-        print(f"{code} correctly patched!\n")
+        print(f"{code} patched!\n")
 
     print("Code analysis finished!")
 
