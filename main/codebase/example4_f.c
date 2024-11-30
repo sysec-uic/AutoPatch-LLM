@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 typedef struct {
     char base[8];
@@ -28,13 +30,29 @@ void guess(int num, char *str, data_t *data) {
 int main(int argc, char** argv) {
     int num;
     data_t data;
+    char buffer[256];
+    int fd;
 
+    if (argc < 2) {
+        printf("Usage: %s <input_file>\n", argv[0]);
+        return 1;
+    }
+
+    fd = open(argv[1], O_RDONLY);
+    if (fd == -1) {
+        perror("Error opening file");
+        return 1;
+    }
+
+    read(fd, buffer, sizeof(buffer)-1);
+    close(fd);
+    
     srand(time(NULL));
-    num = atoi(argv[1]);
+    num = atoi(argv[2]);
 
     data.r = rand();
     strcpy(data.canary,"XXX");
     data.str_p = data.base;
 
-    guess(atoi(argv[1]), argv[2], &data);
+    guess(num, buffer, &data);
 }

@@ -14,7 +14,7 @@ patched_codes_path = "patched_codes/"
 
 # Other global variables
 max_tries = 3 # Maximum number of GPT queries per code
-timeouts = [30, 60, 120] # Increasing timeouts so that it's more likely to find crashes on complex codes
+timeouts = [30, 60, 90] # Increasing timeouts so that it's more likely to find crashes on complex codes
 
 # Command to solve fuzzer issues
 # echo core | sudo tee /proc/sys/kernel/core_pattern
@@ -63,7 +63,7 @@ def run_sanitizer(program_path, isCodebase=True):
     return ret, log
 
 # Compile the code for the fuzzer and run it
-def run_fuzzer(program_path, timeout_fuzzer, isCodebase=True):
+def run_fuzzer(program_path, timeout_fuzzer, inputFromFile, isCodebase=True):
     print(f"Searching {program_path} for crashes...")
 
     executable_name = program_path[:-2]
@@ -86,7 +86,11 @@ def run_fuzzer(program_path, timeout_fuzzer, isCodebase=True):
         print(f"Error: {e}")
     
     # Run the fuzzer to get the crashes
-    command = f"rm -rf output_{executable_name}/; {afl_fuzzer_path} -i {input_path} -o output_{executable_name}/ ./{executables_afl_path}{executable_name}.afl"
+    if inputFromFile:
+        command = f"rm -rf output_{executable_name}/; {afl_fuzzer_path} -i {input_path} -o output_{executable_name}/ -t {timeout_fuzzer} ./{executables_afl_path}{executable_name}.afl @@"
+    else:
+        command = f"rm -rf output_{executable_name}/; {afl_fuzzer_path} -i {input_path} -o output_{executable_name}/ -t {timeout_fuzzer} ./{executables_afl_path}{executable_name}.afl"
+    
     try:
         result = subprocess.run(
             [command],
@@ -102,7 +106,7 @@ def run_fuzzer(program_path, timeout_fuzzer, isCodebase=True):
         print(f"Error: {e}")
 
 # Extract the intputs that caused any crashes during the fuzzer execution
-def extract_crashes(code_name):
+def extract_crashes(code_name, inputFromFile):
     output_path = f"output_{code_name}/crashes/"
     
     crashes = []
@@ -110,59 +114,69 @@ def extract_crashes(code_name):
         if crash_file == "README.txt":
             continue
         
-        # Open and retrieve crash file input
         file_path = os.path.join(output_path, crash_file)
-        with open(file_path, 'rb') as file:
-            crashes.append(file.read())
+
+        # Convert the crash
+        command = f"iconv -f ISO-8859-1 -t UTF-8 '{file_path}' > '{file_path}'"
+        try:
+            result = subprocess.run(
+                [command],
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                universal_newlines=True,
+                timeout=timeouts[0],
+                shell=True
+            )
+        except Exception as e:
+            print(f"Error: {e}")
+            return "Error"
+
+        # Open and retrieve crash file input
+        if inputFromFile:
+            crashes.append(f"{file_path}")
+        else:
+            with open(file_path, 'rb') as file:
+                crashes.append(file.read())
     
     return crashes
 
 # Run the executable with the given input
-def run_file(executable_path, input, inputFromFile=False):
+def run_file(executable_path, input, inputFromFile):
     executable_name = f"./{executables_path}{executable_path}"
 
     if inputFromFile: # The program takes input from file
-        command = f"{executable_name} input"
-        try:
-            result = subprocess.run(
-                [command],
-                stderr=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                universal_newlines=True,
-                timeout=timeouts[0],
-                shell=True
-            )
-            return result.stderr
-        except Exception as e:
-            print(f"Error: {e}")
-            return "Error"
+        command = f"{executable_name} {input}"
     else: # The program takes input from stdin
         command = f"echo \"{input}\" | {executable_name}"
-        try:
-            result = subprocess.run(
-                [command],
-                stderr=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                universal_newlines=True,
-                timeout=timeouts[0],
-                shell=True
-            )
-            return result.stderr
-        except Exception as e:
-            print(f"Error: {e}")
-            return "Error"
+    
+    try:
+        result = subprocess.run(
+            [command],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            universal_newlines=True,
+            timeout=timeouts[0],
+            shell=True
+        )
+        return result.stderr
+    except Exception as e:
+        print(f"Error: {e}")
+        return "Error"
 
 # Query GPT to get a patched code also providing the sanitizer information and the inputs that caused any crash
-def ask_gpt_for_patch(client, code, sanitizer_output=None, crashes=None):
+def ask_gpt_for_patch(client, code, sanitizer_output=None, crashes=None, inputFromFile=None):
     # Check if any crash was provided
     if crashes is not None:
-        crashes_list = "\n".join([repr(c) for c in crashes])
+        if inputFromFile:
+            crashes_list = "\n".join([open(c, 'r').read() for c in crashes])
+        else:
+            crashes_list = "\n".join([repr(c) for c in crashes])
     
     # Prepare prompt
     prompt = f"Here's a piece of code: \n{code}\n\n"
     if crashes is not None:
         prompt += f"""The sanitizer detected this issues: \n{sanitizer_output}
-        The fuzzer detected some crashes, here are some input that caused the crashes: \n{crashes_list}\n\n"""
+        The fuzzer detected some crashes, here are some inputs that caused the crashes: \n{crashes_list}\n\n"""
     prompt += """Please provide a patch to fix this issue. Don't change the meaning at all, keep it simple, don't add
         any comments and solve the issues in the easiest possible way"""
     
@@ -178,7 +192,6 @@ def ask_gpt_for_patch(client, code, sanitizer_output=None, crashes=None):
     )
 
     return chat_completion.choices[0].message.content
-    #return ""
 
 def main():
     # Set up the APIs
@@ -207,9 +220,12 @@ def main():
     # Analyze the basecode
     for code in os.listdir(codebase_path):
         isCodebase = True
-        
-        # Compile the code
+
+        # Extract input type
         code_name = code[:-2]
+        inputFromFile = False if code_name[-2:] != '_f' else True
+
+        # Compile the code
         res, log = run_sanitizer(code)
         with open(f"{codebase_path}{code}", 'r') as file:
             content_code = file.read()
@@ -219,15 +235,18 @@ def main():
         for _ in range(max_tries):
             # Run fuzzer and extract crashes
             if res: # The code is syntactically correct, so an executable file exists for it
-                run_fuzzer(code, timeouts[0], isCodebase)
-                crashes_inputs = extract_crashes(code_name)
-                reply = ask_gpt_for_patch(client, content_code, log, crashes_inputs)
+                run_fuzzer(code, timeouts[0], inputFromFile, isCodebase)
+                crashes_inputs = extract_crashes(code_name, inputFromFile)
+                reply = ask_gpt_for_patch(client, content_code, log, crashes_inputs, inputFromFile)
             else: # The code is not syntactically correct, so we just give gpt the original code without any additional information
                 reply = ask_gpt_for_patch(client, content_code)
             
             # Parse the GPT reply
             try:
-                patched_code = reply.split("```c")[1].split("```")[0].strip()
+                if "```" in reply:
+                    patched_code = reply.split("```c")[1].split("```")[0].strip()
+                else:
+                    print("Error")
             except Exception as e:
                 print(f"Error: {e}")
                 patched_code = ""
@@ -238,7 +257,7 @@ def main():
             content_code = patched_code
             
             print(f"Patched code for {code} created")
-            isCodebase = False
+            isCodebase = False # Switch folder
 
             # Test patched code
             print(f"Testing code: {code} ...")
@@ -246,17 +265,18 @@ def main():
             if not res: # The code is not syntactically correct, so we have no crashes to use to test it
                 for t in timeouts: # Run the fuzzer for increasing timeouts until some crash is found
                     res, log = run_sanitizer(code, isCodebase)
-                    run_fuzzer(code, t, isCodebase)
-                    crashes_inputs = extract_crashes(code_name)
+                    run_fuzzer(code, t, inputFromFile, isCodebase)
+                    crashes_inputs = extract_crashes(code_name, inputFromFile)
                     if crashes_inputs: # Found some crashes
                         break
                 if not res: # The code is not syntactically correct, so we have no crashes to use to test it
                     continue
             else: # The code is syntactically correct, so we have some crashes to use to test it
+                # Compile the patched code
                 res, log = run_sanitizer(code, isCodebase)
             
             for crash in crashes_inputs:
-                output = run_file(code[:-2], crash)
+                output = run_file(code[:-2], crash, inputFromFile)
                 if output != "":
                     hasCrashed = True
 
@@ -275,10 +295,7 @@ def main():
                         print(f"Error: {e}")
             
             if not hasCrashed:
-                if not crashes_inputs: # The code is not syntactically correct and we didn't find any crash
-                    print(f"Patched code for {code} potentially working: no crashes were found to test edge cases")
-                else:
-                    print(f"Patched code for {code} correctly working")
+                print(f"Patched code for {code} correctly working")
                 break
             else:
                 print(f"Patched code for {code} not properly working")
