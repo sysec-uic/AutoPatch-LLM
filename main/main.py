@@ -98,16 +98,16 @@ def extract_crashes(code_name, inputFromFile):
         
         file_path = os.path.join(output_path, crash_file)
 
-        # Convert the crash to utf-8 to solve issues in opening the file
-        command = f"iconv -f ISO-8859-1 -t UTF-8 '{file_path}' > '{file_path}'"
-        try:
-            result = subprocess.run([command], stderr=subprocess.PIPE, stdout=subprocess.PIPE, universal_newlines=True, timeout=timeouts[0], shell=True)
-        except Exception as e:
-            print(f"Error: {e}")
-            return "Error"
-
         # Open and retrieve crash file input
         if inputFromFile:
+            # Convert the crash to utf-8 to solve issues in opening the file
+            command = f"iconv -f ISO-8859-1 -t UTF-8 '{file_path}' > '{file_path}'"
+            try:
+                result = subprocess.run([command], stderr=subprocess.PIPE, stdout=subprocess.PIPE, universal_newlines=True, timeout=timeouts[0], shell=True)
+            except Exception as e:
+                print(f"Error: {e}")
+                return "Error"
+            
             crashes.append(f"{file_path}")
         else:
             with open(file_path, 'rb') as file:
@@ -141,7 +141,9 @@ def ask_gpt_for_patch(client, code, sanitizer_output=None, crashes=None, inputFr
             crashes_list = "\n".join([repr(c) for c in crashes])
     
     # Prepare prompt
-    prompt = f"Here's a piece of code: \n{code}\nThe sanitizer detected this issues: \n{sanitizer_output}\n"
+    prompt = f"Here's a piece of code: \n{code}\n"
+    if sanitizer_output is not None:
+        prompt += f"The sanitizer detected this issues: \n{sanitizer_output}\n"
     if crashes is not None:
         prompt += f"The fuzzer detected some crashes, here are some inputs that caused the crashes: \n{crashes_list}\n\n"""
     if not fuzzerStarted and fuzzerStarted is not None:
