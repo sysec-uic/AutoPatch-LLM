@@ -29,12 +29,15 @@ int main(int argc, char** argv) {
     int num;
     data_t data;
 
-    srand(time(NULL));
-    num = atoi(argv[1]);
+    num = 10;
 
+    srand(time(NULL));
     data.r = rand();
     strcpy(data.canary,"XXX");
     data.str_p = data.base;
+
+    char *str;
+    scanf("%s", str);
 
     guess(atoi(argv[1]), argv[2], &data);
 }

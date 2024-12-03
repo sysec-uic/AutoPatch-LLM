@@ -7,7 +7,7 @@ int main(int argc, char **argv) {
     printf("Enter a string: ");
     scanf("%s", str);
     
-    printf(str)
+    printf(str);
  
     return 0;
 }

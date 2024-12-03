@@ -14,10 +14,7 @@ patched_codes_path = "patched_codes/"
 
 # Other global variables
 max_tries = 3 # Maximum number of GPT queries per code
-timeouts = [30, 60, 90] # Increasing timeouts so that it's more likely to find crashes on complex codes
-
-# Command to solve fuzzer issues
-# echo core | sudo tee /proc/sys/kernel/core_pattern
+timeouts = [15, 30, 60] # Increasing timeouts so that it's more likely to find crashes on complex codes
 
 # Compile the code and save the sanitizer information in the bugLog
 def run_sanitizer(program_path, isCodebase=True):
@@ -30,14 +27,7 @@ def run_sanitizer(program_path, isCodebase=True):
         command = f"gcc {patched_codes_path}{program_path} {warnings} -O1 -fsanitize=address -g -o {executables_path}{executable_name}"
 
     try:
-        result = subprocess.run(
-            [command],
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            universal_newlines=True,
-            timeout=timeouts[0],
-            shell=True
-        )
+        result = subprocess.run([command], stderr=subprocess.PIPE, stdout=subprocess.PIPE, universal_newlines=True, timeout=timeouts[0], shell=True)
     except Exception as e:
         print(f"Error: {e}")
     
@@ -49,14 +39,7 @@ def run_sanitizer(program_path, isCodebase=True):
     if ret: # Check if the given code was syntactically correct (meaning it produced an executable file)
         command = f"echo \"{log}\" > {bugLog_path}{executable_name}.txt"
         try:
-            result = subprocess.run(
-                [command],
-                stderr=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                universal_newlines=True,
-                timeout=timeouts[0],
-                shell=True
-            )
+            result = subprocess.run([command], stderr=subprocess.PIPE, stdout=subprocess.PIPE, universal_newlines=True, timeout=timeouts[0], shell=True)
         except Exception as e:
             print(f"Error: {e}")
     
@@ -74,14 +57,7 @@ def run_fuzzer(program_path, timeout_fuzzer, inputFromFile, isCodebase=True):
         command = f"{afl_compiler_path} {patched_codes_path}{program_path} -o {executables_afl_path}{executable_name}.afl"
     
     try:
-        result = subprocess.run(
-            [command],
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            universal_newlines=True,
-            timeout=timeouts[0],
-            shell=True
-        )
+        result = subprocess.run([command], stderr=subprocess.PIPE, stdout=subprocess.PIPE, universal_newlines=True, timeout=timeouts[0], shell=True)
     except Exception as e:
         print(f"Error: {e}")
     
@@ -92,18 +68,24 @@ def run_fuzzer(program_path, timeout_fuzzer, inputFromFile, isCodebase=True):
         command = f"rm -rf output_{executable_name}/; {afl_fuzzer_path} -i {input_path} -o output_{executable_name}/ -t {timeout_fuzzer} ./{executables_afl_path}{executable_name}.afl"
     
     try:
-        result = subprocess.run(
-            [command],
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            universal_newlines=True,
-            timeout=timeout_fuzzer,
-            shell=True
-        )
+        result = subprocess.run([command], stderr=subprocess.PIPE, stdout=subprocess.PIPE, universal_newlines=True, timeout=timeouts[0], shell=True)
     except subprocess.TimeoutExpired:
-        return
+        return False
     except Exception as e:
         print(f"Error: {e}")
+
+    # Check if the fuzzer started
+    command = f"ls output_{executable_name}/"
+    try:
+        result = subprocess.run([command], stderr=subprocess.PIPE, stdout=subprocess.PIPE, universal_newlines=True, timeout=timeouts[0], shell=True)
+    except subprocess.TimeoutExpired:
+        return False
+    except Exception as e:
+        print(f"Error: {e}")
+    
+    if "fuzzer_stats" in result.stdout:
+        return True
+    return False
 
 # Extract the intputs that caused any crashes during the fuzzer execution
 def extract_crashes(code_name, inputFromFile):
@@ -116,17 +98,10 @@ def extract_crashes(code_name, inputFromFile):
         
         file_path = os.path.join(output_path, crash_file)
 
-        # Convert the crash
+        # Convert the crash to utf-8 to solve issues in opening the file
         command = f"iconv -f ISO-8859-1 -t UTF-8 '{file_path}' > '{file_path}'"
         try:
-            result = subprocess.run(
-                [command],
-                stderr=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                universal_newlines=True,
-                timeout=timeouts[0],
-                shell=True
-            )
+            result = subprocess.run([command], stderr=subprocess.PIPE, stdout=subprocess.PIPE, universal_newlines=True, timeout=timeouts[0], shell=True)
         except Exception as e:
             print(f"Error: {e}")
             return "Error"
@@ -150,21 +125,14 @@ def run_file(executable_path, input, inputFromFile):
         command = f"echo \"{input}\" | {executable_name}"
     
     try:
-        result = subprocess.run(
-            [command],
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            universal_newlines=True,
-            timeout=timeouts[0],
-            shell=True
-        )
+        result = subprocess.run([command], stderr=subprocess.PIPE, stdout=subprocess.PIPE, universal_newlines=True, timeout=timeouts[0], shell=True)
         return result.stderr
     except Exception as e:
         print(f"Error: {e}")
         return "Error"
 
 # Query GPT to get a patched code also providing the sanitizer information and the inputs that caused any crash
-def ask_gpt_for_patch(client, code, sanitizer_output=None, crashes=None, inputFromFile=None):
+def ask_gpt_for_patch(client, code, sanitizer_output=None, crashes=None, inputFromFile=None, fuzzerStarted=None):
     # Check if any crash was provided
     if crashes is not None:
         if inputFromFile:
@@ -177,6 +145,8 @@ def ask_gpt_for_patch(client, code, sanitizer_output=None, crashes=None, inputFr
     if crashes is not None:
         prompt += f"""The sanitizer detected this issues: \n{sanitizer_output}
         The fuzzer detected some crashes, here are some inputs that caused the crashes: \n{crashes_list}\n\n"""
+    if not fuzzerStarted and fuzzerStarted is not None:
+        prompt += "The code crashes regardless of the input it is given."
     prompt += """Please provide a patch to fix this issue. Don't change the meaning at all, keep it simple, don't add
         any comments and solve the issues in the easiest possible way"""
     
@@ -206,14 +176,7 @@ def main():
     # Clear old files
     command = f"rm -rf {bugLog_path}* {executables_path}* {executables_afl_path}* output* {patched_codes_path}*"
     try:
-        result = subprocess.run(
-            [command],
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            universal_newlines=True,
-            timeout=timeouts[0],
-            shell=True
-        )
+        result = subprocess.run([command], stderr=subprocess.PIPE, stdout=subprocess.PIPE, universal_newlines=True, timeout=timeouts[0], shell=True)
     except Exception as e:
         print(f"Error: {e}")
 
@@ -232,12 +195,13 @@ def main():
         
         # Loop either until a working patched code is provided or the max number of queries is reached
         print(f"Analyzing code: {code} ...")
+        fuzzerStarted = False
         for _ in range(max_tries):
             # Run fuzzer and extract crashes
             if res: # The code is syntactically correct, so an executable file exists for it
-                run_fuzzer(code, timeouts[0], inputFromFile, isCodebase)
+                fuzzerStarted = run_fuzzer(code, timeouts[0], inputFromFile, isCodebase)
                 crashes_inputs = extract_crashes(code_name, inputFromFile)
-                reply = ask_gpt_for_patch(client, content_code, log, crashes_inputs, inputFromFile)
+                reply = ask_gpt_for_patch(client, content_code, log, crashes_inputs, inputFromFile, fuzzerStarted)
             else: # The code is not syntactically correct, so we just give gpt the original code without any additional information
                 reply = ask_gpt_for_patch(client, content_code)
             
@@ -265,7 +229,7 @@ def main():
             if not res: # The code is not syntactically correct, so we have no crashes to use to test it
                 for t in timeouts: # Run the fuzzer for increasing timeouts until some crash is found
                     res, log = run_sanitizer(code, isCodebase)
-                    run_fuzzer(code, t, inputFromFile, isCodebase)
+                    fuzzerStarted = run_fuzzer(code, t, inputFromFile, isCodebase)
                     crashes_inputs = extract_crashes(code_name, inputFromFile)
                     if crashes_inputs: # Found some crashes
                         break
@@ -283,14 +247,7 @@ def main():
                     # Save the crash info in the bugLog
                     command = f"echo \"{output}\" >> {bugLog_path}{code_name}.txt"
                     try:
-                        result = subprocess.run(
-                            [command],
-                            stderr=subprocess.PIPE,
-                            stdout=subprocess.PIPE,
-                            universal_newlines=True,
-                            timeout=timeouts[0],
-                            shell=True
-                        )
+                        result = subprocess.run([command], stderr=subprocess.PIPE, stdout=subprocess.PIPE, universal_newlines=True, timeout=timeouts[0], shell=True)
                     except Exception as e:
                         print(f"Error: {e}")
             

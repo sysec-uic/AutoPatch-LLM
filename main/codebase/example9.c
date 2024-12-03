@@ -5,7 +5,7 @@ typedef struct {
     char buf[64];
 } data_t;
 
-// This function writes 5 times 15 char in data.buf
+
 int scramble(int *sequence) {
     data_t data;
 
