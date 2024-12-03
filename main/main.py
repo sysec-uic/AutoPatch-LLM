@@ -141,10 +141,9 @@ def ask_gpt_for_patch(client, code, sanitizer_output=None, crashes=None, inputFr
             crashes_list = "\n".join([repr(c) for c in crashes])
     
     # Prepare prompt
-    prompt = f"Here's a piece of code: \n{code}\n\n"
+    prompt = f"Here's a piece of code: \n{code}\nThe sanitizer detected this issues: \n{sanitizer_output}\n"
     if crashes is not None:
-        prompt += f"""The sanitizer detected this issues: \n{sanitizer_output}
-        The fuzzer detected some crashes, here are some inputs that caused the crashes: \n{crashes_list}\n\n"""
+        prompt += f"The fuzzer detected some crashes, here are some inputs that caused the crashes: \n{crashes_list}\n\n"""
     if not fuzzerStarted and fuzzerStarted is not None:
         prompt += "The code crashes regardless of the input it is given."
     prompt += """Please provide a patch to fix this issue. Don't change the meaning at all, keep it simple, don't add
