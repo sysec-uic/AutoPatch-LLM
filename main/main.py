@@ -14,7 +14,7 @@ patched_codes_path = "patched_codes/"
 
 # Other global variables
 max_tries = 3 # Maximum number of GPT queries per code
-timeouts = [15, 30, 60] # Increasing timeouts so that it's more likely to find crashes on complex codes
+timeouts = [30, 60, 120] # Increasing timeouts so that it's more likely to find crashes on complex codes
 
 # Compile the code and save the sanitizer information in the bugLog
 def run_sanitizer(program_path, isCodebase=True):
