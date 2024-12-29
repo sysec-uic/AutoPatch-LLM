@@ -1,0 +1,24 @@
+version: '3'
+
+includes:
+  main: 
+    taskfile: ./main/Taskfile.yml
+    dir: ./main
+
+tasks:
+
+  build:
+    desc: install AutoPatch dependencies
+    cmds:
+      - echo "hello AutoPatch!"
+      - pip install -r requirements.txt
+
+  create-required-dirs:
+    desc: create required directories
+    cmds:
+      - mkdir -p bugLog/
+      - mkdir -p codebase/
+      - mkdir -p executables/
+      - mkdir -p executables_afl/
+      - mkdir -p input/
+      - mkdir -p patched_codes/

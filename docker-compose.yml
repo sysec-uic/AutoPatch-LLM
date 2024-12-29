@@ -1,0 +1,17 @@
+services:
+  autopatch:
+    build: ./main
+    container_name: autopatch
+    # env_file:
+    #   - ./main/.env
+    environment:
+       OPEN_API_KEY: /run/secrets/open_api_key
+    secrets:
+      - open_api_key
+    volumes:
+      - ./afl-2.52b:/app/afl-2.52b
+    working_dir: /app
+
+secrets:
+  open_api_key:
+    environment: OPEN_API_KEY

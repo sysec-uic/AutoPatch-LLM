@@ -1,0 +1,23 @@
+version: '3'
+
+includes:
+  main: 
+    taskfile: ./main/Taskfile.yml
+    dir: ./main
+
+tasks:
+
+  hello:
+    desc: Say hello
+    cmds:
+      - echo "hello AutoPatch!"
+
+  create-required-dirs:
+    desc: create required directories
+    cmds:
+      - mkdir -p bugLog/
+      - mkdir -p codebase/
+      - mkdir -p executables/
+      - mkdir -p executables_afl/
+      - mkdir -p input/
+      - mkdir -p patched_codes/
