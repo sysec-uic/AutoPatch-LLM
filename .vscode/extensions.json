@@ -1,0 +1,12 @@
+{
+    "recommendations": [
+        "ms-python.python",
+        "ms-python.debugpy",
+        "tomoki1207.pdf",
+        "ms-vscode-remote.vscode-remote-extensionpack",
+        "ms-vscode.cpptools-themes",
+        "yzhang.markdown-all-in-one",
+        "ms-azuretools.vscode-docker",
+        "github.copilot"
+    ]
+}
