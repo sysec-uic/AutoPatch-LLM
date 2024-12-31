@@ -1,10 +1,5 @@
 version: '3'
 
-includes:
-  main: 
-    taskfile: ./main/Taskfile.yml
-    dir: ./main
-
 tasks:
 
   build:
@@ -22,3 +17,11 @@ tasks:
       - mkdir -p executables_afl/
       - mkdir -p input/
       - mkdir -p patched_codes/
+
+  rm-temp-dirs:
+    desc: 
+    cmds:
+      - rm -rf bugLog/
+      - rm -rf executables/
+      - rm -rf executables_afl/
+      - rm -rf patched_codes/
