@@ -15,15 +15,17 @@ FROM base AS build
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
-    python3-pip \
-    python3-venv && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    python3-pip
 
 COPY requirements.txt .
 RUN pip install --break-system-packages --user --no-cache-dir -r requirements.txt
 
 FROM python:3.12-slim as runner
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
