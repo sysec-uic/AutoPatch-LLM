@@ -19,7 +19,7 @@ tasks:
       - mkdir -p patched_codes/
 
   rm-temp-dirs:
-    desc: 
+    desc: remove temporary directories
     cmds:
       - rm -rf bugLog/
       - rm -rf executables/
