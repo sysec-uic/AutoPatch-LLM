@@ -1,3 +1,5 @@
+# this file is intended for interactive development only
+
 services:
   autopatch:
     build: ./main
