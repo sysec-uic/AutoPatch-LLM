@@ -6,7 +6,7 @@ tasks:
     desc: install AutoPatch dependencies
     cmds:
       - echo "hello AutoPatch!"
-      - pip install -r requirements.txt
+      - pip install {{.CLI_ARGS}} -r requirements.txt
 
   create-required-dirs:
     desc: create required directories
