@@ -57,6 +57,5 @@
 		}
 	},
 	"runArgs": ["--env-file",".devcontainer/devcontainer.env"],
-
 	"postCreateCommand": "task main:build -- --break-system-packages && uname -a && python --version"
 }
