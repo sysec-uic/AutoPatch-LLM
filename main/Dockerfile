@@ -27,12 +27,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+# Create a non-root user and group
+RUN groupadd -r appuser && useradd -r -g appuser -d /app -s /bin/bash appuser
+
+# Set ownership of the working directory
 WORKDIR /app
 
-COPY . /app
-COPY --from=build /root/.local /root/.local
+# Copy files and change ownership
+COPY main.py /app
 
-# # Update PATH for installed Python packages
-ENV PATH=/root/.local/bin:$PATH
+COPY --from=build /root/.local /app/.local
+RUN chown -R appuser:appuser /app
+
+# Update PATH for installed Python packages
+ENV PATH=/app/.local/bin:$PATH
+
+USER appuser
 
 CMD ["python", "main.py"]

@@ -1,5 +1,4 @@
 .devcontainer/devcontainer.env
-afl-2.52b/
 
 main/bugLog/
 main/executables/
@@ -31,7 +30,8 @@ main/patched_codes/
 .LSOverride
 
 # Icon must end with two \r
-Icon
+Icon
+
 
 # Thumbnails
 ._*

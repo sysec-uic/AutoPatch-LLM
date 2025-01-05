@@ -7,5 +7,11 @@ services:
     env_file:
       - ./main/.env
     volumes:
-      - ./afl-2.52b:/app/afl-2.52b
+      - ./afl-2.52b:/app/afl2
+      - ./main/bugLog:/app/bugLog
+      - ./main/codebase:/app/codebase
+      - ./main/executables:/app/executables
+      - ./main/executables_afl:/app/executables_afl
+      - ./main/input:/app/input
+      - ./patched_codes:/app/patched_codes
     working_dir: /app
