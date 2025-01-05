@@ -7,7 +7,7 @@ services:
     env_file:
       - ./main/.env
     volumes:
-      - ./afl-2.52b:/app/afl2
+      - ./afl-2.52b:/app/afl-2.52b
       - ./main/bugLog:/app/bugLog
       - ./main/codebase:/app/codebase
       - ./main/executables:/app/executables
