@@ -2,16 +2,17 @@
 
 services:
   autopatch:
-    build: ./main
+    build: ./src
     container_name: autopatch
     env_file:
-      - ./main/.env
+      - ./src/.env
     volumes:
       - ./afl-2.52b:/app/afl-2.52b
-      - ./main/bugLog:/app/bugLog
-      - ./main/codebase:/app/codebase
-      - ./main/executables:/app/executables
-      - ./main/executables_afl:/app/executables_afl
-      - ./main/input:/app/input
-      - ./patched_codes:/app/patched_codes
+      - ./src/bugLog:/app/bugLog
+      - ./src/codebase:/app/codebase
+      - ./src/executables:/app/executables
+      - ./src/executables_afl:/app/executables_afl
+      - ./src/input:/app/input
+      - ./src/patched_codes:/app/patched_codes
     working_dir: /app
+

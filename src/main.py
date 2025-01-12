@@ -4,14 +4,14 @@ import os
 
 # Global variables for folders/files paths
 OPEN_API_KEY=os.environ.get("OPEN_API_KEY", "CHANGE_ME")
-AFL_COMPILER_PATH = os.environ.get("AFL_COMPILER_PATH", "../afl-2.52b/afl-gcc")
-AFL_FUZZER_PATH = os.environ.get("AFL_FUZZER_PATH", "../afl-2.52b/afl-fuzz")
-BUGLOG_PATH = os.environ.get("BUGLOG_PATH", "bugLog/")
-CODEBASE_PATH = os.environ.get("CODEBASE_PATH", "codebase/")
-EXECUTABLES_PATH = os.environ.get("EXECUTABLES_PATH", "executables/")
-EXECUTABLES_AFL_PATH = os.environ.get("EXECUTABLES_AFL_PATH", "executables_afl/")
-INPUT_PATH = os.environ.get("INPUT_PATH", "input/")
-PATCHED_CODES_PATH = os.environ.get("PATCHED_CODES_PATH", "../patched_codes/")
+AFL_COMPILER_PATH = os.environ.get("AFL_COMPILER_PATH", "/app/afl-2.52b/afl-gcc")
+AFL_FUZZER_PATH = os.environ.get("AFL_FUZZER_PATH", "/app/afl-2.52b/afl-fuzz")
+BUGLOG_PATH = os.environ.get("BUGLOG_PATH", "/app/bugLog/")
+CODEBASE_PATH = os.environ.get("CODEBASE_PATH", "/app/codebase/")
+EXECUTABLES_PATH = os.environ.get("EXECUTABLES_PATH", "/app/executables/")
+EXECUTABLES_AFL_PATH = os.environ.get("EXECUTABLES_AFL_PATH", "/app/executables_afl/")
+INPUT_PATH = os.environ.get("INPUT_PATH", "/app/input/")
+PATCHED_CODES_PATH = os.environ.get("PATCHED_CODES_PATH", "/app/patched_codes/")
 
 # Other global variables
 max_tries = 3 # Maximum number of GPT queries per code
@@ -168,6 +168,7 @@ def ask_gpt_for_patch(client, code, sanitizer_output=None, crashes=None, inputFr
 def main():
     # Set up the APIs
     client = OpenAI(api_key=OPEN_API_KEY)
+
 
     # Set up the folders
     os.makedirs(BUGLOG_PATH, exist_ok=True)
