@@ -52,10 +52,13 @@
 				"ms-vscode.cpptools-themes",
 				"yzhang.markdown-all-in-one",
 				"ms-azuretools.vscode-docker",
-				"GitHub.copilot"
+				"GitHub.copilot",
+				"task.vscode-task"
 			]
 		}
 	},
 	"runArgs": ["--env-file",".devcontainer/devcontainer.env"],
-	"postCreateCommand": "task main:build -- --break-system-packages && uname -a && python --version"
+	"postCreateCommand": "task main:install-devtools -- --break-system-packages && uname -a && python --version",
+	"workspaceMount": "source=${localWorkspaceFolder},target=/app,type=bind",
+	"workspaceFolder": "/app"
 }

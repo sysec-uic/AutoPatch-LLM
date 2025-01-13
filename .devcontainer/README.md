@@ -1,3 +1,13 @@
+# Autopatch devcontainer
+
+## pre-requisites
+
+- docker
+- vscode
+
+`devcontainer.env`: This file will be read during container build time will set envrironment variables into your devcontainer environment.  It is read in the devcontainer.json on the line reading `"runArgs": ["--env-file",".devcontainer/devcontainer.env"],`
+Edit this file and rebuild the container or source the vars using `$ . ./.devcontainer/devcontainer.env ` to populate the values into your development environment.  You may optionally additionally use the `/src/.env.example` for interactive development with or without the dev container.
+
 # Using bind mounts
 
 By default the devcontainer will run as the "vscode" user.
