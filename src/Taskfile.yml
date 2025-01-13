@@ -1,27 +1,24 @@
 version: '3'
 
 tasks:
-
   build:
-    desc: install AutoPatch dependencies
+    desc: install AutoPatch prod dependencies
     cmds:
-      - echo "hello AutoPatch!"
-      - pip install {{.CLI_ARGS}} -r requirements.txt
+      - echo "Hello AutoPatch!"
+      - pip install {{.CLI_ARGS}} -r /app/src/requirements.txt
 
-  create-required-dirs:
-    desc: create required directories
+  install-devtools:
+    desc: install AutoPatch dev dependencies
     cmds:
-      - mkdir -p bugLog/
-      - mkdir -p codebase/
-      - mkdir -p executables/
-      - mkdir -p executables_afl/
-      - mkdir -p input/
-      - mkdir -p patched_codes/
+      - task: build
+      - pip install {{.CLI_ARGS}} -r /app/src/dev-requirements.txt
 
-  rm-temp-dirs:
-    desc: remove temporary directories
+  run-autopatch:
+    desc: run AutoPatch
     cmds:
-      - rm -rf bugLog/
-      - rm -rf executables/
-      - rm -rf executables_afl/
-      - rm -rf patched_codes/
+      - python /app/src/main.py
+  
+  debug-autopatch:
+    desc: debug AutoPatch
+    cmds:
+      - python -m pdb /app/src/main.py

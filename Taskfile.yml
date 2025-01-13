@@ -2,12 +2,37 @@ version: '3'
 
 includes:
   main: 
-    taskfile: ./main/Taskfile.yml
-    dir: ./main
+    taskfile: ./src/Taskfile.yml
+    dir: .src/
 
 tasks:
-
-  hello:
-    desc: Say hello
+  default:
+    desc: say hello
     cmds:
-      - echo "hello AutoPatch!"
+      - echo "Hello Autopatch!"
+  run:
+    desc: Run AutoPatch
+    cmds:
+      - task: main:run-autopatch
+  debug:
+    desc: Debug AutoPatch
+    cmds:
+      - task: main:debug-autopatch
+
+  create-required-dirs:
+    desc: create required directories
+    cmds:
+      - mkdir -p src/bugLog/
+      - mkdir -p src/codebase/
+      - mkdir -p src/executables/
+      - mkdir -p src/executables_afl/
+      - mkdir -p src/input/
+      - mkdir -p src/patched_codes/
+
+  rm-temp-dirs:
+    desc: remove temporary directories
+    cmds:
+      - rm -rf src/bugLog/
+      - rm -rf src/executables/
+      - rm -rf src/executables_afl/
+      - rm -rf src/patched_codes/
