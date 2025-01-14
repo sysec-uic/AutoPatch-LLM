@@ -4,11 +4,11 @@ import os
 
 # Global variables for folders/files paths
 OPEN_API_KEY = os.environ.get("OPEN_API_KEY", "CHANGE_ME")
-AFL_COMPILER_PATH = os.environ.get("AFL_COMPILER_PATH", "/app/afl-2.52b/afl-gcc")
-AFL_FUZZER_PATH = os.environ.get("AFL_FUZZER_PATH", "/app/afl-2.52b/afl-fuzz")
-BUGLOG_PATH = os.environ.get("BUGLOG_PATH", "/app/src/bugLog/")
-CODEBASE_PATH = os.environ.get("CODEBASE_PATH", "/app/src/codebase/")
-EXECUTABLES_PATH = os.environ.get("EXECUTABLES_PATH", "/app/src/executables/")
+AFL_COMPILER_PATH = os.environ.get("AFL_COMPILER_PATH", "../afl-2.52b/afl-gcc")
+AFL_FUZZER_PATH = os.environ.get("AFL_FUZZER_PATH", "../afl-2.52b/afl-fuzz")
+BUGLOG_PATH = os.environ.get("BUGLOG_PATH", "./bugLog/")
+CODEBASE_PATH = os.environ.get("CODEBASE_PATH", "./codebase/")
+EXECUTABLES_PATH = os.environ.get("EXECUTABLES_PATH", "./executables/")
 EXECUTABLES_AFL_PATH = os.environ.get(
     "EXECUTABLES_AFL_PATH", "/app/src/executables_afl/"
 )
