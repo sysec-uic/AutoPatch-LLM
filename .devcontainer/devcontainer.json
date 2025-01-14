@@ -59,6 +59,6 @@
 	},
 	"runArgs": ["--env-file",".devcontainer/devcontainer.env"],
 	"postCreateCommand": "task main:install-devtools -- --break-system-packages && uname -a && python --version",
-	"workspaceMount": "source=${localWorkspaceFolder},target=/app,type=bind",
-	"workspaceFolder": "/app"
+	"workspaceMount": "source=${localWorkspaceFolder},target=/workspace/AutoPatch-LLM,type=bind",
+	"workspaceFolder": "/workspace/AutoPatch-LLM"
 }

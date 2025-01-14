@@ -7,6 +7,7 @@
         "ms-vscode.cpptools-themes",
         "yzhang.markdown-all-in-one",
         "ms-azuretools.vscode-docker",
-        "github.copilot"
+        "github.copilot",
+        "task.vscode-task"
     ]
 }

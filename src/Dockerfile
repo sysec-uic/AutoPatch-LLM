@@ -6,32 +6,35 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends python3
+RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
+    --mount=target=/var/cache/apt,type=cache,sharing=locked \
+    rm -f /etc/apt/apt.conf.d/docker-clean && \
+    apt-get update && apt-get install -y --no-install-recommends python3
 
 # Set Python as default
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1
 
 FROM base AS build
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 \
-    python3-pip
-
 COPY requirements.txt .
-RUN pip install --break-system-packages --user --no-cache-dir -r requirements.txt
 
-FROM python:3.12-slim as runner
+RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
+    --mount=target=/var/cache/apt,type=cache,sharing=locked \
+    apt-get install -y --no-install-recommends \
+    python3-pip && \
+    pip install --break-system-packages --user --no-cache-dir -r requirements.txt
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+FROM base AS runner
+
+RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
+    --mount=target=/var/cache/apt,type=cache,sharing=locked \
+    apt-get install -y --no-install-recommends \
     gcc && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 # Create a non-root user and group
 RUN groupadd -r appuser && useradd -r -g appuser -d /app -s /bin/bash appuser
-
-# Set ownership of the working directory
-WORKDIR /app
 
 # Copy files and change ownership
 COPY main.py /app
