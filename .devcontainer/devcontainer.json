@@ -2,8 +2,12 @@
 // README at: https://github.com/devcontainers/templates/tree/main/src/ubuntu
 {
 	"name": "AutoPatch Python devcontainer",
-	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
-	"image": "mcr.microsoft.com/devcontainers/base:noble",
+	"build": {
+		"dockerfile": "Dockerfile",
+		"args": {
+			"VARIANT": "noble"
+		}
+	},
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	"features": {
 		"ghcr.io/devcontainers/features/common-utils:2": {
@@ -47,18 +51,32 @@
 				"ms-python.python",
 				"ms-vscode.cpptools-extension-pack",
 				"ms-python.debugpy",
-				"tomoki1207.pdf",
 				"ms-vscode-remote.vscode-remote-extensionpack",
 				"ms-vscode.cpptools-themes",
 				"yzhang.markdown-all-in-one",
 				"ms-azuretools.vscode-docker",
 				"GitHub.copilot",
-				"task.vscode-task"
-			]
+				"task.vscode-task",
+				"ms-python.isort",
+				"ms-python.black-formatter"
+			],
+			"settings": {
+				"[python]": {
+					"editor.formatOnSave": true,
+					"editor.defaultFormatter": "ms-python.black-formatter",
+					"editor.codeActionsOnSave": {
+						"source.organizeImports": "explicit"
+					},
+					"isort.args": [
+						"--settings-path", "${workspaceFolder}"
+					]
+				}
+			}
 		}
 	},
 	"runArgs": ["--env-file",".devcontainer/devcontainer.env"],
-	"postCreateCommand": "task main:install-devtools -- --break-system-packages && uname -a && python --version",
+	"postCreateCommand": "task autopatch:install-devtools -- --break-system-packages",
+	"postStartCommand": "fastfetch && black --version && coverage --version && isort --version",
 	"workspaceMount": "source=${localWorkspaceFolder},target=/workspace/AutoPatch-LLM,type=bind",
 	"workspaceFolder": "/workspace/AutoPatch-LLM"
 }
