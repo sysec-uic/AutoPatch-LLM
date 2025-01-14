@@ -1,9 +1,9 @@
 version: '3'
 
 includes:
-  main: 
+  autopatch: 
     taskfile: ./src/Taskfile.yml
-    dir: .src/
+    dir: ./src/
 
 tasks:
   default:
@@ -13,11 +13,25 @@ tasks:
   run:
     desc: Run AutoPatch
     cmds:
-      - task: main:run-autopatch
+      - task: autopatch:run-autopatch
   debug:
     desc: Debug AutoPatch
     cmds:
-      - task: main:debug-autopatch
+      - task: autopatch:debug-autopatch
+  
+  test:
+    desc: Run tests
+    cmds:
+      - "echo 'Running tests...'"
+      - "echo Not Yet Implemented"
+      # - task: autopatch:test
+
+  lint:
+    desc: Run linter
+    cmds:
+      - "echo 'Running linter...'"
+      - "echo Not Yet Implemented"
+      # - task: autopatch:lint
 
   create-required-dirs:
     desc: create required directories

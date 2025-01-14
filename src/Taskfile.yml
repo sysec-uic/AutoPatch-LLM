@@ -5,20 +5,20 @@ tasks:
     desc: install AutoPatch prod dependencies
     cmds:
       - echo "Hello AutoPatch!"
-      - pip install {{.CLI_ARGS}} -r /app/src/requirements.txt
+      - pip install {{.CLI_ARGS}} -r ./requirements.txt
 
   install-devtools:
     desc: install AutoPatch dev dependencies
     cmds:
       - task: build
-      - pip install {{.CLI_ARGS}} -r /app/src/dev-requirements.txt
+      - pip install {{.CLI_ARGS}} -r ./dev-requirements.txt
 
   run-autopatch:
     desc: run AutoPatch
     cmds:
-      - python /app/src/main.py
+      - python ./main.py
   
   debug-autopatch:
     desc: debug AutoPatch
     cmds:
-      - python -m pdb /app/src/main.py
+      - python -m pdb ./main.py
