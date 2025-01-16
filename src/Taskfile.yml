@@ -1,0 +1,24 @@
+version: '3'
+
+tasks:
+  build:
+    desc: install AutoPatch prod dependencies
+    cmds:
+      - echo "Hello AutoPatch!"
+      - pip install {{.CLI_ARGS}} -r ./requirements.txt
+
+  install-devtools:
+    desc: install AutoPatch dev dependencies
+    cmds:
+      - task: build
+      - pip install {{.CLI_ARGS}} -r ./dev-requirements.txt
+
+  run-autopatch:
+    desc: run AutoPatch
+    cmds:
+      - python ./main.py
+  
+  debug-autopatch:
+    desc: debug AutoPatch
+    cmds:
+      - python -m pdb ./main.py

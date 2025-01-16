@@ -1,0 +1,82 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/ubuntu
+{
+	"name": "AutoPatch Python devcontainer",
+	"build": {
+		"dockerfile": "Dockerfile",
+		"args": {
+			"VARIANT": "noble"
+		}
+	},
+	// Features to add to the dev container. More info: https://containers.dev/features.
+	"features": {
+		"ghcr.io/devcontainers/features/common-utils:2": {
+			"installZsh": true,
+			"configureZshAsDefaultShell": true,
+			"installOhMyZsh": true,
+			"installOhMyZshConfig": true,
+			"upgradePackages": true
+		},
+		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+			"moby": true,
+			"installDockerBuildx": true,
+			"installDockerComposeSwitch": true,
+			"version": "latest",
+			"dockerDashComposeVersion": "v2"
+		},
+		"ghcr.io/devcontainers/features/git:1": {
+			"ppa": true
+		},
+		"ghcr.io/devcontainers/features/github-cli:1": {
+			"installDirectlyFromGitHubRelease": true
+		},
+		"ghcr.io/devcontainers/features/python:1": {
+			"installTools": true,
+			"enableShared": true
+		},
+		"ghcr.io/jungaretti/features/make:1": {},
+		"ghcr.io/devcontainers-community/features/llvm:3": {},
+		"ghcr.io/hspaans/devcontainer-features/pytest:1": {
+			"plugins": "pytest-testinfra"
+		},
+		"ghcr.io/devcontainers-extra/features/fzf:1": {},
+		"ghcr.io/devcontainers-extra/features/go-task:1": {},
+		"ghcr.io/devcontainers-extra/features/neovim-apt-get:1": {},
+		"ghcr.io/devcontainers-extra/features/ripgrep:1": {},
+		"ghcr.io/devcontainers-extra/features/tmux-apt-get:1": {}
+	},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ms-python.python",
+				"ms-vscode.cpptools-extension-pack",
+				"ms-python.debugpy",
+				"ms-vscode-remote.vscode-remote-extensionpack",
+				"ms-vscode.cpptools-themes",
+				"yzhang.markdown-all-in-one",
+				"ms-azuretools.vscode-docker",
+				"GitHub.copilot",
+				"task.vscode-task",
+				"ms-python.isort",
+				"ms-python.black-formatter"
+			],
+			"settings": {
+				"[python]": {
+					"editor.formatOnSave": true,
+					"editor.defaultFormatter": "ms-python.black-formatter",
+					"editor.codeActionsOnSave": {
+						"source.organizeImports": "explicit"
+					},
+					"isort.args": [
+						"--settings-path", "${workspaceFolder}"
+					]
+				}
+			}
+		}
+	},
+	"runArgs": ["--env-file",".devcontainer/devcontainer.env"],
+	"postCreateCommand": "task autopatch:install-devtools -- --break-system-packages",
+	"postStartCommand": "fastfetch && black --version && coverage --version && isort --version",
+	"workspaceMount": "source=${localWorkspaceFolder},target=/workspace/AutoPatch-LLM,type=bind",
+	"workspaceFolder": "/workspace/AutoPatch-LLM"
+}

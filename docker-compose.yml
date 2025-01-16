@@ -1,0 +1,18 @@
+# this file is intended for interactive development only
+
+services:
+  autopatch:
+    build: ./src
+    container_name: autopatch
+    env_file:
+      - ./src/.env
+    volumes:
+      - ./afl-2.52b:/app/afl-2.52b
+      - ./src/bugLog:/app/src/bugLog
+      - ./src/codebase:/app/src/codebase
+      - ./src/executables:/app/src/executables
+      - ./src/executables_afl:/app/src/executables_afl
+      - ./src/input:/app/src/input
+      - ./src/patched_codes:/app/src/patched_codes
+    working_dir: /app
+

@@ -1,0 +1,15 @@
+{
+    "recommendations": [
+        "ms-python.python",
+        "ms-vscode.cpptools-extension-pack",
+        "ms-python.debugpy",
+        "ms-vscode-remote.vscode-remote-extensionpack",
+        "ms-vscode.cpptools-themes",
+        "yzhang.markdown-all-in-one",
+        "ms-azuretools.vscode-docker",
+        "GitHub.copilot",
+        "task.vscode-task",
+        "ms-python.isort",
+        "ms-python.black-formatter"
+    ]
+}
