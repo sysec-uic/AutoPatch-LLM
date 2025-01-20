@@ -4,10 +4,9 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-# Create a non-root user and group
-RUN addgroup -S appuser && adduser -S appuser -G appuser
-
-RUN apk add --no-cache python3
+RUN addgroup -S appuser && \
+    adduser -S appuser -G appuser && \
+    apk add --no-cache python3
 
 FROM base AS build
 
@@ -24,14 +23,9 @@ FROM base AS runner
 
 RUN apk add --no-cache gcc
 
-# Set permissions for the application directory
+COPY --from=build /home/appuser/.local /home/appuser/.local
+
 COPY main.py /app
-
-COPY --chown=appuser:appuser --from=build /home/appuser/.local /home/appuser/.local
-
-# Update PATH for installed Python packages for alpine
-ENV PATH=/app/.local/bin:$PATH
-RUN echo 'export "PATH=$PATH:/app/.local/bin"' >> /etc/profile
 
 RUN chown -R appuser:appuser /app
 
