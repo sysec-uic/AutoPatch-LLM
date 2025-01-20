@@ -1,10 +1,13 @@
 .devcontainer/devcontainer.env
+.env
+venv/
+.task/
 
-main/bugLog/
-main/executables/
-main/executables_afl/
-main/output*
-main/patched_codes/
+src/bugLog/
+src/executables/
+src/executables_afl/
+src/output*
+src/patched_codes/
 
 .DS_Store
 

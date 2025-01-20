@@ -55,7 +55,9 @@
 				"ms-vscode.cpptools-themes",
 				"yzhang.markdown-all-in-one",
 				"ms-azuretools.vscode-docker",
+				"mutantdino.resourcemonitor",
 				"GitHub.copilot",
+				"GitHub.copilot-chat",
 				"task.vscode-task",
 				"ms-python.isort",
 				"ms-python.black-formatter"
