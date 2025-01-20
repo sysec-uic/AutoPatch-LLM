@@ -1,7 +1,7 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the
 // README at: https://github.com/devcontainers/templates/tree/main/src/ubuntu
 {
-	"name": "AutoPatch Python devcontainer",
+	"name": "AutoPatch Python and C devcontainer",
 	"build": {
 		"dockerfile": "Dockerfile",
 		"args": {
@@ -50,6 +50,7 @@
 			"extensions": [
 				"ms-python.python",
 				"ms-vscode.cpptools-extension-pack",
+				"tomoki1207.pdf",
 				"ms-python.debugpy",
 				"ms-vscode-remote.vscode-remote-extensionpack",
 				"ms-vscode.cpptools-themes",
@@ -78,7 +79,7 @@
 	},
 	"runArgs": ["--env-file",".devcontainer/devcontainer.env"],
 	"postCreateCommand": "task autopatch:install-devtools -- --break-system-packages",
-	"postStartCommand": "fastfetch && black --version && coverage --version && isort --version",
+	"postStartCommand": "fastfetch && black --version && coverage --version && echo -n 'isort version: ' && isort --version-number",
 	"workspaceMount": "source=${localWorkspaceFolder},target=/workspace/AutoPatch-LLM,type=bind",
 	"workspaceFolder": "/workspace/AutoPatch-LLM"
 }
