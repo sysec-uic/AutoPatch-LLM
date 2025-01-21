@@ -14,7 +14,7 @@ typedef struct {
 } data_t;
 
 void guess(int num, char *str, data_t *data) {
-    snprintf(data->buf, num, str);
+    snprintf(data->buf, num, str); // vulnerability: if num (provided by command line args) exceeds 64 then buffer overflow
 
     if (strncmp(data->buf,"backdoor",8) == 0) {
         scanf("%8s", data->str_p);

@@ -20,6 +20,7 @@ void processData(char *name, char *comment) {
     strcpy(feedbackMessage,"Feedback:");
     strcat(feedbackMessage, profile.feedback);
 
+    // format string vulnerability allows overwriting of the isAdmin feature of the struct
     printf(feedbackMessage);
 
     if(profile.isAdmin) {
