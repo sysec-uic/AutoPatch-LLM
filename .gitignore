@@ -5,6 +5,9 @@ main/executables/
 main/executables_afl/
 main/output*
 main/patched_codes/
+main/command_log/
+
+afl-2.52b/
 
 .DS_Store
 
