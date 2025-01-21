@@ -4,35 +4,37 @@ import subprocess
 from openai import OpenAI
 
 # Global variables for folders/files paths
-afl_compiler_path = "../afl-2.52b/afl-gcc"
-afl_fuzzer_path = "../afl-2.52b/afl-fuzz"
-asan_bugLog_path = "asan_bugLog/"
-afl_bugLog_path = "afl_bugLog/"
-codebase_path = "demo/"
-executables_path = "executables/"
-executables_afl_path = "executables_afl/"
-input_path = "demo_input/"
-patched_codes_path = "patched_codes/"
+AFL_COMPILER_PATH = os.environ.get("AFL_COMPILER_PATH", "../afl-2.52b/afl-gcc")
+AFL_FUZZER_PATH = os.environ.get("AFL_FUZZER_PATH", "../afl-2.52b/afl-fuzz")
+ASAN_BUGLOG_PATH = os.environ.get("ASAN_BUGLOG_PATH", "asan_bugLog/")
+AFL_BUGLOG_PATH = os.environ.get("AFL_BUGLOG_PATH", "afl_bugLog/")
+CODEBASE_PATH = os.environ.get("CODEBASE_PATH", "codebase/")
+EXECUTABLES_PATH = os.environ.get("EXECUTABLES_PATH", "executables/")
+EXECUTABLES_AFL_PATH = os.environ.get("EXECUTABLES_AFL_PATH", "executables_afl/")
+INPUT_PATH = os.environ.get("INPUT_PATH", "input/")
+PATCHED_CODES_PATH = os.environ.get("PATCHED_CODES_PATH", "patched_codes/")
+
+COMMAND_LOG_PATH = os.environ.get("COMMAND_LOG_PATH", "command_log/")
+
 no_stack_protector = "-fno-stack-protector"
-command_log_path = "command_log/"
 
 
 # Other global variables
 max_tries = 3  # Maximum number of GPT queries per code
-timeout = 150
+timeout = 120
 
 
 def log_command(exec_name, command, command_type):
     if command_type == "asan":
-        with open(f"{command_log_path}{exec_name}_log.txt", "w") as log:
+        with open(f"{COMMAND_LOG_PATH}{exec_name}_log.txt", "w") as log:
             log.write("ASan Command: \n")
             log.write(command + "\n")
     elif command_type == "fuzz_compile":
-        with open(f"{command_log_path}{exec_name}_log.txt", "a") as log:
+        with open(f"{COMMAND_LOG_PATH}{exec_name}_log.txt", "a") as log:
             log.write("Fuzzer compile command: \n")
             log.write(command + "\n")
     elif command_type == "fuzz_run":
-        with open(f"{command_log_path}{exec_name}_log.txt", "a") as log:
+        with open(f"{COMMAND_LOG_PATH}{exec_name}_log.txt", "a") as log:
             log.write("Fuzzer run command: \n")
             log.write(command + "\n")
 
@@ -43,9 +45,9 @@ def run_sanitizer(program_path, isCodebase=True):
 
     warnings = "-Wall -Wextra -Wformat -Wshift-overflow -Wcast-align -Wstrict-overflow -fstack-protector-strong"
     if isCodebase:  # Source file is in the codebase
-        command = f"gcc {codebase_path}{program_path} {warnings} -O1 -fsanitize=address -g -o {executables_path}{executable_name}"
+        command = f"gcc {CODEBASE_PATH}{program_path} {warnings} -O1 -fsanitize=address -g -o {EXECUTABLES_PATH}{executable_name}"
     else:  # Source file is a patched code
-        command = f"gcc {patched_codes_path}{program_path} {warnings} -O1 -fsanitize=address -g -o {executables_path}{executable_name}"
+        command = f"gcc {PATCHED_CODES_PATH}{program_path} {warnings} -O1 -fsanitize=address -g -o {EXECUTABLES_PATH}{executable_name}"
     try:
         result = subprocess.run(
             [command],
@@ -67,7 +69,7 @@ def run_sanitizer(program_path, isCodebase=True):
     if (
         ret
     ):  # Check if the given code was syntactically correct (meaning it produced an executable file)
-        command = f'echo "{log}" > {asan_bugLog_path}{executable_name}.txt'
+        command = f'echo "{log}" > {ASAN_BUGLOG_PATH}{executable_name}.txt'
         try:
             result = subprocess.run(
                 [command],
@@ -90,9 +92,9 @@ def run_fuzzer(program_path, timeout_fuzzer, inputFromFile, isCodebase=True):
 
     # compile the afl execuatables
     if isCodebase:  # Source file is in the codebase
-        command = f"{afl_compiler_path} {no_stack_protector} {codebase_path}{program_path} -o {executables_afl_path}{executable_name}.afl"
+        command = f"{AFL_COMPILER_PATH} {no_stack_protector} {CODEBASE_PATH}{program_path} -o {EXECUTABLES_AFL_PATH}{executable_name}.afl"
     else:  # Source file is a patched code
-        command = f"{afl_compiler_path} {no_stack_protector} {patched_codes_path}{program_path} -o {executables_afl_path}{executable_name}.afl"
+        command = f"{AFL_COMPILER_PATH} {no_stack_protector} {PATCHED_CODES_PATH}{program_path} -o {EXECUTABLES_AFL_PATH}{executable_name}.afl"
     try:
         result = subprocess.run(
             [command],
@@ -102,7 +104,7 @@ def run_fuzzer(program_path, timeout_fuzzer, inputFromFile, isCodebase=True):
             timeout=timeout,
             shell=True,
         )
-        with open(f"{afl_bugLog_path}{executable_name}.txt", "w") as buglog:
+        with open(f"{AFL_BUGLOG_PATH}{executable_name}.txt", "w") as buglog:
             buglog.write(result.stderr + result.stdout)
     except Exception as e:
         print(f"Error: {e}")
@@ -110,21 +112,21 @@ def run_fuzzer(program_path, timeout_fuzzer, inputFromFile, isCodebase=True):
     log_command(executable_name, command, "fuzz_compile")
 
     if inputFromFile:
-        command = f"{afl_fuzzer_path} -i {input_path} -o output_{executable_name}/ -t {timeout_fuzzer} ./{executables_afl_path}{executable_name}.afl @@"
+        command = f"{AFL_FUZZER_PATH} -i {INPUT_PATH} -o output_{executable_name}/ -t {timeout_fuzzer} ./{EXECUTABLES_AFL_PATH}{executable_name}.afl @@"
     else:
-        command = f"{afl_fuzzer_path} -i {input_path} -o output_{executable_name}/ -t {timeout_fuzzer} ./{executables_afl_path}{executable_name}.afl"
+        command = f"{AFL_FUZZER_PATH} -i {INPUT_PATH} -o output_{executable_name}/ -t {timeout_fuzzer} ./{EXECUTABLES_AFL_PATH}{executable_name}.afl"
 
     try:
         result = subprocess.run(
             [command],
             stderr=subprocess.PIPE,
             stdout=subprocess.PIPE,
-            universal_newlines=True,
             timeout=timeout,
+            universal_newlines=True,
             shell=True,
         )
     except subprocess.TimeoutExpired:
-        log_command(executable_name, command, "fuzz_run")
+
         return False
     except Exception as e:
         print(f"Error: {e}")
@@ -196,7 +198,7 @@ def extract_crashes(code_name, inputFromFile):
 
 # Run the executable with the given input
 def run_file(executable_path, crash_input, inputFromFile):
-    executable_name = f"./{executables_path}{executable_path}"
+    executable_name = f"./{EXECUTABLES_PATH}{executable_path}"
     if inputFromFile:  # The program takes input from file
         command = f"{executable_name} {crash_input}"
     else:  # The program takes input from stdin
@@ -271,7 +273,7 @@ def run_source(client, code_path, inputFromFile):
 
     # compile the code with the sanitizer
     res, log = run_sanitizer(code_path)
-    with open(f"{codebase_path}{code_path}", "r") as file:
+    with open(f"{CODEBASE_PATH}{code_path}", "r") as file:
         content_code = file.read()
 
     print(f"Analyzing source code {code_path}...")
@@ -320,7 +322,7 @@ def parse_reply(reply, code_path):
         print(f"Error: {e}")
         patched_code = ""
     # Save patched code
-    with open(f"{patched_codes_path}{code_path}", "w") as file:
+    with open(f"{PATCHED_CODES_PATH}{code_path}", "w") as file:
         file.write(patched_code)
     content_code = patched_code
 
@@ -378,15 +380,15 @@ def main():
     client = OpenAI(api_key=os.environ["OPEN_API_KEY"])
 
     # Set up the folders
-    os.makedirs(asan_bugLog_path, exist_ok=True)
-    os.makedirs(afl_bugLog_path, exist_ok=True)
-    os.makedirs(executables_path, exist_ok=True)
-    os.makedirs(executables_afl_path, exist_ok=True)
-    os.makedirs(patched_codes_path, exist_ok=True)
-    os.makedirs(command_log_path, exist_ok=True)
+    os.makedirs(ASAN_BUGLOG_PATH, exist_ok=True)
+    os.makedirs(AFL_BUGLOG_PATH, exist_ok=True)
+    os.makedirs(EXECUTABLES_PATH, exist_ok=True)
+    os.makedirs(EXECUTABLES_AFL_PATH, exist_ok=True)
+    os.makedirs(PATCHED_CODES_PATH, exist_ok=True)
+    os.makedirs(COMMAND_LOG_PATH, exist_ok=True)
 
     # fuzz!
-    for code_path in os.listdir(codebase_path):
+    for code_path in os.listdir(CODEBASE_PATH):
         # get executable name and inputFromFile option
         original_file_name = code_path
         code_name = code_path[:-2]

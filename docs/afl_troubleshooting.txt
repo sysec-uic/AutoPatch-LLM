@@ -37,7 +37,8 @@ This will cause issues: there will be an extended delay between stumbling upon a
 relayed to the fuzzer via the standard waitpid() API...."
 I get this when working on a google cloud instance.
 Either perform the fix it directs, or you can export the environment variable AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES by 
-executing "export AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1" in the command line. The second solution is not ideal, but is fine for 
+executing "export AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1" in the command line or adding it to the 
+devcontainer.env. The second solution is not ideal, but is fine for 
 a temporary fix for testing purposes/getting acquainted with the service.
 
 2. other issues/solutions found can be documented here in the future!
