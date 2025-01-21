@@ -1,14 +1,14 @@
-The following is a list of issues you may face when running afl.
+Troubleshooting for afl service!
 
 Some issues will be noticed when running the main.py script when prompted with this error message:
 [Errno 2] No such file or directory: 'output_vulnerable/crashes/'
-No output crashes folder found. It is likely that the fuzz command did not execute correctly. Please go to docs/common_afl_issues.txt for help.
+No output crashes folder found. It is likely that the fuzz command did not execute correctly. Please go to docs/afl_troubleshooting.txt for help.
 
 Other issues may be clear if the program (specifically the fuzzer part) run for a much shorter amount of time than indicated in the timeout. This 
 is often accompanied by the fuzzer saying that it found no crashes. In either of these cases as well as when you recieve the no output folder error 
 message, proceed with the following:
 
-To diagnose the issue, go to the command_log directory, find the file for the program target, and first try running the fuzzer compile command.
+Step 1: to diagnose the issue, go to the command_log directory, find the file for the program target, and first try running the fuzzer compile command.
 If the output is:
 
 1. something like this: zsh: no such file or directory: ../afl-2.52b/afl-gcc
@@ -21,16 +21,26 @@ top of main indicates a path leading to the compiler.
 
 2. something like this: [-] PROGRAM ABORT : Incorrect use (not called through afl-gcc?)
 this indicates that there is a mismatch in the compiler path listed in the top of main.py vs. the compiler that afl has 
-chosen based on your system. perform make clean in the afl folder and go to option 1 to see the correct compiler to use.
+chosen based on your system. perform make clean in the afl folder and go to option 1 to see the correct compiler to use, and update the 
+settings in the top of main.py to reflect the correct compiler.
  
 3. nothing out of the ordinary happens/you get the normal message indicating any warnings.
 If this happens, proceed to the next step.
 
-Step 2: run the fuzzer command from the command command_log in the command line.
+Step 2: run the fuzzer command from the command_log in the command line.
 
 The following things might happen:
 
 1. if you get a message that looks something like this:
+"Hmm, your system is configured to send core dump notifications to an external utility. 
+This will cause issues: there will be an extended delay between stumbling upon a crash and having this information 
+relayed to the fuzzer via the standard waitpid() API...."
+I get this when working on a google cloud instance.
+Either perform the fix it directs, or you can export the environment variable AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES by 
+executing "export AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1" in the command line. The second solution is not ideal, but is fine for 
+a temporary fix for testing purposes/getting acquainted with the service.
+
+2. other issues/solutions found can be documented here in the future!
 
 NOTE: it's important to run the rm-temp-dirs task from the taskfile in between runs. If you don't remove the output directories from a 
 particular run, you could have issues with the fuzzer that you don't notice. Eventually error detection in afl will be automatically noticed/handled.

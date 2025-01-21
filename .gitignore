@@ -1,12 +1,12 @@
 .devcontainer/devcontainer.env
 
-main/asan_bugLog/
-main/afl_bugLog/
-main/executables/
-main/executables_afl/
-main/output*/
-main/patched_codes/
-main/command_log/
+src/asan_bugLog/
+src/afl_bugLog/
+src/executables/
+src/executables_afl/
+src/output*/
+src/patched_codes/
+src/command_log/
 
 afl-2.52b/
 
