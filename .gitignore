@@ -1,9 +1,10 @@
 .devcontainer/devcontainer.env
 
-main/bugLog/
+main/asan_bugLog/
+main/afl_bugLog/
 main/executables/
 main/executables_afl/
-main/output*
+main/output*/
 main/patched_codes/
 main/command_log/
 
