@@ -1,0 +1,36 @@
+The following is a list of issues you may face when running afl.
+
+Some issues will be noticed when running the main.py script when prompted with this error message:
+[Errno 2] No such file or directory: 'output_vulnerable/crashes/'
+No output crashes folder found. It is likely that the fuzz command did not execute correctly. Please go to docs/common_afl_issues.txt for help.
+
+Other issues may be clear if the program (specifically the fuzzer part) run for a much shorter amount of time than indicated in the timeout. This 
+is often accompanied by the fuzzer saying that it found no crashes. In either of these cases as well as when you recieve the no output folder error 
+message, proceed with the following:
+
+To diagnose the issue, go to the command_log directory, find the file for the program target, and first try running the fuzzer compile command.
+If the output is:
+
+1. something like this: zsh: no such file or directory: ../afl-2.52b/afl-gcc
+This indicates that you have not set up afl. Please go to the afl-2.52b directory and run make. If you experience any build issues, refer to their 
+documentation. When you run make, you will see an output line that looks like this: 
+
+unset AFL_USE_ASAN AFL_USE_MSAN; AFL_QUIET=1 AFL_INST_RATIO=100 AFL_PATH=. ./afl-gcc -O3 .....
+The text following AFL_PATH indicates the compiler that afl has chosen based on your system. Ensure that the afl_compiler_path setting in the 
+top of main indicates a path leading to the compiler. 
+
+2. something like this: [-] PROGRAM ABORT : Incorrect use (not called through afl-gcc?)
+this indicates that there is a mismatch in the compiler path listed in the top of main.py vs. the compiler that afl has 
+chosen based on your system. perform make clean in the afl folder and go to option 1 to see the correct compiler to use.
+ 
+3. nothing out of the ordinary happens/you get the normal message indicating any warnings.
+If this happens, proceed to the next step.
+
+Step 2: run the fuzzer command from the command command_log in the command line.
+
+The following things might happen:
+
+1. if you get a message that looks something like this:
+
+NOTE: it's important to run the rm-temp-dirs task from the taskfile in between runs. If you don't remove the output directories from a 
+particular run, you could have issues with the fuzzer that you don't notice. Eventually error detection in afl will be automatically noticed/handled.
