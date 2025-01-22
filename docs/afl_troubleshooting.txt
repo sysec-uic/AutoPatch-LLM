@@ -41,7 +41,21 @@ executing "export AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1" in the command line o
 devcontainer.env. The second solution is not ideal, but is fine for 
 a temporary fix for testing purposes/getting acquainted with the service.
 
-2. other issues/solutions found can be documented here in the future!
+2. if you get a message that looks something like this:
+
+[-] Uh-oh, looks like all 2 CPU cores on your system are allocated to
+    other instances of afl-fuzz (or similar CPU-locked tasks). Starting
+    another fuzzer on this machine is probably a bad plan, but if you are
+    absolutely sure, you can set AFL_NO_AFFINITY and try again.
+
+[-] PROGRAM ABORT : No more free CPU cores
+         Location : bind_to_free_cpu(), afl-fuzz.c:490\
+
+This indicates that you are experiencing the bug in which the fuzzer process continues after the service finishes 
+executing. To work around this, remove the output_* folders in between runs, this will stop the execution of afl in 
+the background. This bug will be fixed shortly in another PR.
+
+3. any other common error messages and solutions can be put here.
 
 NOTE: it's important to run the rm-temp-dirs task from the taskfile in between runs. If you don't remove the output directories from a 
 particular run, you could have issues with the fuzzer that you don't notice. Eventually error detection in afl will be automatically noticed/handled.
