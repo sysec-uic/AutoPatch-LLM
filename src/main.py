@@ -21,7 +21,7 @@ no_stack_protector = "-fno-stack-protector"
 
 # Other global variables
 max_tries = 3  # Maximum number of GPT queries per code
-timeout = 35
+timeout = 120
 
 
 def log_command(exec_name, command, command_type):
