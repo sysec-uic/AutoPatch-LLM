@@ -21,7 +21,7 @@ no_stack_protector = "-fno-stack-protector"
 
 # Other global variables
 max_tries = 3  # Maximum number of GPT queries per code
-timeout = 120
+timeout = 35
 
 
 def log_command(exec_name, command, command_type):
@@ -126,7 +126,6 @@ def run_fuzzer(program_path, timeout_fuzzer, inputFromFile, isCodebase=True):
             shell=True,
         )
     except subprocess.TimeoutExpired:
-
         return False
     except Exception as e:
         print(f"Error: {e}")
