@@ -34,7 +34,6 @@ void processData(char *name, char *comment) {
 int main() {
     char name[48];
     char comment[48];
-    clearenv(); // Clear all environment variables
 
     printf("Enter your name: ");
     fgets(name, sizeof(name), stdin);
