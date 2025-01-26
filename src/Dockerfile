@@ -1,50 +1,36 @@
-FROM ubuntu:noble AS base
+FROM alpine:3.21.2 AS base
 
-# Set environment variables to prevent interactive prompts
-ENV DEBIAN_FRONTEND=noninteractive \
-    PYTHONUNBUFFERED=1
+ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-    --mount=target=/var/cache/apt,type=cache,sharing=locked \
-    rm -f /etc/apt/apt.conf.d/docker-clean && \
-    apt-get update && apt-get install -y --no-install-recommends python3
-
-# Set Python as default
-RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1
+RUN addgroup -S appuser && \
+    adduser -S appuser -G appuser && \
+    apk add --no-cache python3
 
 FROM base AS build
 
 COPY requirements.txt .
 
-RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-    --mount=target=/var/cache/apt,type=cache,sharing=locked \
-    apt-get install -y --no-install-recommends \
-    python3-pip && \
-    pip install --break-system-packages --user --no-cache-dir -r requirements.txt
+RUN apk add --no-cache \
+    py3-pip
+
+USER appuser
+
+RUN pip install --break-system-packages --user --no-cache-dir -r requirements.txt
 
 FROM base AS runner
 
-RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-    --mount=target=/var/cache/apt,type=cache,sharing=locked \
-    apt-get install -y --no-install-recommends \
-    gcc && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache gcc
 
-# Create a non-root user and group
-RUN groupadd -r appuser && useradd -r -g appuser -d /app -s /bin/bash appuser
+COPY --from=build /home/appuser/.local /home/appuser/.local
 
-# Copy files and change ownership
 COPY main.py /app
 
-COPY --from=build /root/.local /app/.local
 RUN chown -R appuser:appuser /app
 
-# Update PATH for installed Python packages
-ENV PATH=/app/.local/bin:$PATH
-
 USER appuser
+
+LABEL version="0.1.0"
 
 CMD ["python", "main.py"]
