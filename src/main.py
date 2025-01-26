@@ -355,7 +355,7 @@ def test_patch(client, original_code, patch_path, inputFromFile, crashes_inputs=
         # return error code 1 and the new patch
         return 1, reply
 
-    # re-add the functionality for testing previous crashes eventually
+    # TODO re-add the functionality for testing previous crashes eventually
 
     # if the patch did not generate any crashes return success 0
     if len(crashes_inputs) == 0:
