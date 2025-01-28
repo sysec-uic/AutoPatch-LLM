@@ -1,4 +1,7 @@
 .devcontainer/devcontainer.env
+.env
+venv/
+.task/
 
 src/asan_bugLog/
 src/afl_bugLog/
@@ -9,6 +12,7 @@ src/patched_codes/
 src/command_log/
 
 afl-2.52b/
+
 
 .DS_Store
 
