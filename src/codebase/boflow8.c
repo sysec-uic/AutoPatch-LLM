@@ -28,7 +28,6 @@ void add_hackemon(){
 }
 
 int main(){
-    clearenv();
     add_hackemon();
     return 0;
 }

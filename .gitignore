@@ -3,11 +3,16 @@
 venv/
 .task/
 
-src/bugLog/
+src/asan_bugLog/
+src/afl_bugLog/
 src/executables/
 src/executables_afl/
-src/output*
+src/output*/
 src/patched_codes/
+src/command_log/
+
+afl-2.52b/
+
 
 .DS_Store
 

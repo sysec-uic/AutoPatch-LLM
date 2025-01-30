@@ -48,7 +48,6 @@ void amazing(){
 int main(){
     int choice;
 
-    clearenv();
     ascii_art("banner.txt");
     printf("Welcome to the most amazing program ever!\n");
     amazing();

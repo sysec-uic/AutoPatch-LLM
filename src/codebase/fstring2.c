@@ -32,7 +32,7 @@ void guess_token(UserData *data) {
 
 int main() {
     UserData data = { .msg1 = "Token generated" }; // Initialize msg1
-    clearenv(); // Clear environment variables
+    
 
     scanf("%31s", data.username);
     read_file("/etc/secret", &data);

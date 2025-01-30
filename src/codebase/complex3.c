@@ -5,7 +5,7 @@ int main(int argc, char **argv) {
     char *secret = "This is a secret!\n";
  
     printf("Enter a string: ");
-    scanf("%s", str)
+    scanf("%s", str);
     
     printf(str);
  
