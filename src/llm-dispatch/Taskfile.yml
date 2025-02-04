@@ -1,0 +1,7 @@
+version: '3'
+
+tasks:
+  chatgpt-hello-world:
+    dotenv: ['.env']
+    cmds:
+      - python invoke-chatgpt-API-hello-world.py
