@@ -1,0 +1,3 @@
+Example1
+This program allocates several memory buffers of different sizes and frees them in stages. 
+It copies a command-line argument into one of the previously freed buffers (buf2R1) and then frees the remaining allocated buffers in sequence.
