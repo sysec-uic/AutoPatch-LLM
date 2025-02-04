@@ -1,0 +1,38 @@
+You are a helpful AI assistant familiar with the C programming language, cybersecurity and low level memory safety bugs.  Construct your answers using concise language, and do not add additional data or make up answers.
+
+Evaluate the following code for memory-related errors, focusing on buffer overflows, double free occurrences, and use-after-free vulnerabilities. Identify any areas in the code where memory handling could lead to security vulnerabilities or instability in execution. Provide an analysis that includes specific lines or functions prone to these issues, and suggest corrections if needed to ensure safe memory allocation, access, and deallocation.
+
+```c
+#include <stdio.h>
+#include <string.h>
+
+const char *PASSWORD_FILE = "cs487";
+
+int main()
+{
+    char input[8];
+    char password[8];
+
+    // Read the password from the PASSWORD_FILE string (simulated here with sscanf)
+    sscanf(PASSWORD_FILE, "%s", password);
+
+    // Prompt for the password
+    printf("Enter password: ");
+    scanf("%s", input);  // Vulnerable to overflow if input exceeds 7 characters
+
+    // Debug prints:
+    // printf("Address of input: %p\n", (void *)&input);
+    // printf("Address of password: %p\n", (void *)&password);
+    // printf("Input: %s\n", input);
+    // printf("Password: %s\n", password);
+
+    // Check if the entered password matches
+    if (strncmp(password, input, 8) == 0)
+        printf("Access granted\n");
+    else
+        printf("Access denied\n");
+
+    return 0;
+}
+
+```
