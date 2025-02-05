@@ -25,3 +25,12 @@ AutoPatch is a GenAI-assisted tool designed to automatically detect and patch bu
    ```bash
    python3 main/main.py
    ```
+
+## Logging
+
+- Automatically generates separate log directories and files for the ASan compiler output (asan_bugLog) and AFL compiler output (afl_bugLog).
+Example of afl_bugLog/vulnerable.txt:
+![afl_buglog_vulnerable_log_example](./docs/images/afl_buglog_vulnerable_log_example.jpeg)
+
+- Automatically logs commands executed during the running of the service in the command_logs directory. This is very useful for troubleshooting errors in the main service execution.
+![command_log_vulnerable_log](./docs/images/command_log_vulnerable_log.jpeg)
