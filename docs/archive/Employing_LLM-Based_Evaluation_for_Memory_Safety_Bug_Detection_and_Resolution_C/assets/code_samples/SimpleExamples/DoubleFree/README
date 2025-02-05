@@ -1,0 +1,10 @@
+Example1
+This program allocates memory for an array of 42 integers, fills it with values by doubling each index, then frees the memory and prints "Hello World, no vulnerabilities here."  The program then performs a free operation on the same memory.
+
+Example2
+This program allocates memory for a 10-character array, initializes it to zero, and retrieves the value at the index specified by c.
+It then frees the allocated memory and iterates over command-line arguments without modifying them. The program returns the value from the array at index c.
+
+Example3
+This program allocates two memory buffers (buf1R1 and buf2R1) of size BUFSIZE2 and then frees them.
+It allocates a larger buffer (buf1R2) of size BUFSIZE1 and copies the command-line argument into it. Finally, it frees both buf2R1 and buf1R2.

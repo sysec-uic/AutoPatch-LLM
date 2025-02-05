@@ -1,0 +1,62 @@
+version: '3'
+
+tasks:
+  build:
+    desc: Build all of the buffer overflow examples
+    deps: [build-ex1, build-ex2, build-ex3]
+
+  build-ex1:
+    desc: Build the C program
+    cmds:
+      - gcc -Wall -Wextra -o password_checker buffer_overflow_example_1.c
+    sources:
+      - buffer_overflow_example_1.c
+    generates:
+      - password_checker
+
+  build-ex2:
+    desc: Build the C program
+    cmds:
+      - gcc -Wall -Wextra -o lowercase buffer_overflow_example_2.c
+    sources:
+      - buffer_overflow_example_2.c
+    generates:
+      - lowercase 
+
+  build-ex3:
+    desc: Build the C program
+    cmds:
+      - gcc -Wall -Wextra -o tRNS buffer_overflow_example_3.c
+    sources:
+      - buffer_overflow_example_3.c
+    generates:
+      - tRNS
+
+  run-pswd-chkr:
+    desc: Run the program
+    cmds:
+      - ./password_checker
+    preconditions:
+      - sh: '[ -f password_checker ]'
+
+  run-lowercase:
+    desc: Run the program
+    cmds:
+      - ./lowercase "dummySTRINg"
+    preconditions:
+      - sh: '[ -f lowercase ]'
+
+  run-tRNS:
+    desc: Run the program
+    cmds:
+      - ./tRNS
+    preconditions:
+      - sh: '[ -f tRNS ]'
+
+  clean:
+    desc: Clean up build artifacts
+    cmds:
+      - rm -f password_checker
+      - rm -f lowercase
+      - rm -f tRNS
+    silent: true

@@ -1,0 +1,17 @@
+Example1:
+Password Authentication Program
+Overview
+This program prompts the user to enter a password and checks it against a predefined password ("cs487").
+If the entered password matches, it outputs "Access granted"; otherwise, it displays "Access denied."
+
+Example2:
+Lowercase Copy Program
+Overview
+This program takes an input string, converts all uppercase letters to lowercase, and outputs the modified string. 
+It uses a temporary buffer to store the converted string, then duplicates it for output.
+
+Example3:
+PNG Chunk Processing Program
+Overview
+This program simulates the handling of a PNG image's tRNS (transparency) chunk, checking if a palette is loaded before processing and issuing warnings for any issues.
+It reads CRC data into a buffer, though it lacks bounds checking, making it vulnerable to buffer overflow.

@@ -1,0 +1,63 @@
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+#define MAX_PALETTE_SIZE 256  
+//https://owasp.org/www-community/vulnerabilities/Buffer_Overflow
+typedef struct {
+    unsigned int mode;
+    unsigned int num_palette;
+    unsigned char crc_buffer[256];  // Vulnerable buffer where the chunk is read
+} png_struct;
+
+#define PNG_HAVE_PLTE 0x01
+
+void png_warning(png_struct *png_ptr, const char *message) {
+    printf("Warning: %s\n", message);
+}
+
+void png_crc_finish(png_struct *png_ptr, unsigned int length) {
+    // CRC cleanup (simulated)
+    printf("CRC cleanup for length: %u\n", length);
+}
+
+void png_crc_read(png_struct *png_ptr, unsigned char *buf, unsigned int length) {
+    // Vulnerable read
+    printf("Reading CRC data of length: %u\n", length);
+    memcpy(buf, png_ptr->crc_buffer, length);  // No bounds checking!
+}
+
+void process_tRNS_chunk(png_struct *png_ptr, unsigned int length) {
+    unsigned char readbuf[MAX_PALETTE_SIZE];  // Buffer where chunk data will be read
+
+    // Check if we have the palette loaded
+    if (!(png_ptr->mode & PNG_HAVE_PLTE)) {
+        // This should be an error, but we log a warning
+        png_warning(png_ptr, "Missing PLTE before tRNS");
+    }
+    // Check if the length of the tRNS chunk is valid
+    else if (length > png_ptr->num_palette) {
+        png_warning(png_ptr, "Incorrect tRNS chunk length");
+        png_crc_finish(png_ptr, length);
+        return;
+    }
+
+    // Read the chunk data - potential buffer overflow!
+    png_crc_read(png_ptr, readbuf, length);
+
+
+}
+
+int main() {
+    png_struct png_data;
+    png_data.mode = PNG_HAVE_PLTE;  // We have a palette
+    png_data.num_palette = 128;     // Assume a palette with 128 entries
+
+    // Simulate reading a tRNS chunk of length 200, exceeding num_palette
+    unsigned int chunk_length = 200;
+
+    // Trigger the buffer overflow vulnerability
+    process_tRNS_chunk(&png_data, chunk_length);
+
+    return 0;
+}

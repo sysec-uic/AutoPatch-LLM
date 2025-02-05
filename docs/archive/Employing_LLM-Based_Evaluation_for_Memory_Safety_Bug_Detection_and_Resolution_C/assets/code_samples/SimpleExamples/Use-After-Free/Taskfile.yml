@@ -1,0 +1,26 @@
+version: '3'
+
+tasks:
+  build:
+    desc: Compile the C program
+    cmds:
+      - gcc -Wall -Wextra -o buffer_vuln use_after_free_example_1.c
+    sources:
+      - use_after_free_example_1.c
+    generates:
+      - buffer_vuln
+
+  run:
+    desc: Run the program with an argument
+    vars:
+      ARGUMENT: "test"  # Default argument; replace with an actual input when running
+    cmds:
+      - ./buffer_vuln "{{.ARGUMENT}}"
+    preconditions:
+      - sh: '[ -f buffer_vuln ]'
+
+  clean:
+    desc: Clean up build artifacts
+    cmds:
+      - rm -f buffer_vuln
+    silent: true
