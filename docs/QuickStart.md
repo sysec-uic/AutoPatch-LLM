@@ -96,6 +96,7 @@ The fuzzer generates output folders for each file that it fuzzes. Each output fo
 - the stats files: where you can keep track of the fuzzer progress on a larger scale. 
 
 ### Having Trouble?
+
 Refer to the afl_troubleshooting.md file!
 
 
