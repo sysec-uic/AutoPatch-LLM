@@ -10,8 +10,9 @@ src/executables_afl/
 src/output*/
 src/patched_codes/
 src/command_log/
-
+src/test
 afl-2.52b/
+
 
 
 .DS_Store
