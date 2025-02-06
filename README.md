@@ -34,3 +34,11 @@ Example of afl_bugLog/vulnerable.txt:
 
 - Automatically logs commands executed during the running of the service in the command_logs directory. This is very useful for troubleshooting errors in the main service execution.
 ![command_log_vulnerable_log](./docs/images/command_log_vulnerable_log.jpeg)
+
+## Glossary
+
+- **Bug Log**: the log made at compile time of a program, contains the output (warnings, errors, or ASan messages depending on the compilation context) of the compilation. 
+- **Address Sanitizer**: a compilation tool that is capable of recognizing memory errors. Utilized by a command line argument at compilation time, and can be added as an arg in afl compilation. ASan is the alias commonly used.  
+- **Fuzzer**: a tool that seeks to find all the control flow areas of a program by mutating input, and logs any crashes or hangs. For more detailed information on fuzzing, refer to docs/QuickStart.md. 
+- **LLM**: large language model, such as GPT, LLAMA, or DeepSeek.
+- **Memory Safety Bug**: a vulnerability in which memory is accessed or written in a way that violates the logic (intention) or safety of the program, or performs actions outside of the permitted memory of that program. Common examples include buffer overflow, memory leaks, and use after free. If these vulnerabilities can be exposed by specific input by a user, they can be exploited.
