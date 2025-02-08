@@ -1,3 +1,9 @@
+[project]
+name = "autopatch"
+version = "0.1.0"
+requires-python = ">=3.12.3"
+description = ""
+
 [tool.isort]
 src_paths = ["src", "test"]
 profile = "black"
