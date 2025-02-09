@@ -1,56 +1,26 @@
 version: '3'
 
 includes:
-  autopatch: 
+ autopatch:
     taskfile: ./src/Taskfile.yml
-    dir: ./src/
+    dir: ./src
+ fuzzing-svc:
+    taskfile: ./src/fuzzing-svc/Taskfile.yml
+    dir: ./src/fuzzing-svc
+ llm-dispatch:
+    taskfile: ./src/llm-dispatch/Taskfile.yml
+    dir: ./src/llm-dispatch
 
 tasks:
-  default:
-    desc: say hello
-    cmds:
-      - echo "Hello Autopatch!"
-  run:
-    desc: Run AutoPatch
-    cmds:
-      - task: autopatch:run-autopatch
-  debug:
-    desc: Debug AutoPatch
-    cmds:
-      - task: autopatch:debug-autopatch
-  
-  test:
-    desc: Run tests
-    cmds:
-      - "echo 'Running tests...'"
-      - "echo Not Yet Implemented"
-      # - task: autopatch:test
-
-  lint:
-    desc: Run linter
-    cmds:
+   test:
+      desc: Run tests
+      cmds:
+         - "echo 'Running tests...'"
+         - "echo Not Yet Implemented"
+         # - task: autopatch:test
+   lint:
+      desc: Run linter
+      cmds:
       - "echo 'Running linter...'"
       - "echo Not Yet Implemented"
       # - task: autopatch:lint
-
-  create-required-dirs:
-    desc: create required directories
-    cmds:
-      - mkdir -p src/asan_bugLog/
-      - mkdir -p src/afl_bugLog/
-      - mkdir -p src/codebase/
-      - mkdir -p src/executables/
-      - mkdir -p src/executables_afl/
-      - mkdir -p src/input/
-      - mkdir -p src/patched_codes/
-
-  rm-temp-dirs:
-    desc: remove temporary directories
-    cmds:
-      - rm -rf src/asan_bugLog/
-      - rm -rf src/afl_bugLog/
-      - rm -rf src/executables/
-      - rm -rf src/executables_afl/
-      - rm -rf src/patched_codes/
-      - rm -rf src/output*/
-      - rm -rf src/command_log/

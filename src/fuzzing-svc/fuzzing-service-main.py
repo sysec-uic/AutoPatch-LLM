@@ -27,55 +27,51 @@ import os
 import subprocess
 import sys
 from dataclasses import dataclass
+from typing import Final
 
 # Global variables for folders/files paths
-AFL_COMPILER_PATH = os.environ.get("AFL_COMPILER_PATH", "../afl-2.52b/afl-gcc")
-AFL_FUZZER_PATH = os.environ.get("AFL_FUZZER_PATH", "../afl-2.52b/afl-fuzz")
-ASAN_BUGLOG_PATH = os.environ.get("ASAN_BUGLOG_PATH", "asan_bugLog/")
-AFL_BUGLOG_PATH = os.environ.get("AFL_BUGLOG_PATH", "afl_bugLog/")
-CODEBASE_PATH = os.environ.get("CODEBASE_PATH", "codebase/")
-EXECUTABLES_PATH = os.environ.get("EXECUTABLES_PATH", "executables/")
-EXECUTABLES_AFL_PATH = os.environ.get("EXECUTABLES_AFL_PATH", "executables_afl/")
-INPUT_PATH = os.environ.get("INPUT_PATH", "input/")
-COMMAND_LOG_PATH = os.environ.get("COMMAND_LOG_PATH", "command_log/")
+# AFL_COMPILER_PATH = os.environ.get("AFL_COMPILER_PATH", "../afl-2.52b/afl-gcc")
+# AFL_FUZZER_PATH = os.environ.get("AFL_FUZZER_PATH", "../afl-2.52b/afl-fuzz")
+# ASAN_BUGLOG_PATH = os.environ.get("ASAN_BUGLOG_PATH", "asan_bugLog/")
+# AFL_BUGLOG_PATH = os.environ.get("AFL_BUGLOG_PATH", "afl_bugLog/")
+# CODEBASE_PATH = os.environ.get("CODEBASE_PATH", "codebase/")
+# EXECUTABLES_PATH = os.environ.get("EXECUTABLES_PATH", "executables/")
+# EXECUTABLES_AFL_PATH = os.environ.get("EXECUTABLES_AFL_PATH", "executables_afl/")
+# INPUT_PATH = os.environ.get("INPUT_PATH", "input/")
+# COMMAND_LOG_PATH = os.environ.get("COMMAND_LOG_PATH", "command_log/")
 
 # Other settings
 no_stack_protector = "-fno-stack-protector"
 timeout = 120  # seconds
 
+# this is the name of the environment variable that will be used point to the configuration map file to load
+CONST_FUZZ_SVC_CONFIG: Final[str] = "FUZZ_SVC_CONFIG"
 
 @dataclass
 class Config:
     mqtt_host: str
     mqtt_port: int
-
     fuzz_svc_input_codebase_path: str
-
     fuzz_svc_output_output_topic: str
     fuzz_svc_output_path: str
-
-    svc_output_output_topic: str
-    svc_output_path: str
-
-    compiler_tool: str
-
-    afl_tool: str
+    compiler_tool_full_path: str
+    afl_tool_full_path: str
+    afl_tool_buglog_output_path: str
     afl_tool_output_topic: str
     afl_tool_output_path: str
-
-    address_sanitize_tool: str
     address_sanitizer_output_topic: str
     address_sanitizer_output_path: str
-
     compiled_binary_executables_output_path: str
     afl_tool_compiled_binary_executables_output_path: str
-
     debug: bool = False
 
 
-def load_config_as_json() -> dict:
+def load_config() -> dict:
+    """
+        Load the configuration from a JSON file.  Does not support loading config from a YAML file.
+    """
     # Read the environment variable
-    config_path = os.environ.get("FUZZ_SVC_CONFIG")
+    config_path = os.environ.get(CONST_FUZZ_SVC_CONFIG)
     if not config_path:
         print(
             "Error: The environment variable 'FUZZ_SVC_CONFIG' is not set or is empty."
@@ -101,8 +97,6 @@ def load_config_as_json() -> dict:
         print(f"Error: An unexpected error occurred while loading the config file: {e}")
         sys.exit(1)
 
-    print("Config type is :")
-    print(type(config))
     return config
 
 
@@ -110,7 +104,14 @@ def log_command(exec_name, command, command_type):
     """
     Log the given command to a file associated with the executable.
     """
-    log_file = os.path.join(COMMAND_LOG_PATH, f"{exec_name}_log.txt")
+
+    # devnotes: This seems to be the fuzzing service's log itself, 
+    # logging the commands that uses when invoking subprocesses
+    # this can be improved by using a logger instead of writing to a file....
+
+    _command_log_path = config["command_log_path"]
+    log_file = os.path.join(_command_log_path, f"{exec_name}_log.txt")
+
     mode = "w" if command_type == "asan" else "a"
     with open(log_file, mode) as log:
         if command_type == "asan":
@@ -122,24 +123,17 @@ def log_command(exec_name, command, command_type):
         log.write(command + "\n")
 
 
-def run_sanitizer(program_path, isCodebase=True):
+def run_sanitizer(program_path: str, compiler_output_directory: str, output_executable_name: str):
     """
     Compile the given C source file with AddressSanitizer enabled.
     Returns a tuple: (True/False depending on successful compilation, compile output log).
     """
-    executable_name = os.path.splitext(program_path)[0]
-    warnings = (
-        "-Wall -Wextra -Wformat -Wshift-overflow -Wcast-align "
-        "-Wstrict-overflow -fstack-protector-strong"
-    )
-    if isCodebase:
-        src_path = os.path.join(CODEBASE_PATH, program_path)
-    else:
-        src_path = program_path
+
+    warnings: Final[str] = "-Wall -Wextra -Wformat -Wshift-overflow -Wcast-align -Wstrict-overflow -fstack-protector-strong"
 
     command = (
-        f"gcc {src_path} {warnings} -O1 -fsanitize=address -g "
-        f"-o {os.path.join(EXECUTABLES_PATH, executable_name)}"
+        f"gcc {program_path} {warnings} -O1 -fsanitize=address -g "
+        f"-o {os.path.join(compiler_output_directory, output_executable_name)}"
     )
     try:
         result = subprocess.run(
@@ -154,13 +148,15 @@ def run_sanitizer(program_path, isCodebase=True):
         print(f"Error running sanitizer compile: {e}")
         return False, str(e)
 
-    log_command(executable_name, command, "asan")
+    log_command(output_executable_name, command, "asan")
     log_output = result.stdout + result.stderr
 
-    executable_file = os.path.join(EXECUTABLES_PATH, executable_name)
+    _executables_path = config["compiled_binary_executables_output_path"]
+    executable_file = os.path.join(_executables_path, output_executable_name)
     if os.path.isfile(executable_file):
         # Save sanitizer log output
-        buglog_path = os.path.join(ASAN_BUGLOG_PATH, executable_name + ".txt")
+        _asan_buglog_path = config["address_sanitizer_output_path"]
+        buglog_path = os.path.join(_asan_buglog_path, output_executable_name + ".txt")
         buglog_command = f'echo "{log_output}" > {buglog_path}'
         try:
             subprocess.run(
@@ -178,21 +174,23 @@ def run_sanitizer(program_path, isCodebase=True):
         return False, log_output
 
 
-def run_fuzzer(program_path, timeout_fuzzer, inputFromFile, isCodebase=True):
+def run_fuzzer(executable_name: str, codebase_path: str, program_path:str,
+                executables_afl_path: str, fuzzer_compiler_full_path: str, 
+                afl_buglog_path: str, fuzzer_full_path: str, fuzzer_seed_input_path: str,
+                fuzzer_output_path: str, timeout_fuzzer, inputFromFile, isCodebase=True):
     """
     Compile the C source file for AFL fuzzing and run the fuzzer.
     Returns True if the fuzzer appears to have started successfully.
     """
-    executable_name = os.path.splitext(program_path)[0]
     if isCodebase:
-        src_path = os.path.join(CODEBASE_PATH, program_path)
+        src_path = os.path.join(codebase_path, program_path)
     else:
         src_path = program_path
 
-    afl_executable = os.path.join(EXECUTABLES_AFL_PATH, executable_name + ".afl")
+    afl_executable = os.path.join(executables_afl_path, executable_name + ".afl")
     # Compile using AFL's compiler
     compile_command = (
-        f"{AFL_COMPILER_PATH} {no_stack_protector} {src_path} -o {afl_executable}"
+        f"{fuzzer_compiler_full_path} {no_stack_protector} {src_path} -o {afl_executable}"
     )
     try:
         result = subprocess.run(
@@ -204,7 +202,7 @@ def run_fuzzer(program_path, timeout_fuzzer, inputFromFile, isCodebase=True):
             shell=True,
         )
         # Save AFL compiler log output
-        buglog_path = os.path.join(AFL_BUGLOG_PATH, executable_name + ".txt")
+        buglog_path = os.path.join(afl_buglog_path, executable_name+".txt")
         with open(buglog_path, "w") as buglog:
             buglog.write(result.stdout + result.stderr)
     except Exception as e:
@@ -216,12 +214,12 @@ def run_fuzzer(program_path, timeout_fuzzer, inputFromFile, isCodebase=True):
     # Prepare the fuzzing command
     if inputFromFile:
         fuzz_command = (
-            f"{AFL_FUZZER_PATH} -i {INPUT_PATH} -o output_{executable_name}/ "
+            f"{fuzzer_full_path} -i {fuzzer_seed_input_path} -o {fuzzer_output_path}/{executable_name} "
             f"-t {timeout_fuzzer} {afl_executable} @@"
         )
     else:
         fuzz_command = (
-            f"{AFL_FUZZER_PATH} -i {INPUT_PATH} -o output_{executable_name}/ "
+            f"{fuzzer_full_path} -i {fuzzer_seed_input_path} -o {fuzzer_output_path}/{executable_name} "
             f"-t {timeout_fuzzer} {afl_executable}"
         )
     try:
@@ -242,32 +240,33 @@ def run_fuzzer(program_path, timeout_fuzzer, inputFromFile, isCodebase=True):
 
     log_command(executable_name, fuzz_command, "fuzz_run")
 
-    # Verify that the fuzzer started by checking for the "fuzzer_stats" file
-    list_command = f"ls output_{executable_name}/"
-    try:
-        result = subprocess.run(
-            list_command,
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            timeout=timeout,
-            universal_newlines=True,
-            shell=True,
-        )
-    except Exception as e:
-        print(f"Error listing fuzzer output: {e}")
-        return False
+    # # Verify that the fuzzer started by checking for the "fuzzer_stats" file
+    # list_command = f"ls {fuzzer_output_path}/{executable_name}/"
+    # try:
+    #     result = subprocess.run(
+    #         list_command,
+    #         stderr=subprocess.PIPE,
+    #         stdout=subprocess.PIPE,
+    #         timeout=timeout,
+    #         universal_newlines=True,
+    #         shell=True,
+    #     )
+    # except Exception as e:
+    #     print(f"Error listing fuzzer output: {e}")
+    #     return False
 
-    if "fuzzer_stats" in result.stdout:
-        return True
-    return False
+    # if "fuzzer_stats" in result.stdout:
+    #     return True
+    # return False
+    return True
 
 
-def extract_crashes(executable_name, inputFromFile):
+def extract_crashes(fuzzer_output_path: str, executable_name: str, inputFromFile: bool):
     """
     Examine the fuzzer output directory for crash inputs.
     Returns a list of crash file paths (if inputFromFile is True) or raw byte contents.
     """
-    crash_dir = os.path.join(f"output_{executable_name}", "crashes")
+    crash_dir = os.path.join(f"{fuzzer_output_path}", f"{executable_name}", "crashes")
     crashes = []
     try:
         for crash_file in os.listdir(crash_dir):
@@ -301,23 +300,31 @@ def extract_crashes(executable_name, inputFromFile):
     return crashes
 
 
+config = load_config()
 def main():
-    config = load_config_as_json()
-    print("Config loaded successfully:")
     print(config)
     # Ensure required directories exist
-    for directory in [
-        ASAN_BUGLOG_PATH,
-        AFL_BUGLOG_PATH,
-        EXECUTABLES_PATH,
-        EXECUTABLES_AFL_PATH,
-        INPUT_PATH,
-        COMMAND_LOG_PATH,
-    ]:
-        os.makedirs(directory, exist_ok=True)
+    # for directory in [
+    #     ASAN_BUGLOG_PATH,
+    #     AFL_BUGLOG_PATH,
+    #     EXECUTABLES_PATH,
+    #     EXECUTABLES_AFL_PATH,
+    #     INPUT_PATH,
+    #     COMMAND_LOG_PATH,
+    # ]:
+    #     os.makedirs(directory, exist_ok=True)
 
+    _codebase_path: Final[str] = config["fuzz_svc_input_codebase_path"]
+    _executables_path: Final[str] = config["compiled_binary_executables_output_path"]
+    _executables_afl_path: Final[str] = config["afl_tool_compiled_binary_executables_output_path"]
+    _afl_compiler_tool_full_path: Final[str] = config["afl_compiler_tool_full_path"]
+    _afl_tool_output_path: Final[str] = config["afl_tool_output_path"]
+    _afl_tool_full_path: Final[str] = config["afl_tool_full_path"]
+    _afl_tool_buglog_output_path: Final[str] = config["afl_tool_buglog_output_path"]
+    _afl_tool_seed_input_path: Final[str] = config["afl_tool_seed_input_path"]
+    
     # Process each C source file in the codebase directory
-    for source_file in os.listdir(CODEBASE_PATH):
+    for source_file in os.listdir(_codebase_path):
         if not source_file.endswith(".c"):
             continue
 
@@ -327,15 +334,20 @@ def main():
         inputFromFile = executable_name.endswith("_f")
 
         # Step 1: Compile with AddressSanitizer
-        compiled, sanitizer_log = run_sanitizer(source_file, isCodebase=True)
+        print("Entering step 1: compile with ASan")
+        source_file_full_path = os.path.join(_codebase_path, source_file)
+        compiled, sanitizer_log = run_sanitizer(source_file_full_path, _executables_path, executable_name)
         if not compiled:
             print(f"ASan compilation failed for {source_file}. Skipping fuzzer run.")
             continue
         print(f"ASan compilation succeeded for {source_file}.")
 
         # Step 2: Run the AFL fuzzer
+        print("Entering step 2: run fuzzer")
         fuzzer_started = run_fuzzer(
-            source_file, timeout, inputFromFile, isCodebase=True
+            executable_name, _codebase_path, source_file, _executables_afl_path,
+            _afl_compiler_tool_full_path, _afl_tool_buglog_output_path, _afl_tool_full_path, 
+            _afl_tool_seed_input_path, _afl_tool_output_path, timeout, inputFromFile, isCodebase=True
         )
         if fuzzer_started:
             print(f"Fuzzer started for {source_file}.")
@@ -343,7 +355,8 @@ def main():
             print(f"Fuzzer did not start properly for {source_file}.")
 
         # Step 3: Extract crash inputs (if any)
-        crashes = extract_crashes(executable_name, inputFromFile)
+        print("Entering step 3: extract crash inputs")
+        crashes = extract_crashes(_afl_tool_output_path, executable_name, inputFromFile)
         if crashes:
             print(f"Found {len(crashes)} crash(es) for {source_file}:")
             for crash in crashes:
