@@ -18,17 +18,17 @@ tasks:
   run:
     desc: run autopatch-fuzzingservice
     generates:
-      - autopatch.fuzzing-service.debug.log
-    sources:
-      - config.json
+      - autopatch-fuzzingservice.log
+    preconditions:
+      - stat config.json
     cmds:
       - python ./fuzzing-service-main.py
   
   debug:
     desc: debug autopatch-fuzzingservice
     generates:
-      - autopatch.fuzzing-service.debug.log
-    sources:
-      - config.json
+      - autopatch-fuzzingservice.log
+    preconditions:
+      - stat config.json
     cmds:
       - python -m pdb ./fuzzing-service-main.py
