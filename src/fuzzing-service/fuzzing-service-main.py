@@ -17,6 +17,7 @@ CONST_FUZZ_SVC_CONFIG: Final[str] = "FUZZ_SVC_CONFIG"
 config = dict()
 logger = logging.Logger
 
+
 @dataclass
 class Config:
     version: str
@@ -41,52 +42,55 @@ class Config:
 def init_logging(logging_config: str, appname: str) -> logging.Logger:
     """
     Initializes logging from a JSON configuration file.
-    
+
     If the JSON file cannot be loaded or the configuration is invalid,
     a basic logging configuration is used as a fallback.
-    
+
     Parameters:
         logging_config (str): Path to the JSON file with logging configuration.
         appname (str): Name of the application logger.
-        
+
     Returns:
         logging.Logger: Configured logger instance.
     """
     try:
         # Check if the configuration file exists
         if not os.path.exists(logging_config):
-            raise FileNotFoundError(f"Logging configuration file '{logging_config}' not found.")
+            raise FileNotFoundError(
+                f"Logging configuration file '{logging_config}' not found."
+            )
 
         # Load the JSON configuration from the file
-        with open(logging_config, 'r') as config_file:
+        with open(logging_config, "r") as config_file:
             config_dict = json.load(config_file)
-        
+
         # Apply the logging configuration
         logging.config.dictConfig(config_dict)
-    
+
     except FileNotFoundError as fnf_error:
         print(fnf_error)
         print("Falling back to basic logging configuration.")
         logging.basicConfig(level=logging.INFO)
-    
+
     except json.JSONDecodeError as json_error:
         print(f"Error decoding JSON from {logging_config}: {json_error}")
         print("Falling back to basic logging configuration.")
         logging.basicConfig(level=logging.INFO)
-    
+
     except Exception as e:
         print(f"Unexpected error while loading logging configuration: {e}")
         print("Falling back to basic logging configuration.")
         logging.basicConfig(level=logging.INFO)
-    
+
     # Get and return the logger for the specified application name
     logger = logging.getLogger(appname)
     logger.info("Logger initialized successfully.")
     return logger
 
+
 def load_config() -> dict:
     """
-        Load the configuration from a JSON file.  Does not support loading config from a YAML file.
+    Load the configuration from a JSON file.  Does not support loading config from a YAML file.
     """
     # Read the environment variable
     config_path = os.environ.get(CONST_FUZZ_SVC_CONFIG)
@@ -117,13 +121,18 @@ def load_config() -> dict:
 
     return config
 
-def run_sanitizer(program_path: str, compiler_output_directory: str, output_executable_name: str):
+
+def run_sanitizer(
+    program_path: str, compiler_output_directory: str, output_executable_name: str
+):
     """
-        Compile the given C source file with AddressSanitizer enabled.
-        Returns a tuple: (True/False depending on successful compilation, compile output log).
+    Compile the given C source file with AddressSanitizer enabled.
+    Returns a tuple: (True/False depending on successful compilation, compile output log).
     """
 
-    warnings: Final[str] = "-Wall -Wextra -Wformat -Wshift-overflow -Wcast-align -Wstrict-overflow -fstack-protector-strong"
+    warnings: Final[str] = (
+        "-Wall -Wextra -Wformat -Wshift-overflow -Wcast-align -Wstrict-overflow -fstack-protector-strong"
+    )
 
     command = (
         f"gcc {program_path} {warnings} -O1 -fsanitize=address -g "
@@ -146,10 +155,20 @@ def run_sanitizer(program_path: str, compiler_output_directory: str, output_exec
     logger.debug(f"ASan compile output: {result.stdout + result.stderr}")
     return True
 
-def run_fuzzer(executable_name: str, codebase_path: str, program_path:str,
-                executables_afl_path: str, fuzzer_compiler_full_path: str, 
-                fuzzer_full_path: str, fuzzer_seed_input_path: str,
-                fuzzer_output_path: str, timeout_fuzzer, inputFromFile, isCodebase=True):
+
+def run_fuzzer(
+    executable_name: str,
+    codebase_path: str,
+    program_path: str,
+    executables_afl_path: str,
+    fuzzer_compiler_full_path: str,
+    fuzzer_full_path: str,
+    fuzzer_seed_input_path: str,
+    fuzzer_output_path: str,
+    timeout_fuzzer,
+    inputFromFile,
+    isCodebase=True,
+):
     """
     Compile the C source file for AFL fuzzing and run the fuzzer.
     Returns True if the fuzzer appears to have started successfully.
@@ -161,9 +180,7 @@ def run_fuzzer(executable_name: str, codebase_path: str, program_path:str,
 
     afl_executable = os.path.join(executables_afl_path, executable_name + ".afl")
     # Compile using AFL's compiler
-    compile_command = (
-        f"{fuzzer_compiler_full_path} {no_stack_protector} {src_path} -o {afl_executable}"
-    )
+    compile_command = f"{fuzzer_compiler_full_path} {no_stack_protector} {src_path} -o {afl_executable}"
     try:
         result = subprocess.run(
             compile_command,
@@ -175,7 +192,7 @@ def run_fuzzer(executable_name: str, codebase_path: str, program_path:str,
             check=True,
         )
         logger.debug(f"Fuzzer compile output: {result.stdout + result.stderr}")
-    except subprocess.CalledProcessError as e: 
+    except subprocess.CalledProcessError as e:
         logger.error(f"Fuzzer subprocess failed with return code {e.returncode}.")
         logger.debug(f"Output of fuzzer subprocess: {e.output}")
         return False
@@ -206,7 +223,7 @@ def run_fuzzer(executable_name: str, codebase_path: str, program_path:str,
             shell=True,
             check=True,
         )
-    except subprocess.CalledProcessError as e: 
+    except subprocess.CalledProcessError as e:
         logger.error(f"Fuzzer subprocess failed with return code {e.returncode}.")
         logger.debug(f"Output of fuzzer subprocess: {e.output}")
         return False
@@ -225,10 +242,11 @@ def run_fuzzer(executable_name: str, codebase_path: str, program_path:str,
         return True
     return False
 
+
 def extract_crashes(fuzzer_output_path: str, executable_name: str, inputFromFile: bool):
     """
-        Examine the fuzzer output directory for crash inputs.
-        Returns a list of crash file paths (if inputFromFile is True) or raw byte contents.
+    Examine the fuzzer output directory for crash inputs.
+    Returns a list of crash file paths (if inputFromFile is True) or raw byte contents.
     """
     crash_dir = os.path.join(f"{fuzzer_output_path}", f"{executable_name}", "crashes")
     crashes = []
@@ -250,11 +268,13 @@ def extract_crashes(fuzzer_output_path: str, executable_name: str, inputFromFile
                         timeout=timeout,
                         universal_newlines=True,
                         shell=True,
-                        check=True
+                        check=True,
                     )
                     os.replace(f"{file_path}.utf8", file_path)
-                except subprocess.CalledProcessError as e: 
-                    logger.error(f"iconv subprocess failed with return code {e.returncode}.")
+                except subprocess.CalledProcessError as e:
+                    logger.error(
+                        f"iconv subprocess failed with return code {e.returncode}."
+                    )
                     logger.debug(f"Output of iconv subprocess: {e.output}")
                     continue
                 except Exception as e:
@@ -265,8 +285,11 @@ def extract_crashes(fuzzer_output_path: str, executable_name: str, inputFromFile
                 with open(file_path, "rb") as f:
                     crashes.append(f.read())
     except FileNotFoundError:
-        logger.error("No crashes directory found. Fuzzer might not have detected any crashes.")
+        logger.error(
+            "No crashes directory found. Fuzzer might not have detected any crashes."
+        )
     return crashes
+
 
 def main():
     config = load_config()
@@ -275,23 +298,29 @@ def main():
     logger = init_logging(config["logging_config"], config["appname"])
 
     _fuzz_svc_input_codebase_path: Final[str] = config["fuzz_svc_input_codebase_path"]
-    _compiled_binary_executables_output_path: Final[str] = config["compiled_binary_executables_output_path"]
+    _compiled_binary_executables_output_path: Final[str] = config[
+        "compiled_binary_executables_output_path"
+    ]
     _afl_tool_full_path: Final[str] = config["afl_tool_full_path"]
     _afl_tool_seed_input_path: Final[str] = config["afl_tool_seed_input_path"]
-    _afl_tool_compiled_binary_executables_output_path: Final[str] = config["afl_tool_compiled_binary_executables_output_path"]
+    _afl_tool_compiled_binary_executables_output_path: Final[str] = config[
+        "afl_tool_compiled_binary_executables_output_path"
+    ]
     _afl_tool_output_path: Final[str] = config["afl_tool_output_path"]
     _afl_compiler_tool_full_path: Final[str] = config["afl_compiler_tool_full_path"]
 
     logger.info("AppVersion: " + config["version"])
     logger.info("Fuzzer tool name: " + config["fuzzer_tool_name"])
     logger.info("Fuzzer tool version: " + config["fuzzer_tool_version"])
-    
+
     # Process each C source file in the codebase directory
     for source_file in os.listdir(_fuzz_svc_input_codebase_path):
         if not source_file.endswith(".c"):
             continue
 
-        logger.info(f"Processing: {os.path.join(_fuzz_svc_input_codebase_path, source_file)}")
+        logger.info(
+            f"Processing: {os.path.join(_fuzz_svc_input_codebase_path, source_file)}"
+        )
         executable_name = os.path.splitext(source_file)[0]
         # Optionally, decide if the target takes input from a file (e.g. based on naming convention)
         inputFromFile = executable_name.endswith("_f")
@@ -299,9 +328,15 @@ def main():
         # Step 1: Compile with AddressSanitizer
         logger.info("Entering step 1: compile with ASan")
         source_file_full_path = os.path.join(_fuzz_svc_input_codebase_path, source_file)
-        compiled = run_sanitizer(source_file_full_path, _compiled_binary_executables_output_path, executable_name)
+        compiled = run_sanitizer(
+            source_file_full_path,
+            _compiled_binary_executables_output_path,
+            executable_name,
+        )
         if not compiled:
-            logger.error(f"ASan compilation failed for {source_file}. Skipping fuzzer run.")
+            logger.error(
+                f"ASan compilation failed for {source_file}. Skipping fuzzer run."
+            )
             continue
         logger.info(f"ASan compilation succeeded for {source_file}.")
 
@@ -309,9 +344,17 @@ def main():
         logger.info("Entering step 2: run fuzzer")
         logger.info(f"Running fuzzer for {source_file}.")
         fuzzer_started = run_fuzzer(
-            executable_name, _fuzz_svc_input_codebase_path, source_file, _afl_tool_compiled_binary_executables_output_path,
-            _afl_compiler_tool_full_path, _afl_tool_full_path, 
-            _afl_tool_seed_input_path, _afl_tool_output_path, timeout, inputFromFile, isCodebase=True
+            executable_name,
+            _fuzz_svc_input_codebase_path,
+            source_file,
+            _afl_tool_compiled_binary_executables_output_path,
+            _afl_compiler_tool_full_path,
+            _afl_tool_full_path,
+            _afl_tool_seed_input_path,
+            _afl_tool_output_path,
+            timeout,
+            inputFromFile,
+            isCodebase=True,
         )
         if fuzzer_started:
             logger.info(f"Fuzzer started for {source_file}.")
