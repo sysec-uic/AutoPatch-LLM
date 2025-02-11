@@ -1,0 +1,34 @@
+version: '3'
+
+tasks:
+  core-dump-notification-config:
+    summary: Configure core dump notification if running in GCE
+    desc: |
+      Hmm, your system is configured to send core dump notifications to an
+      external utility. This will cause issues: there will be an extended delay
+      between stumbling upon a crash and having this information relayed to the
+      fuzzer via the standard waitpid() API.
+
+      To avoid having crashes misinterpreted as timeouts, please log in as root
+      and temporarily modify /proc/sys/kernel/core_pattern, like so:
+
+      echo core >/proc/sys/kernel/core_pattern
+    cmds:
+      - echo 'you need to login as root on the host system outside of the devcontainer and run \# echo core >/proc/sys/kernel/core_pattern'
+  run:
+    desc: run autopatch-fuzzingservice
+    generates:
+      - autopatch.fuzzing-service.debug.log
+    sources:
+      - config.json
+    cmds:
+      - python ./fuzzing-service-main.py
+  
+  debug:
+    desc: debug autopatch-fuzzingservice
+    generates:
+      - autopatch.fuzzing-service.debug.log
+    sources:
+      - config.json
+    cmds:
+      - python -m pdb ./fuzzing-service-main.py

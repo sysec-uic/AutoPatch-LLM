@@ -4,9 +4,9 @@ includes:
  autopatch:
     taskfile: ./src/Taskfile.yml
     dir: ./src
- fuzzing-svc:
-    taskfile: ./src/fuzzing-svc/Taskfile.yml
-    dir: ./src/fuzzing-svc
+ fuzzing-service:
+    taskfile: ./src/fuzzing-service/Taskfile.yml
+    dir: ./src/fuzzing-service
  llm-dispatch:
     taskfile: ./src/llm-dispatch/Taskfile.yml
     dir: ./src/llm-dispatch

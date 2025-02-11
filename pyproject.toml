@@ -3,6 +3,10 @@ name = "autopatch"
 version = "0.1.0"
 requires-python = ">=3.12.3"
 description = ""
+authors = [ 
+    { name = "Robert D. Hernandez", email = "rherna70@uic.edu" }
+    { name = "Lily Leith", email = "lleit@uic.edu" }
+]
 
 [tool.isort]
 src_paths = ["src", "test"]
