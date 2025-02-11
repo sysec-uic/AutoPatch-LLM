@@ -22,7 +22,7 @@ tasks:
     preconditions:
       - stat config.json
     cmds:
-      - python ./fuzzing-service-main.py
+      - python ./fuzzing_service.py
   
   debug:
     desc: debug autopatch-fuzzingservice
@@ -31,4 +31,9 @@ tasks:
     preconditions:
       - stat config.json
     cmds:
-      - python -m pdb ./fuzzing-service-main.py
+      - python -m pdb ./fuzzing_service.py
+  
+  test:
+    desc: test autopatch-fuzzingservice
+    cmds:
+      - pytest
