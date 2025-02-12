@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess
 import sys
 
@@ -10,8 +11,9 @@ PATCHED_CODES_PATH = os.environ.get(
     "PATCHED_CODES_PATH", "workspace/AutoPatch-LLM/src/patched_codes/"
 )
 
-COMMAND_LOG_PATH = os.environ.get(
-    "COMMAND_LOG_PATH", "/workspace/AutoPatch-LLM/src/command_log/"
+EVAL_COMMAND_LOG_PATH = os.environ.get(
+    "EVAL_COMMAND_LOG_PATH",
+    "/workspace/AutoPatch-LLM/src/evaluation_service/command_log/",
 )
 OUTPUT_PATH = os.environ.get("OUTPUT_PATH", "/workspace/AutoPatch-LLM/src/output_")
 RESULTS_PATH = os.environ.get(
@@ -23,11 +25,11 @@ RUN_TIMEOUT = 10
 
 def log_command(command: str, command_type: str, file_name: str):
     if command_type == "COMPILE":
-        with open(f"{COMMAND_LOG_PATH}{file_name}.txt", "w") as log_file:
+        with open(f"{EVAL_COMMAND_LOG_PATH}{file_name}.txt", "w") as log_file:
             log_file.write("COMPILE COMMAND:\n")
             log_file.write(command + "\n")
     elif command_type == "RUN":
-        with open(f"{COMMAND_LOG_PATH}{file_name}.txt", "a") as log_file:
+        with open(f"{EVAL_COMMAND_LOG_PATH}{file_name}.txt", "a") as log_file:
             log_file.write("RUN COMMAND:\n")
             log_file.write(command + "\n")
 
@@ -76,59 +78,88 @@ def run_file(
     try:
         result = subprocess.run(
             [command],
+            check=True,
             stderr=subprocess.PIPE,
             stdout=subprocess.PIPE,
             universal_newlines=True,
             timeout=RUN_TIMEOUT,
             shell=True,
         )
-        return result.stderr
+        return 0
+    except subprocess.CalledProcessError as e:
+        if e.returncode == 1:
+            return 1
+        return e.returncode
     except Exception as e:
         print(f"Error during run: {e}")
+        return -1
     finally:
         log_command(command, "RUN", executable_name)
 
 
 # to get the crashes: OUTPUTPATH_{executable_name}/crashes
 def run_crashes(executable_path: str, file_name: str) -> dict:
-    run_results = dict()
+    results = list()
+
     executable_name = file_name.split(".")[0]
-    print(executable_path)
-    if executable_name[-2:] == "_f":
-        input_from_file = True
-    else:
-        input_from_file = False
+    # this eventually needs to be updated
+    input_from_file = False
     crash_path = OUTPUT_PATH + executable_name + "/crashes/"
-    for crash in os.listdir(crash_path):
+    for input_file in os.listdir(crash_path):
         # need to make option for file input
-        if crash == "README.txt":
+        if input_file == "README.txt":
             continue
-        err = run_file(
-            executable_path, executable_name, crash_path, crash, input_from_file
+        signal_pattern = r"sig:(\d+)"
+
+        # Using re.search to find the match
+        match = re.search(signal_pattern, input_file)
+
+        if match:
+            # Extracting the matched number (group 1)
+            source_sig_value = match.group(1)
+
+        patch_sig_value = run_file(
+            executable_path, executable_name, crash_path, input_file, input_from_file
         )
-        print(err)
-        if err == "":
-            run_results[crash] = 0
+        if patch_sig_value == 0 or patch_sig_value == 1:
+            results.append((input_file, source_sig_value, patch_sig_value, "success"))
         else:
-            run_results[crash] = 1
-    return run_results
+            results.append((input_file, source_sig_value, patch_sig_value, "failure"))
+    return results
 
 
-def log_results(executable_path: str, file_name: str, results: dict):
+def log_results(executable_path: str, file_name: str, results: list):
     log_path = RESULTS_PATH + file_name.split(".")[0] + ".txt"
-    patched_crashes = [crash for crash in results.keys() if results[crash] == 0]
-    num_patched = len(patched_crashes)
-    patched_crashes = "\n".join(patched_crashes)
-    remaining_crashes = [crash for crash in results.keys() if results[crash] == 1]
 
-    num_remaining = len(remaining_crashes)
-    remaining_crashes = "\n".join(remaining_crashes)
-    with open(log_path, "w") as log:
-        log.write(f"RESULTS for {executable_path}:\n\n")
-        log.write(f"Patched crashes: {num_patched}\n")
-        log.write(patched_crashes + "\n\n")
-        log.write(f"Remaining crashes: {num_remaining}\n")
-        log.write(remaining_crashes)
+    num_patched = len([crash for crash in results if crash[2] == 0 or crash[2] == 1])
+
+    # Column names
+    columns = ["input_name", "source_signal", "patch_signal", "outcome"]
+
+    # Determine maximum width for each column (including column names)
+    col_widths = [
+        max(len(str(item)) for item in column) for column in zip(*results, columns)
+    ]
+
+    # Open a file to write the log
+    with open(f"{log_path}", "w") as log_file:
+        # Write header
+        log_file.write(f"RESULTS for {executable_path}:\n\n")
+        header = " | ".join(
+            f"{col.ljust(width)}" for col, width in zip(columns, col_widths)
+        )
+        log_file.write(header + "\n")
+        log_file.write("-" * len(header) + "\n")
+
+        # Write data rows
+        for row in results:
+            row_line = " | ".join(
+                f"{str(cell).ljust(width)}" for cell, width in zip(row, col_widths)
+            )
+            log_file.write(row_line + "\n")
+        log_file.write(
+            f"\nNumber of patched crashes: {num_patched} out of {len(results)} original crashes."
+        )
 
 
 # go into the patched codes folder
@@ -137,7 +168,7 @@ def log_results(executable_path: str, file_name: str, results: dict):
 # compile results into file
 def main():
     os.makedirs(EXECUTABLES_PATH, exist_ok=True)
-    os.makedirs(COMMAND_LOG_PATH, exist_ok=True)
+    os.makedirs(EVAL_COMMAND_LOG_PATH, exist_ok=True)
     os.makedirs(RESULTS_PATH, exist_ok=True)
 
     for file_name in os.listdir(PATCHED_CODES_PATH):
