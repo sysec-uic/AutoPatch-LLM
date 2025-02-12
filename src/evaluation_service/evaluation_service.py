@@ -75,7 +75,7 @@ def log_results(executable_path: str, file_name: str, results: list):
 
 
 # compiles the program
-def compile(file_path: str, file_name: str):
+def compile(file_path: str, file_name: str) -> str:
     # form the command
     warnings = "-Wall -Wextra -Wformat -Wshift-overflow -Wcast-align -Wstrict-overflow -fstack-protector-strong"
     executable_name = file_name.split(".")[0]
@@ -112,7 +112,7 @@ def run_file(
     crash_path: str,
     crash: str,
     input_from_file: bool,
-):
+) -> int:
     # form the command
     if input_from_file:  # The program takes input from file
         command = f"{executable_path} {crash_path}{crash}"
