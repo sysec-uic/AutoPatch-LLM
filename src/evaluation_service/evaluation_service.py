@@ -79,7 +79,9 @@ def compile(file_path: str, file_name: str):
     # form the command
     warnings = "-Wall -Wextra -Wformat -Wshift-overflow -Wcast-align -Wstrict-overflow -fstack-protector-strong"
     executable_name = file_name.split(".")[0]
-    command = f"gcc {file_path} {warnings} -O1 -fsanitize=address -g -o {EXECUTABLES_PATH}{executable_name}"
+    command = (
+        f"gcc {file_path} {warnings} -O1 -g -o {EXECUTABLES_PATH}{executable_name}"
+    )
 
     # run the command
     try:
@@ -179,6 +181,7 @@ def run_crashes(executable_path: str, file_name: str) -> list:
 
 
 def main():
+
     # make the directories for the executable, the command log, and the results
     os.makedirs(EXECUTABLES_PATH, exist_ok=True)
     os.makedirs(EVAL_COMMAND_LOG_PATH, exist_ok=True)
