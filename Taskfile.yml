@@ -54,3 +54,11 @@ tasks:
       - rm -rf src/patched_codes/
       - rm -rf src/output*/
       - rm -rf src/command_log/
+      
+  rm-eval-dirs:
+    desc: remove directories made in eval
+    cmds:
+      - rm -rf src/evaluation_service/results/
+      - rm -rf src/executables/
+      - rm -rf src/evaluation_service/command_log/
+  

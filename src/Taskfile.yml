@@ -22,3 +22,8 @@ tasks:
     desc: debug AutoPatch
     cmds:
       - python -m pdb ./main.py
+  
+  run-evaluation:
+    desc: run Evaluation Service
+    cmds:
+      - python ./evaluation_service/evaluation_service.py

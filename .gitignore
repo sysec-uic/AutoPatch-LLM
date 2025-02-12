@@ -12,6 +12,12 @@ src/patched_codes/
 src/command_log/
 afl-2.52b/
 src/evaluation_service/results/
+### remove this file before merging PR
+src/fuzzcode.txt 
+src/vulnerable
+### and that
+src/evaluation_service/command_log/
+
 
 
 
