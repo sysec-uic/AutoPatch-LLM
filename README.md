@@ -1,15 +1,17 @@
-# CS487 Final Project
 # AutoPatch: Automated Vulnerable Code Patching with AFL, ASan and GPT
 
 ## Introduction  
+
 AutoPatch is a GenAI-assisted tool designed to automatically detect and patch bugs in C code. By combining **Google's Address Sanitizer (ASan)**, **American Fuzzy Lop (AFL)** and **OpenAI's GPT-4o mini**, AutoPatch simplifies the debugging process by identifying and resolving syntactic, runtime and semantic errors in buggy programs.
 
 ### Features  
+
 - **Automated Bug Detection:** detects and identifies syntactic errors, runtime crashes and semantic inconsistencies.  
 - **Patch Generation:** uses GPT to generate targeted fixes while preserving the program's intended functionality.  
 - **Iterative Testing:** retests patched code to ensure bugs are resolved.
 
 ## How It Works
+
 1. **Initial Compilation:**  
    The code is compiled with ASan to detect memory-related issues.  
 2. **Fuzzing:**  
@@ -19,9 +21,27 @@ AutoPatch is a GenAI-assisted tool designed to automatically detect and patch bu
 4. **Iterative Process:**  
    The patched code is retested with AFL to ensure reliability.  
 
+## Pre-requisites
+
+1. Task: <https://taskfile.dev/installation/>
+
+2. If you are running the fuzzing-service in GCE or another cloud provider you may see your fuzzer return an exit code 1 and you may get this message in your debug log:
+
+   - Hmm, your system is configured to send core dump notifications to an
+      external utility. This will cause issues: there will be an extended delay
+      between stumbling upon a crash and having this information relayed to the
+      fuzzer via the standard waitpid() API.
+      To avoid having crashes misinterpreted as timeouts, please log in as root
+      and temporarily modify /proc/sys/kernel/core_pattern, like so:
+      `echo core >/proc/sys/kernel/core_pattern`
+
+   You must log in as root OUTSIDE of a devcontainer and edit the `/proc/sys/kernel/core_pattern` file to read only "core" on the first line before proceeding
+
 ## How to Run
-2. Clone the repository.  
-3. Run the script:
+If  
+
+1. Clone the repository.  
+2. Run the script:
    ```bash
    python3 main/main.py
    ```
