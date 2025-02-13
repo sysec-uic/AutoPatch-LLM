@@ -3,10 +3,7 @@
 {
 	"name": "AutoPatch Python and C devcontainer",
 	"build": {
-		"dockerfile": "Dockerfile",
-		"args": {
-			"VARIANT": "noble"
-		}
+		"dockerfile": "Dockerfile"
 	},
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	"features": {

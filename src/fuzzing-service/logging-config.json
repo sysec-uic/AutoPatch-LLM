@@ -4,9 +4,6 @@
     "formatters": {
       "standard": {
         "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-      },
-      "concise": {
-        "format": "%(asctime)s - %(levelname)s - %(message)s"
       }
     },
     "handlers": {
@@ -14,7 +11,7 @@
         "class": "logging.FileHandler",
         "level": "DEBUG",
         "formatter": "standard",
-        "filename": "/workspace/AutoPatch-LLM/src/fuzzing-service/autopatch.fuzzing-service.debug.log"
+        "filename": "/app/logs/debug.log"
       },
       "console_err_handler": {
         "class": "logging.StreamHandler",
@@ -25,7 +22,7 @@
       "console_info_handler": {
         "class": "logging.StreamHandler",
         "level": "INFO",
-        "formatter": "concise",
+        "formatter": "standard",
         "stream": "ext://sys.stdout"
       }
     },

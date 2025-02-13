@@ -2,20 +2,18 @@ import json
 import logging
 import logging.config
 import os
+import signal
 import subprocess
 import sys
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Final
-
-# Other settings
-no_stack_protector: Final[str] = "-fno-stack-protector"
-timeout: Final[int] = 120  # seconds
 
 # this is the name of the environment variable that will be used point to the configuration map file to load
 CONST_FUZZ_SVC_CONFIG: Final[str] = "FUZZ_SVC_CONFIG"
 
 config = dict()
-logger = logging.Logger
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -25,18 +23,20 @@ class Config:
     logging_config: str
     fuzz_svc_input_codebase_path: str
     fuzz_svc_output_topic: str
-    compiled_binary_executables_output_path: str
-    compiler_tool_full_path: str
+    compiler_warning_flags: str
+    compiler_feature_flags: str
     fuzzer_tool_name: str
+    fuzzer_tool_timeout_seconds: int
     fuzzer_tool_version: str
     afl_tool_full_path: str
     afl_tool_seed_input_path: str
     afl_tool_output_path: str
+    afl_tool_child_process_memory_limit_mb: int
     afl_tool_compiled_binary_executables_output_path: str
     afl_compiler_tool_full_path: str
+    iconv_tool_timeout: int
     mqtt_host: str
     mqtt_port: int = 1833
-    debug: bool = False
 
 
 def init_logging(logging_config: str, appname: str) -> logging.Logger:
@@ -95,7 +95,7 @@ def load_config() -> dict:
     # Read the environment variable
     config_path = os.environ.get(CONST_FUZZ_SVC_CONFIG)
     if not config_path:
-        print(
+        logger.error(
             "Error: The environment variable 'FUZZ_SVC_CONFIG' is not set or is empty."
         )
         sys.exit(1)
@@ -105,55 +105,25 @@ def load_config() -> dict:
         with open(config_path, "r", encoding="utf-8") as f:
             config = json.load(f)
     except FileNotFoundError:
-        print(f"Error: The config file at '{config_path}' was not found.")
+        logger.error(f"Error: The config file at '{config_path}' was not found.")
         sys.exit(1)
     except UnicodeDecodeError as e:
-        print(
+        logger.error(
             f"Error: The config file at '{config_path}' is not a valid UTF-8 text file: {e}"
         )
         sys.exit(1)
     except json.JSONDecodeError as e:
-        print(f"Error: The config file at '{config_path}' contains invalid JSON: {e}")
+        logger.error(
+            f"Error: The config file at '{config_path}' contains invalid JSON: {e}"
+        )
         sys.exit(1)
     except Exception as e:
-        print(f"Error: An unexpected error occurred while loading the config file: {e}")
+        logger.error(
+            f"Error: An unexpected error occurred while loading the config file: {e}"
+        )
         sys.exit(1)
 
     return config
-
-
-def run_sanitizer(
-    program_path: str, compiler_output_directory: str, output_executable_name: str
-):
-    """
-    Compile the given C source file with AddressSanitizer enabled.
-    Returns a tuple: (True/False depending on successful compilation, compile output log).
-    """
-
-    warnings: Final[str] = (
-        "-Wall -Wextra -Wformat -Wshift-overflow -Wcast-align -Wstrict-overflow -fstack-protector-strong"
-    )
-
-    command = (
-        f"gcc {program_path} {warnings} -O1 -fsanitize=address -g "
-        f"-o {os.path.join(compiler_output_directory, output_executable_name)}"
-    )
-    try:
-        result = subprocess.run(
-            command,
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            universal_newlines=True,
-            timeout=timeout,
-            shell=True,
-        )
-    except Exception as e:
-        logger.error(f"Error running sanitizer compile: {e}")
-        return False, str(e)
-
-    logger.debug(f"ASan compile command: {command}")
-    logger.debug(f"ASan compile output: {result.stdout + result.stderr}")
-    return True
 
 
 def run_fuzzer(
@@ -165,7 +135,7 @@ def run_fuzzer(
     fuzzer_full_path: str,
     fuzzer_seed_input_path: str,
     fuzzer_output_path: str,
-    timeout_fuzzer,
+    fuzzer_timeout: int,
     inputFromFile,
     isCodebase=True,
 ):
@@ -180,14 +150,14 @@ def run_fuzzer(
 
     afl_executable = os.path.join(executables_afl_path, executable_name + ".afl")
     # Compile using AFL's compiler
-    compile_command = f"{fuzzer_compiler_full_path} {no_stack_protector} {src_path} -o {afl_executable}"
+    compile_command = f"{fuzzer_compiler_full_path} {config["compiler_warning_flags"]} {config["compiler_feature_flags"]} {src_path} -o {afl_executable}"
     try:
         result = subprocess.run(
             compile_command,
             stderr=subprocess.PIPE,
             stdout=subprocess.PIPE,
             universal_newlines=True,
-            timeout=timeout,
+            timeout=fuzzer_timeout,
             shell=True,
             check=True,
         )
@@ -203,39 +173,41 @@ def run_fuzzer(
     logger.debug(f"Fuzzer compile command: {compile_command}")
 
     # Prepare the fuzzing command
+    fuzz_command = (
+        f"{fuzzer_full_path} -m {config['afl_tool_child_process_memory_limit_mb']} -i {fuzzer_seed_input_path} -o {fuzzer_output_path}/{executable_name} "
+        f"-t {fuzzer_timeout} {afl_executable}"
+    )
     if inputFromFile:
-        fuzz_command = (
-            f"{fuzzer_full_path} -i {fuzzer_seed_input_path} -o {fuzzer_output_path}/{executable_name} "
-            f"-t {timeout_fuzzer} {afl_executable} @@"
-        )
-    else:
-        fuzz_command = (
-            f"{fuzzer_full_path} -i {fuzzer_seed_input_path} -o {fuzzer_output_path}/{executable_name} "
-            f"-t {timeout_fuzzer} {afl_executable}"
-        )
+        fuzz_command += " @@"
+    logger.debug(f"Running Fuzzer with run command: {fuzz_command}")
     try:
-        subprocess.run(
+        # Launch the process in a new session so that it gets its own process group
+        process = subprocess.Popen(
             fuzz_command,
             stderr=subprocess.PIPE,
             stdout=subprocess.PIPE,
-            timeout=timeout,
             universal_newlines=True,
             shell=True,
-            check=True,
+            start_new_session=True,  # This creates a new process group
         )
+        process.communicate(timeout=fuzzer_timeout)
+        stdout, stderr = process.communicate(timeout=fuzzer_timeout)
+        logger.debug(f"Fuzzer command output: {stdout} {stderr}")
     except subprocess.CalledProcessError as e:
         logger.error(f"Fuzzer subprocess failed with return code {e.returncode}.")
         logger.debug(f"Output of fuzzer subprocess: {e.output}")
         return False
     except subprocess.TimeoutExpired:
         # Fuzzer may run indefinitely; timeout is expected.
-        logger.info("Fuzzer run timed out as expected.")
-        pass
+        logger.info(f"Fuzzer run timed out after {fuzzer_timeout} seconds as expected.")
+        # Kill the entire process group to ensure that all subprocesses are terminated.
+        os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+        # process.communicate()  # Wait for process to finish cleanup
+        stdout, stderr = process.communicate(timeout=fuzzer_timeout)
+        logger.debug(f"Close subprocess group command output: {stdout} {stderr}")
     except Exception as e:
         logger.error(f"Error running fuzzer: {e}")
         return False
-
-    logger.debug(f"Fuzzer run command: {fuzz_command}")
 
     # # Verify that the fuzzer started by checking for the "fuzzer_stats" file
     if os.path.exists(f"{fuzzer_output_path}/{executable_name}/fuzzer_stats"):
@@ -243,7 +215,9 @@ def run_fuzzer(
     return False
 
 
-def extract_crashes(fuzzer_output_path: str, executable_name: str, inputFromFile: bool):
+def extract_crashes(
+    fuzzer_output_path: str, executable_name: str, timeout: int, inputFromFile: bool
+):
     """
     Examine the fuzzer output directory for crash inputs.
     Returns a list of crash file paths (if inputFromFile is True) or raw byte contents.
@@ -271,6 +245,11 @@ def extract_crashes(fuzzer_output_path: str, executable_name: str, inputFromFile
                         check=True,
                     )
                     os.replace(f"{file_path}.utf8", file_path)
+                except subprocess.TimeoutExpired:
+                    logger.error(
+                        f"iconv subprocess failed via time out after {timeout} seconds."
+                    )
+                    continue
                 except subprocess.CalledProcessError as e:
                     logger.error(
                         f"iconv subprocess failed with return code {e.returncode}."
@@ -292,26 +271,31 @@ def extract_crashes(fuzzer_output_path: str, executable_name: str, inputFromFile
 
 
 def main():
-    config = load_config()
+    global config, logger
 
-    global logger
+    config = load_config()
     logger = init_logging(config["logging_config"], config["appname"])
 
+    FUZZ_SVC_START_TIMESTAMP: Final[str] = datetime.now().isoformat(timespec="seconds")
+
     _fuzz_svc_input_codebase_path: Final[str] = config["fuzz_svc_input_codebase_path"]
-    _compiled_binary_executables_output_path: Final[str] = config[
-        "compiled_binary_executables_output_path"
-    ]
+    _fuzzer_tool_timeout_seconds: Final[int] = config["fuzzer_tool_timeout_seconds"]
     _afl_tool_full_path: Final[str] = config["afl_tool_full_path"]
     _afl_tool_seed_input_path: Final[str] = config["afl_tool_seed_input_path"]
     _afl_tool_compiled_binary_executables_output_path: Final[str] = config[
         "afl_tool_compiled_binary_executables_output_path"
     ]
-    _afl_tool_output_path: Final[str] = config["afl_tool_output_path"]
+    _afl_tool_output_path: Final[str] = os.path.join(
+        config["afl_tool_output_path"], FUZZ_SVC_START_TIMESTAMP
+    )
     _afl_compiler_tool_full_path: Final[str] = config["afl_compiler_tool_full_path"]
 
     logger.info("AppVersion: " + config["version"])
     logger.info("Fuzzer tool name: " + config["fuzzer_tool_name"])
     logger.info("Fuzzer tool version: " + config["fuzzer_tool_version"])
+
+    logger.info("Creating AFL output directory: " + _afl_tool_output_path)
+    os.makedirs(_afl_tool_output_path, exist_ok=True)
 
     # Process each C source file in the codebase directory
     for source_file in os.listdir(_fuzz_svc_input_codebase_path):
@@ -325,24 +309,7 @@ def main():
         # Optionally, decide if the target takes input from a file (e.g. based on naming convention)
         inputFromFile = executable_name.endswith("_f")
 
-        # Step 1: Compile with AddressSanitizer
-        logger.info("Entering step 1: compile with ASan")
-        source_file_full_path = os.path.join(_fuzz_svc_input_codebase_path, source_file)
-        compiled = run_sanitizer(
-            source_file_full_path,
-            _compiled_binary_executables_output_path,
-            executable_name,
-        )
-        if not compiled:
-            logger.error(
-                f"ASan compilation failed for {source_file}. Skipping fuzzer run."
-            )
-            continue
-        logger.info(f"ASan compilation succeeded for {source_file}.")
-
-        # Step 2: Run the AFL fuzzer
-        logger.info("Entering step 2: run fuzzer")
-        logger.info(f"Running fuzzer for {source_file}.")
+        # Step 1: Run the AFL fuzzer
         fuzzer_started = run_fuzzer(
             executable_name,
             _fuzz_svc_input_codebase_path,
@@ -352,7 +319,7 @@ def main():
             _afl_tool_full_path,
             _afl_tool_seed_input_path,
             _afl_tool_output_path,
-            timeout,
+            _fuzzer_tool_timeout_seconds,
             inputFromFile,
             isCodebase=True,
         )
@@ -361,9 +328,14 @@ def main():
         else:
             logger.info(f"Fuzzer did not start properly for {source_file}.")
 
-        # Step 3: Extract crash inputs (if any)
+        # Step 2: Extract crash inputs (if any)
         logger.info("Entering step 3: extract crash inputs")
-        crashes = extract_crashes(_afl_tool_output_path, executable_name, inputFromFile)
+        crashes = extract_crashes(
+            _afl_tool_output_path,
+            executable_name,
+            config["iconv_tool_timeout"],
+            inputFromFile,
+        )
         if crashes:
             logger.info(f"Found {len(crashes)} crash(es) for {source_file}:")
             for crash in crashes:
@@ -371,6 +343,7 @@ def main():
         else:
             logger.info(f"No crashes found for {source_file}.")
 
+    logger.info("Processing complete, exiting.")
 
 if __name__ == "__main__":
     main()

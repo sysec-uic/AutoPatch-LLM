@@ -15,4 +15,16 @@ services:
       - ./src/input:/app/src/input
       - ./src/patched_codes:/app/src/patched_codes
     working_dir: /app
-
+  autopatch-fuzzing-service:
+    build: ./src/fuzzing-service
+    container_name: autopatch-fuzzing-service
+    environment:
+      - FUZZ_SVC_CONFIG=/app/config/config.json
+    volumes:
+      - ./afl-2.52b:/app/bin/afl-2.52b
+      - ./src/codebase:/app/data/codebase
+      - ./src/executables:/app/data/executables
+      - ./src/executables_afl:/app/bin/executables_afl
+      - ./src/input:/app/data/input
+      - ./src/output:/app/data/output
+    working_dir: /app
