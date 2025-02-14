@@ -58,7 +58,8 @@
 				"GitHub.copilot-chat",
 				"task.vscode-task",
 				"ms-python.isort",
-				"ms-python.black-formatter"
+				"ms-python.black-formatter",
+				"mechatroner.rainbow-csv"
 			],
 			"settings": {
 				"[python]": {

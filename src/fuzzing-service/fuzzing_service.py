@@ -22,6 +22,7 @@ class Config:
     appname: str
     logging_config: str
     fuzz_svc_input_codebase_path: str
+    fuzz_svc_output_path: str
     fuzz_svc_output_topic: str
     compiler_warning_flags: str
     compiler_feature_flags: str
@@ -267,7 +268,44 @@ def extract_crashes(
         logger.error(
             "No crashes directory found. Fuzzer might not have detected any crashes."
         )
+
     return crashes
+
+
+def write_crashes_csv(
+    executable_name: str, crashes: list, csv_path: str, inputFromFile: bool
+) -> None:
+    """
+    Process crash outputs by appending lines to the appropriate CSV file.
+
+    Each line contains the timestamp, executable name, and crash detail.
+    """
+
+    # Ensure the output directory exists.
+    os.makedirs(os.path.dirname(csv_path), exist_ok=True)
+
+    # Check if the file exists and is not empty.
+    write_header = not os.path.exists(csv_path) or os.path.getsize(csv_path) == 0
+
+    with open(csv_path, "a", encoding="utf-8") as f:
+        if write_header:
+            f.write("timestamp,executable_name,crash_detail,inputFromFile\n")
+        for crash in crashes:
+            logger.info(f"  - {crash}")
+            timestamp = datetime.now().isoformat(timespec="seconds")
+            if inputFromFile:
+                # Crash is a file path.
+                line = f"{timestamp},{executable_name},{crash},True\n"
+            else:
+                # Crash is raw bytes; convert to hexadecimal string.
+                crash_hex = crash.hex()
+                line = f"{timestamp},{executable_name},{crash_hex},False\n"
+            f.write(line)
+
+
+def produce_output(executable_name: str, crashes: list, inputFromFile: bool) -> None:
+    csv_path: Final[str] = os.path.join(config["fuzz_svc_output_path"], "crashes.csv")
+    write_crashes_csv(executable_name, crashes, csv_path, inputFromFile)
 
 
 def main():
@@ -336,14 +374,21 @@ def main():
             config["iconv_tool_timeout"],
             inputFromFile,
         )
+
+        # Process the crash outputs by appending to the appropriate CSV file.
         if crashes:
             logger.info(f"Found {len(crashes)} crash(es) for {source_file}:")
-            for crash in crashes:
-                logger.info(f"  - {crash}")
+            produce_output(executable_name, crashes, inputFromFile)
         else:
             logger.info(f"No crashes found for {source_file}.")
 
+    FUZZ_SVC_END_TIMESTAMP: Final[str] = datetime.now().isoformat(timespec="seconds")
+    time_delta = datetime.fromisoformat(
+        FUZZ_SVC_END_TIMESTAMP
+    ) - datetime.fromisoformat(FUZZ_SVC_START_TIMESTAMP)
+    logger.info(f"Total Processing Time Elapsed: {time_delta}")
     logger.info("Processing complete, exiting.")
+
 
 if __name__ == "__main__":
     main()

@@ -20,5 +20,13 @@
             "console": "integratedTerminal",
             "envFile": "${workspaceFolder}/src/.env",
         }
+        {
+            "name": "Python Debugger: AutoPatch Fuzzing Service",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/workspace/AutoPatch-LLM/src/fuzzing-service/fuzzing_service.py",
+            "console": "integratedTerminal",
+            "envFile": "/workspace/AutoPatch-LLM/src/fuzzing-service/.env",
+        }
     ]
 }
