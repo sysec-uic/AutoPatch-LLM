@@ -59,7 +59,9 @@
 				"task.vscode-task",
 				"ms-python.isort",
 				"ms-python.black-formatter",
-				"mechatroner.rainbow-csv"
+				"mechatroner.rainbow-csv",
+				"bierner.markdown-mermaid",
+				"bpruitt-goddard.mermaid-markdown-syntax-highlighting"
 			],
 			"settings": {
 				"[python]": {
