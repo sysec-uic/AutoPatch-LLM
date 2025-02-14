@@ -1,0 +1,37 @@
+{
+    "version": 1,
+    "disable_existing_loggers": false,
+    "formatters": {
+      "standard": {
+        "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+      }
+    },
+    "handlers": {
+      "file_debug_handler": {
+        "class": "logging.FileHandler",
+        "level": "DEBUG",
+        "formatter": "standard",
+        "filename": "/workspace/AutoPatch-LLM/src/fuzzing-service/log/autopatch.fuzzing-service.debug.log"
+      },
+      "console_err_handler": {
+        "class": "logging.StreamHandler",
+        "level": "ERROR",
+        "formatter": "standard",
+        "stream": "ext://sys.stderr"
+      },
+      "console_info_handler": {
+        "class": "logging.StreamHandler",
+        "level": "INFO",
+        "formatter": "standard",
+        "stream": "ext://sys.stdout"
+      }
+    },
+    "loggers": {
+      "autopatch.fuzzing-service": {
+        "handlers": ["file_debug_handler", "console_err_handler", "console_info_handler"],
+        "level": "DEBUG",
+        "propagate": false
+      }
+    }
+  }
+  

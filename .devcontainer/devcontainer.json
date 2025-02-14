@@ -3,10 +3,7 @@
 {
 	"name": "AutoPatch Python and C devcontainer",
 	"build": {
-		"dockerfile": "Dockerfile",
-		"args": {
-			"VARIANT": "noble"
-		}
+		"dockerfile": "Dockerfile"
 	},
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	"features": {
@@ -61,7 +58,10 @@
 				"GitHub.copilot-chat",
 				"task.vscode-task",
 				"ms-python.isort",
-				"ms-python.black-formatter"
+				"ms-python.black-formatter",
+				"mechatroner.rainbow-csv",
+				"bierner.markdown-mermaid",
+				"bpruitt-goddard.mermaid-markdown-syntax-highlighting"
 			],
 			"settings": {
 				"[python]": {
