@@ -134,7 +134,9 @@ def run_file(
         return 0
     # if the program terminated with a signal != 0 then this exception is entered
     except subprocess.CalledProcessError as e:
-        return e.returncode
+        if e.returncode == 1:
+            return 1
+        return e.returncode - 128
     except Exception as e:
         print(f"Error during run: {e}")
         return -1
