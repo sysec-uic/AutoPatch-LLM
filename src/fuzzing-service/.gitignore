@@ -1,2 +1,4 @@
 .env
-autopatch.fuzzing-service.debug.log
+log/autopatch.fuzzing-service.debug.log
+data/*
+!data/README.md
