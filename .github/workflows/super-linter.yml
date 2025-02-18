@@ -2,6 +2,7 @@ name: Lint
 run-name: Lint by @${{ github.actor }}
 
 on: # yamllint disable-line rule:truthy
+  workflow_dispatch:
   push: null
   pull_request: null
 
