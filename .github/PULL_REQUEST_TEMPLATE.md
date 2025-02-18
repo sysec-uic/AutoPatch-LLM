@@ -16,6 +16,9 @@
 - [ ] New and existing tests pass locally with my changes.
 - [ ] I have checked for any linting or style issues.
 
+## Related Issues
+<!-- Add any related work items -->
+
 ## Screenshots
 <!-- If applicable, add screenshots to help explain your changes. Example: -->
 <!-- ![Screenshot Description](https://example.com/screenshot.png) -->
