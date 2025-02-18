@@ -41,8 +41,8 @@ jobs:
         env:
           # To report GitHub Actions status checks
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PYTHON_ISORT_CONFIG_FILE: pyproject.toml
-          PYTHON_BLACK_CONFIG_FILE: pyproject.toml
+          PYTHON_ISORT_CONFIG_FILE: 
+          PYTHON_BLACK_CONFIG_FILE: ${{ github.workspace }}/pyproject.toml
 
   fix-lint-issues:
     permissions:
@@ -69,13 +69,6 @@ jobs:
         uses: super-linter/super-linter@85f7611e0f7b53c8573cca84aa0ed4344f6f6a4d # v7.2.1 # x-release-please-version
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Set your fix mode variables to true
-          FIX_YAML_PRETTIER: true
-          FIX_PYTHON_BLACK: true
-          FIX_PYTHON_ISORT: true 
-          # To reuse the same Super-linter configuration that you use in the
-          # lint job without duplicating it, see
-          # https://github.com/super-linter/super-linter/blob/main/docs/run-linter-locally.md#share-environment-variables-between-environments
       - name: Commit and push linting fixes
         # Run only on:
         # - Pull requests
