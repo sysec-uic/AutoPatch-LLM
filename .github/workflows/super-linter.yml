@@ -1,5 +1,5 @@
 name: Lint
-run-name: Lint by @{{ github.actor }}
+run-name: Lint by @${{ github.actor }}
 
 on: # yamllint disable-line rule:truthy
   push: null
