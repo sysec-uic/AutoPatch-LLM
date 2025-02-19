@@ -59,7 +59,9 @@ jobs:
           # To report GitHub Actions status checks
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FIX_MARKDOWN: false
+          FIX_MARKDOWN_PRETTIER: false
           FIX_YAML_PRETTIER: false
+          FIX_JSON_PRETTIER: false
           FIX_PYTHON_BLACK: false
           FIX_PYTHON_ISORT: false
 
@@ -86,10 +88,13 @@ jobs:
             src
       - name: Super-Linter
         uses: super-linter/super-linter@85f7611e0f7b53c8573cca84aa0ed4344f6f6a4d # v7.2.1 # x-release-please-version
+        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FIX_MARKDOWN: true
+          FIX_MARKDOWN_PRETTIER: true
           FIX_YAML_PRETTIER: true
+          FIX_JSON_PRETTIER: true
           FIX_PYTHON_BLACK: true
           FIX_PYTHON_ISORT: true
       - name: Commit and push linting fixes
