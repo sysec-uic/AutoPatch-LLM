@@ -21,11 +21,11 @@ services:
     environment:
       - FUZZ_SVC_CONFIG=/app/config/config.json
     volumes:
+      - ./src/fuzzing-service/config:/app/config:ro
+      - ./src/fuzzing-service/data:/app/data:rw
+      - ./src/fuzzing-service/log:/app/log:rw
       - ./bin/afl-2.52b:/app/bin/afl-2.52b:ro
       - ./bin/executables_afl:/app/bin/executables_afl:rw
       - ./assets/input_codebase:/app/input_codebase:ro
-      - ./src/fuzzing-service/config:/app/config:ro
-      - ./src/fuzzing-service/log:/app/log:rw
-      - ./src/fuzzing-service/data:/app/data:rw
       - ./src/fuzzing-service/seed_input:/app/seed_input:ro
     working_dir: /app
