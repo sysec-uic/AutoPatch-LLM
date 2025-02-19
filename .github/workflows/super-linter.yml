@@ -2,28 +2,12 @@ name: Lint
 run-name: Lint by @${{ github.actor }}
 
 on: # yamllint disable-line rule:truthy
-  workflow_dispatch:
   push: null
   pull_request: null
 
 permissions:
   contents: read
 
-env:
-  VALIDATE_SHELL_SHFMT: false
-  VALIDATE_PYTHON_MYPY: false
-  VALIDATE_PYTHON_PYINK: false
-  VALIDATE_PYTHON_PYLINT: false
-  VALIDATE_PYTHON_RUFF: false
-  VALIDATE_PYTHON_FLAKE8: false
-  VALIDATE_CLANG_FORMAT: false
-  VALIDATE_CPP: false
-  VALIDATE_JAVASCRIPT_STANDARD: false
-  VALIDATE_JAVASCRIPT_PRETTIER: false
-  VALIDATE_JSCPD: false
-  VALIDATE_CHECKOV: false
-  VALIDATE_BASH: false
-  VALIDATE_BASH_EXEC: false
 jobs:
   lint:
     # Super-linter workflow running in check only mode
@@ -57,7 +41,7 @@ jobs:
       - name: Super-linter
         uses: super-linter/super-linter@85f7611e0f7b53c8573cca84aa0ed4344f6f6a4d # v7.2.1 # x-release-please-version
         env:
-          # To report GitHub Actions status checks
+          # To report GitHub Actions status checks only, allow devs to fix their own PRs
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FIX_MARKDOWN: false
           FIX_MARKDOWN_PRETTIER: false
@@ -65,50 +49,17 @@ jobs:
           FIX_JSON_PRETTIER: false
           FIX_PYTHON_BLACK: false
           FIX_PYTHON_ISORT: false
-
-  fix-lint-issues:
-    permissions:
-      # To write linting fixes
-      contents: write
-      # To write Super-linter status checks
-      statuses: write
-    runs-on: ubuntu-latest
-    steps:
-      - name: Harden-Runner
-        uses: step-security/harden-runner@4d991eb9b905ef189e4c376166672c3f2f230481 # v2.11.0
-        with:
-          egress-policy: audit
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          # super-linter needs the full git history to get the
-          # list of files that changed across commits
-          fetch-depth: 0
-          # only checkout the files under consideration for linting
-          sparse-checkout: |
-            .github
-            src
-      - name: Super-Linter
-        uses: super-linter/super-linter@85f7611e0f7b53c8573cca84aa0ed4344f6f6a4d # v7.2.1 # x-release-please-version
-        continue-on-error: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          FIX_MARKDOWN: true
-          FIX_MARKDOWN_PRETTIER: true
-          FIX_YAML_PRETTIER: true
-          FIX_JSON_PRETTIER: true
-          FIX_PYTHON_BLACK: true
-          FIX_PYTHON_ISORT: true
-      - name: Commit and push linting fixes
-        # Run only on:
-        # - Pull requests
-        # - Not on the default branch
-        if: >
-          github.event_name == 'pull_request' &&
-          github.ref_name != github.event.repository.default_branch
-        uses: stefanzweifel/git-auto-commit-action@e348103e9026cc0eee72ae06630dbe30c8bf7a79 # v5.1.0
-        with:
-          branch: ${{ github.event.pull_request.head.ref || github.head_ref || github.ref }}
-          add_options: ':!super-linter-output/super-linter-summary.md'
-          commit_message: "chore: fix linting issues"
-          commit_user_name: super-linter
-          commit_user_email: super-linter@super-linter.dev
+          VALIDATE_SHELL_SHFMT: false
+          VALIDATE_PYTHON_MYPY: false
+          VALIDATE_PYTHON_PYINK: false
+          VALIDATE_PYTHON_PYLINT: false
+          VALIDATE_PYTHON_RUFF: false
+          VALIDATE_PYTHON_FLAKE8: false
+          VALIDATE_CLANG_FORMAT: false
+          VALIDATE_CPP: false
+          VALIDATE_JAVASCRIPT_STANDARD: false
+          VALIDATE_JAVASCRIPT_PRETTIER: false
+          VALIDATE_JSCPD: false
+          VALIDATE_CHECKOV: false
+          VALIDATE_BASH: false
+          VALIDATE_BASH_EXEC: false
