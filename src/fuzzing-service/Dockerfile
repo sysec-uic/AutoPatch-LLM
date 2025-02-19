@@ -13,10 +13,7 @@ RUN apt-get update && \
 RUN groupadd -r appuser && \
     useradd -r -g appuser appuser
 
-COPY config.json /app/config/config.json
-COPY logging-config.json /app/config/logging-config.json
 COPY fuzzing_service.py /app/fuzzing_service.py
-RUN mkdir -p /app/logs && touch /app/logs/debug.log
 
 RUN chown -R appuser:appuser /app
 

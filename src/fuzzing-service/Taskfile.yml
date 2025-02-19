@@ -45,4 +45,4 @@ tasks:
   clean:
     desc: scrubs the workspace, old debug log files etc.
     cmds:
-      - truncate -s 0 autopatch.fuzzing-service.debug.log
+      - truncate -s 0 ./log/autopatch.fuzzing-service.debug.log
