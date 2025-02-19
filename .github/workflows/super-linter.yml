@@ -108,7 +108,7 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@e348103e9026cc0eee72ae06630dbe30c8bf7a79 # v5.1.0
         with:
           branch: ${{ github.event.pull_request.head.ref || github.head_ref || github.ref }}
-          add_options: "-u -- ':!super-linter-output/super-linter-summary.md'"
+          add_options: ':!super-linter-output/super-linter-summary.md'
           commit_message: "chore: fix linting issues"
           commit_user_name: super-linter
           commit_user_email: super-linter@super-linter.dev
