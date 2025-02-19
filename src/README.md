@@ -1,4 +1,4 @@
-# For fastest and easiest development, try out the devcontainer!
+# For fastest and easiest development, try out the devcontainer
 
 If you are running inside a dev container, use the file at `/.devcontainer/devcontainer.env.example` file to easily store your secret variables such as your OPEN_API_KEY.
 
