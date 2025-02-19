@@ -24,3 +24,33 @@ tasks:
       - "echo 'Running linter...'"
       - "echo Not Yet Implemented"
       # - task: autopatch:lint
+
+  create-required-dirs:
+    desc: create required directories
+    cmds:
+      - mkdir -p src/asan_bugLog/
+      - mkdir -p src/afl_bugLog/
+      - mkdir -p src/codebase/
+      - mkdir -p src/executables/
+      - mkdir -p src/executables_afl/
+      - mkdir -p src/input/
+      - mkdir -p src/patched_codes/
+
+  rm-temp-dirs:
+    desc: remove temporary directories
+    cmds:
+      - rm -rf src/asan_bugLog/
+      - rm -rf src/afl_bugLog/
+      - rm -rf src/executables/
+      - rm -rf src/executables_afl/
+      - rm -rf src/patched_codes/
+      - rm -rf src/output*/
+      - rm -rf src/command_log/
+      
+  rm-eval-dirs:
+    desc: remove directories made in eval
+    cmds:
+      - rm -rf src/evaluation_service/results/
+      - rm -rf src/executables/
+      - rm -rf src/evaluation_service/command_log/
+  
