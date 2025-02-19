@@ -49,6 +49,9 @@ jobs:
           FIX_JSON_PRETTIER: false
           FIX_PYTHON_BLACK: false
           FIX_PYTHON_ISORT: false
+          VALIDATE_MARKDOWN_PRETTIER: false
+          VALIDATE_JSON_PRETTIER: false
+          VALIDATE_YAML_PRETTIER: false
           VALIDATE_SHELL_SHFMT: false
           VALIDATE_PYTHON_MYPY: false
           VALIDATE_PYTHON_PYINK: false
