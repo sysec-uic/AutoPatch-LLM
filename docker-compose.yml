@@ -9,7 +9,7 @@ services:
     volumes:
       - ./afl-2.52b:/app/afl-2.52b
       - ./src/bugLog:/app/src/bugLog
-      - ./src/codebase:/app/src/codebase
+      - ./assets/input_codebase:/app/src/codebase
       - ./src/executables:/app/src/executables
       - ./src/executables_afl:/app/src/executables_afl
       - ./src/input:/app/src/input
@@ -21,10 +21,10 @@ services:
     environment:
       - FUZZ_SVC_CONFIG=/app/config/config.json
     volumes:
-      - ./afl-2.52b:/app/bin/afl-2.52b
-      - ./src/codebase:/app/data/codebase
-      - ./src/executables:/app/data/executables
-      - ./src/executables_afl:/app/bin/executables_afl
-      - ./src/input:/app/data/input
-      - ./src/output:/app/data/output
+      - ./bin:/app/bin:ro
+      - ./assets/input_codebase:/app/data/codebase:ro
+      - ./src/fuzzing-service/config:/app/config:ro
+      - ./src/fuzzing-service/logs:/app/logs:rw
+      - ./src/fuzzing-service/data:/app/data:rw
+      - ./src/fuzzing-service/seed_input:/app/data/seed_input:ro
     working_dir: /app
