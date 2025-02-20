@@ -1,0 +1,92 @@
+=encoding UTF-8
+
+=head1 NAME
+
+recidivm - estimate peak virtual memory use
+
+=head1 SYNOPSIS
+
+B<recidivm> [B<-c>] [B<-p>] [B<-v>] [B<-u> B<B>|B<K>|B<M>] B<--> I<command> [I<argument>...]
+
+=head1 DESCRIPTION
+
+B<recidivm> estimates the target program's peak virtual memory use
+by running it multiple times with different memory limits.
+
+The target program must be well-behaved:
+
+=over 2
+
+=item *
+
+It must be deterministic (at least with respect to memory use).
+
+=item *
+
+If the memory limit is sufficient, it must terminate with exit status 0.
+
+=item *
+
+If the memory limit is insufficient, it must terminate with non-zero exit status, or be terminated by a signal.
+
+=back
+
+=head1 OPTIONS
+
+=over
+
+=item B<-c>
+
+Capture stdin and provide fresh copy of it to every instance of the target program.
+
+This is the default unless stdin is a terminal.
+
+If stdin is a terminal, the default is to redirect the target program's stdin to F</dev/null>.
+
+=item B<-p>
+
+Don't redirect the target program's stdout or stderr.
+
+The default is to redirect both stdout and stderr to F</dev/null>.
+
+=item B<-u B>
+
+Use byte as the size unit.
+This is the default.
+
+=item B<-u K>
+
+Use kilobyte (1024 bytes) as the size unit
+
+=item B<-u M>
+
+Use megabyte (1048576 bytes) as the size unit.
+
+=item B<-v>
+
+Print information about every call to the target program.
+
+=item B<-h>, B<--help>
+
+Show help message and exit.
+
+=back
+
+=head1 EXAMPLE
+
+    $ gcc -m32 hello.c -o hello32
+    $ gcc -m64 hello.c -o hello64
+    $ gcc -m32 -fsanitize=address hello.c -o hello32asan
+    $ gcc -m64 -fsanitize=address hello.c -o hello64asan
+    $ recidivm -u M ./hello32
+    2
+    $ recidivm -u M ./hello64
+    4
+    $ recidivm -u M ./hello32asan
+    538
+    $ recidivm -u M ./hello64asan
+    20971587
+
+=head1 SEE ALSO
+
+L<setrlimit(2)>
