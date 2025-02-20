@@ -43,7 +43,6 @@ jobs:
         env:
           # To report GitHub Actions status checks only, allow devs to fix their own PRs
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PYTHON_FLAKE8_CONFIG_FILE: ${{ github.workspace }}/.flake8
           FIX_MARKDOWN: false
           FIX_MARKDOWN_PRETTIER: false
           FIX_YAML_PRETTIER: false
