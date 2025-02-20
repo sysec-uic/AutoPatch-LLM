@@ -34,6 +34,10 @@ jobs:
           sparse-checkout: |
             .github
             src
+      - name: Display stats for flake8 file
+        env:
+          PYTHON_FLAKE8_CONFIG_FILE: ${{ github.workspace }}/.flake8
+        run: stat ${{ env.PYTHON_FLAKE8_CONFIG_FILE }}
       - name: Super-linter
         uses: super-linter/super-linter@85f7611e0f7b53c8573cca84aa0ed4344f6f6a4d # v7.2.1 # x-release-please-version
         env:
