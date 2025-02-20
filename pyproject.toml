@@ -9,5 +9,5 @@ requires = ["setuptools >= 61.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.isort]
-src_paths = ["src", "test"]
 profile = "black"
+src_paths = ["src", "test"]
