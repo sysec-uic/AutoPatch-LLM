@@ -1,0 +1,14 @@
+{
+    "attributes": {
+        "type": "autopatch.crashdetail",
+        "source": "autopatch.fuzzing-service",
+        "specversion": "1.0",
+        "id": "af2275d4-b483-4740-9969-8a2c338dd24f",
+        "time": "2025-02-18T16:54:00Z"
+    },
+    "data": {
+        "crash_detail": "IW5ubm5uaGlvc2hYZGdmeVdBRkTCp8OpKsOnw6nDp0FMNMKwOyV4JXglbiVjUMJUJF49QSBGU1BPSiApPSLCo1U9VD9vamUgZmphbGRqIEFTREZQQ8OpSVFYWDs6IcKjPz1QNFjDJDEwOTM1MXMlcyV1OTAyNzVQNFjDoFdBRkTCp8OpKsOnw6nDp0FMU8KwOyV4JXgmbiVjUMKwS0ZEJgBSISlVVCRePUEgVlNQT0ogKT0ioqNVSwAEAABQbiBwb2pud2Vmbyt2a21vYyxhb3NmY2RwLipBKsKjUCI9JSEiRyQmPSEoJCkp",
+        "executable_name": "complex2",
+        "input_from_file": false
+    }
+}

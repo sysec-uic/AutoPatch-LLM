@@ -1,0 +1,11 @@
+{
+    "version": "0.1.0",
+    "appname": "autopatch.patch-evaluation-service",
+    "logging_config" : "/workspace/AutoPatch-LLM/src/patch-evaluation-service/config/logging-config.json",
+    "patch_eval_svc_dummy_config_item": "some_value",
+    "patch_eval_svc_dummy_config_bool": true,
+    "patch_eval_svc_dummy_config_int": 123,
+    "patch_eval_svc_dummy_config_float": 123.456,
+    "mqtt_host": "localhost",
+    "mqtt_port": 1883
+}

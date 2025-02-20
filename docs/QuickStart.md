@@ -39,6 +39,21 @@ Small example: say we have the code below and initial input of "h e i"
 
     .. some code .. // this is a branch
 
+### Running the fuzzer in the CLI
+Start by navigating into the afl folder and running make. This will tell you which compiler afl has selected for your machine (such as afl-gcc, or afl-clang). Note the path to the compiler, and the path to afl-fuzz. Then you can perform these actions to fuzz your source code:
+
+Compile: 
+
+    <afl compiler path> <source code path> -o <executable path>.afl
+Run: 
+
+    <afl-fuzz path> -i <input directory path> -o <output directory path> <executable path>
+
+**Notes**:
+- it's highly recommended to always use absolute paths when running these commands, and to lean on the .env files for consistency in your output.
+- the output directory must not exist before running the afl-fuzz command.
+- the input directory must have at least one seed input file, usually in the form of a .txt file.
+- you will probably need to expand the terminal size to see the cool UI.
 
 ## Basics of the Service:
 
