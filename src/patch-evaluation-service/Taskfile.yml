@@ -1,0 +1,30 @@
+version: '3'
+
+tasks:
+  run:
+    desc: run autopatch-patch-evaluation-service
+    generates:
+      - ./log/autopatch.patch-evaluation-service.debug.log
+    preconditions:
+      - stat ./config/config.json
+    cmds:
+      - python patch_evaluation_service.py
+  
+  debug:
+    desc: debug autopatch-patch-evaluation-service
+    generates:
+      - ./log/autopatch.patch-evaluation-service.debug.log
+    preconditions:
+      - stat ./config/config.json
+    cmds:
+      - python -m pdb ./patch_evaluation_service.py
+  
+  test:
+    desc: test autopatch-patch-evaluation-service
+    cmds:
+      - pytest
+
+  clean:
+    desc: scrubs the workspace, old debug log files etc.
+    cmds:
+      - truncate -s 0 ./log/autopatch.patch-evaluation-service.debug.log

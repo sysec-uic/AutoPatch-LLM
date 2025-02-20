@@ -4,16 +4,23 @@ import subprocess
 from openai import OpenAI
 
 # Global variables for folders/files paths
-AFL_COMPILER_PATH = os.environ.get("AFL_COMPILER_PATH", "../afl-2.52b/afl-gcc")
-AFL_FUZZER_PATH = os.environ.get("AFL_FUZZER_PATH", "../afl-2.52b/afl-fuzz")
+AFL_COMPILER_PATH = os.environ.get(
+    "AFL_COMPILER_PATH", "/workspace/AutoPatch-LLM/bin/afl-2.52b/afl-gcc"
+)
+AFL_FUZZER_PATH = os.environ.get(
+    "AFL_FUZZER_PATH", "/workspace/AutoPatch-LLM/bin/afl-2.52b/afl-fuzz"
+)
 ASAN_BUGLOG_PATH = os.environ.get("ASAN_BUGLOG_PATH", "asan_bugLog/")
 AFL_BUGLOG_PATH = os.environ.get("AFL_BUGLOG_PATH", "afl_bugLog/")
-CODEBASE_PATH = os.environ.get("CODEBASE_PATH", "codebase/")
+CODEBASE_PATH = os.environ.get(
+    "CODEBASE_PATH", "/workspace/AutoPatch-LLM/assets/input_codebase"
+)
 EXECUTABLES_PATH = os.environ.get("EXECUTABLES_PATH", "executables/")
 EXECUTABLES_AFL_PATH = os.environ.get("EXECUTABLES_AFL_PATH", "executables_afl/")
-INPUT_PATH = os.environ.get("INPUT_PATH", "input/")
+INPUT_PATH = os.environ.get(
+    "INPUT_PATH", "/workspace/AutoPatch-LLM/src/fuzzing-service/seed_input"
+)
 PATCHED_CODES_PATH = os.environ.get("PATCHED_CODES_PATH", "patched_codes/")
-
 COMMAND_LOG_PATH = os.environ.get("COMMAND_LOG_PATH", "command_log/")
 
 no_stack_protector = "-fno-stack-protector"
@@ -376,7 +383,7 @@ def test_patch(client, original_code, patch_path, inputFromFile, crashes_inputs=
 def main():
 
     # Set up the APIs
-    client = OpenAI(api_key=os.environ["OPEN_API_KEY"])
+    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
     # Set up the folders
     os.makedirs(ASAN_BUGLOG_PATH, exist_ok=True)
