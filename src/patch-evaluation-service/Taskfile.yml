@@ -1,48 +1,30 @@
 version: '3'
 
 tasks:
-  core-dump-notification-config:
-    summary: Configure core dump notification if running in GCE
-    desc: |
-      If you are running the fuzzing-service in GCE or another cloud provider you may see your fuzzer return an exit code 1 and you may get this message in your debug log:
-
-      Hmm, your system is configured to send core dump notifications to an
-      external utility. This will cause issues: there will be an extended delay
-      between stumbling upon a crash and having this information relayed to the
-      fuzzer via the standard waitpid() API.
-
-      To avoid having crashes misinterpreted as timeouts, please log in as root
-      and temporarily modify /proc/sys/kernel/core_pattern, like so:
-
-      echo core >/proc/sys/kernel/core_pattern
-
-      You must log in as root OUTSIDE of a devcontainer and edit the `/proc/sys/kernel/core_pattern` file to read only "core" on the first line before proceeding
-    cmds:
-      - echo 'you need to login as root on the host system outside of the devcontainer and run "echo core >/proc/sys/kernel/core_pattern"'
   run:
-    desc: run autopatch-fuzzingservice
+    desc: run autopatch-patch-evaluation-service
     generates:
-      - autopatch-fuzzingservice.log
+      - ./log/autopatch.patch-evaluation-service.debug.log
     preconditions:
-      - stat config.json
+      - stat ./config/config.json
     cmds:
-      - python ./fuzzing_service.py
+      - python patch_evaluation_service.py
   
   debug:
-    desc: debug autopatch-fuzzingservice
+    desc: debug autopatch-patch-evaluation-service
     generates:
-      - autopatch-fuzzingservice.log
+      - ./log/autopatch.patch-evaluation-service.debug.log
     preconditions:
-      - stat config.json
+      - stat ./config/config.json
     cmds:
-      - python -m pdb ./fuzzing_service.py
+      - python -m pdb ./patch_evaluation_service.py
   
   test:
-    desc: test autopatch-fuzzingservice
+    desc: test autopatch-patch-evaluation-service
     cmds:
       - pytest
 
   clean:
     desc: scrubs the workspace, old debug log files etc.
     cmds:
-      - truncate -s 0 ./log/autopatch.fuzzing-service.debug.log
+      - truncate -s 0 ./log/autopatch.patch-evaluation-service.debug.log

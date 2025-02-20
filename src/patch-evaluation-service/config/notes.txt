@@ -1,2 +1,0 @@
-dev-config.json is supposed to run immediately well in the dev container_name
-config.json is using compose to run all the services at the same time
