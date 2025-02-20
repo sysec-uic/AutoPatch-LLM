@@ -176,7 +176,7 @@ def extract_crashes(code_name, inputFromFile):
                 # Convert the crash to utf-8 to solve issues in opening the file
                 command = f"iconv -f ISO-8859-1 -t UTF-8 '{file_path}' > '{file_path}'"
                 try:
-                    result = subprocess.run(
+                    subprocess.run(
                         [command],
                         stderr=subprocess.PIPE,
                         stdout=subprocess.PIPE,
@@ -411,7 +411,7 @@ def main():
         while continuePatching:
             # save the patch as a file
             code_path = f"{code_name}_{patch_num}{code_path[-2:]}"
-            patch = parse_reply(gpt_response, code_path)
+            parse_reply(gpt_response, code_path)
             # test the patch with ASan and fuzzer
             patch_result, gpt_response = test_patch(
                 client, original_code, code_path, inputFromFile, crashes
