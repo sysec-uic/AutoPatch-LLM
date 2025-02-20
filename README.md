@@ -1,4 +1,13 @@
-# AutoPatch: Automated Vulnerable Code Patching with AFL, ASan and GPT
+# AutoPatch: Automated Vulnerable Code Patching with AFL, ASan and GPT <!-- omit in toc -->
+- [CI Status](#ci-status)
+- [Introduction](#introduction)
+  - [Features](#features)
+- [How It Works](#how-it-works)
+- [Pre-requisites](#pre-requisites)
+- [How to Run](#how-to-run)
+- [Logging](#logging)
+- [Glossary](#glossary)
+
 
 High level design sequence diagram:
 ```mermaid
