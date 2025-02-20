@@ -22,9 +22,9 @@ from fuzzing_service import (
 # A fixed datetime class to always return the same timestamp.
 class FixedDatetime:
     @classmethod
-    def now(cls):
-        # Return a fixed timestamp.
-        return real_datetime(2025, 1, 1, 12, 0, 0)
+    def now(cls, tz=None):
+        dt = real_datetime(2025, 1, 1, 12, 0, 0)
+        return dt if tz is None else dt.replace(tzinfo=tz)
 
 
 # A dummy logger to capture logger.info calls.
@@ -77,8 +77,8 @@ def test_write_crashes_csv_new_file_input_from_file(tmp_path):
     # Verify header is present.
     assert lines[0] == "timestamp,executable_name,crash_detail,inputFromFile"
     # Each crash line uses the fixed timestamp.
-    expected_line1 = f"2025-01-01T12:00:00,{executable_name},crash1,True"
-    expected_line2 = f"2025-01-01T12:00:00,{executable_name},crash2,True"
+    expected_line1 = f"2025-01-01T12:00:00Z,{executable_name},crash1,True"
+    expected_line2 = f"2025-01-01T12:00:00Z,{executable_name},crash2,True"
     assert lines[1] == expected_line1
     assert lines[2] == expected_line2
 
@@ -106,8 +106,8 @@ def test_write_crashes_csv_existing_file_no_header(tmp_path):
     assert lines[0] == "timestamp,executable_name,crash_detail,inputFromFile"
 
     # Compute the expected hex values.
-    expected_line1 = f"2025-01-01T12:00:00,{executable_name},{b'\xde\xad'.hex()},False"
-    expected_line2 = f"2025-01-01T12:00:00,{executable_name},{b'\xbe\xef'.hex()},False"
+    expected_line1 = f"2025-01-01T12:00:00Z,{executable_name},{b'\xde\xad'.hex()},False"
+    expected_line2 = f"2025-01-01T12:00:00Z,{executable_name},{b'\xbe\xef'.hex()},False"
     assert lines[1] == expected_line1
     assert lines[2] == expected_line2
 
@@ -150,7 +150,7 @@ def test_write_crashes_csv_creates_directory(tmp_path):
 
     content = csv_path.read_text(encoding="utf-8")
     lines = content.splitlines()
-    expected_line = f"2025-01-01T12:00:00,{executable_name},crash_in_dir,True"
+    expected_line = f"2025-01-01T12:00:00Z,{executable_name},crash_in_dir,True"
     # Header is the first line.
     assert lines[1] == expected_line
 
@@ -358,7 +358,6 @@ def test_run_fuzzer_success(monkeypatch):
         fuzzer_output_path,
         fuzzer_timeout,
         inputFromFile=True,
-        isCodebase=True,
     )
     assert ret is True
 
@@ -373,7 +372,6 @@ def test_run_fuzzer_success(monkeypatch):
         fuzzer_output_path,
         fuzzer_timeout,
         inputFromFile=False,
-        isCodebase=True,
     )
     assert ret is True
 
@@ -402,12 +400,7 @@ def test_run_fuzzer_compile_failure(monkeypatch):
         raise subprocess.CalledProcessError(1, args[0], output="error")
 
     monkeypatch.setattr(subprocess, "run", fake_run_fail)
-    ret = run_fuzzer(
-        executable_name,
-        *dummy_args,
-        inputFromFile=False,
-        isCodebase=True,
-    )
+    ret = run_fuzzer(executable_name, *dummy_args, inputFromFile=False)
     assert ret is False
 
 
@@ -437,12 +430,7 @@ def test_run_fuzzer_popen_failure(monkeypatch):
         "Popen",
         lambda *args, **kwargs: (_ for _ in ()).throw(Exception("Popen failed")),
     )
-    ret = run_fuzzer(
-        executable_name,
-        *dummy_args,
-        inputFromFile=False,
-        isCodebase=True,
-    )
+    ret = run_fuzzer(executable_name, *dummy_args, inputFromFile=False)
     assert ret is False
 
 
