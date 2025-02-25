@@ -7,7 +7,7 @@
 This package is to hold shared simple data classes for use by AutoPatch
 
 > [!WARNING]  
-> If you update a datatype be sure to rebuild and reinstall the module.  If you make breaking interface changes make sure you update the minor version number of the  module 
+> If you update a datatype be sure to rebuild and reinstall the module.  If you make breaking interface changes make sure you update the minor version number of the  module
 
 ## Building and Installing the module
 
