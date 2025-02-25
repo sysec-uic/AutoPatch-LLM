@@ -20,6 +20,8 @@ from fuzzing_service import (
     write_crashes_csv,
 )
 
+from autopatchdatatypes import CrashDetail
+
 
 # A fixed datetime class to always return the same timestamp.
 class FixedDatetime:
