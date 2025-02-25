@@ -46,4 +46,4 @@ jobs:
         uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v3
         with:
           name: python-package-build
-          path: src/autopatchdatatypes/autopatchdatatypes/dist
+          path: src/autopatchdatatypes/dist
