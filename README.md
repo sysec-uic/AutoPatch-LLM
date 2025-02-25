@@ -66,7 +66,6 @@ AutoPatch is a GenAI-assisted tool designed to automatically detect and patch bu
    You must log in as root OUTSIDE of a devcontainer and edit the `/proc/sys/kernel/core_pattern` file to read only "core" on the first line before proceeding
 
 ## How to Run
-If  
 
 1. Clone the repository.  
 2. Run the script:
@@ -76,12 +75,12 @@ If
 
 ## Logging
 
-- Automatically generates separate log directories and files for the ASan compiler output (asan_bugLog) and AFL compiler output (afl_bugLog).
-Example of afl_bugLog/vulnerable.txt:
-![afl_buglog_vulnerable_log_example](./docs/images/afl_buglog_vulnerable_log_example.jpeg)
+![`2025-02-25 02:53:34,846 - autopatch.fuzzing-service - INFO - Logger initialized successfully.`](docs/images/structured-logging.png)
 
-- Automatically logs commands executed during the running of the service in the command_logs directory. This is very useful for troubleshooting errors in the main service execution.
-![command_log_vulnerable_log](./docs/images/command_log_vulnerable_log.jpeg)
+- Uses structured logging via the python stdlib interface which is forward compatible with OTEL.  By default:
+   - INFO and ERROR messages use a Console handler capturing stdout and stderr
+   - DEBUG messages are logged to files.  The default config works out of the box with the dev container.  Update the file path in a service's `logging-config.json` to `/app/logs/debug.log` if running in a docker compose or kubernetes context
+   
 
 ## Glossary
 - **Memory Safety Bug**: a vulnerability in which memory is accessed or written in a way that violates the logic (intention) or safety of the program, or performs actions outside of the permitted memory of that program. Common examples include buffer overflow, memory leaks, and use after free. If these vulnerabilities can be exposed by specific input by a user, they can be exploited.
