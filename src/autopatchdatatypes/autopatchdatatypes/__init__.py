@@ -1,1 +1,1 @@
-from .crash_detail import CrashDetail
+from .crash_detail import CrashDetail # noqa: F401
