@@ -19,4 +19,5 @@ dev = [
     'black',
     'flake8',
     'pytest'
+    'pytest-cov'
 ]

@@ -1,4 +1,13 @@
-# AutoPatch: Automated Vulnerable Code Patching with AFL, ASan and GPT
+# AutoPatch: Automated Vulnerable Code Patching with AFL, ASan and GPT <!-- omit in toc -->
+- [CI Status](#ci-status)
+- [Introduction](#introduction)
+  - [Features](#features)
+- [How It Works](#how-it-works)
+- [Pre-requisites](#pre-requisites)
+- [How to Run](#how-to-run)
+- [Logging](#logging)
+- [Glossary](#glossary)
+
 
 High level design sequence diagram:
 ```mermaid
@@ -68,24 +77,20 @@ AutoPatch is a GenAI-assisted tool designed to automatically detect and patch bu
 ## How to Run
 
 1. Clone the repository.  
-2. Run the script:
-   ```bash
-   python3 main/main.py
-   ```
+2. Run the script: `python3 main/main.py`
 
 ## Logging
 
 ![`2025-02-25 02:53:34,846 - autopatch.fuzzing-service - INFO - Logger initialized successfully.`](docs/images/structured-logging.png)
 
 - Uses structured logging via the python stdlib interface which is forward compatible with OTEL.  By default:
-   - INFO and ERROR messages use a Console handler capturing stdout and stderr
-   - DEBUG messages are logged to files.  The default config works out of the box with the dev container.  Update the file path in a service's `logging-config.json` to `/app/logs/debug.log` if running in a docker compose or kubernetes context
-   
+  - INFO and ERROR messages use a Console handler capturing stdout and stderr
+  - DEBUG messages are logged to files.  The default config works out of the box with the dev container.  Update the file path in a service's `logging-config.json` to `/app/logs/debug.log` if running in a docker compose or kubernetes context
 
 ## Glossary
+
 - **Memory Safety Bug**: a vulnerability in which memory is accessed or written in a way that violates the logic (intention) or safety of the program, or performs actions outside of the permitted memory of that program. Common examples include buffer overflow, memory leaks, and use after free. If these vulnerabilities can be exposed by specific input by a user, they can be exploited.
 - **Address Sanitizer**: a compilation tool that is capable of improving recognition of memory safety bugs beyond the base compiler. Utilized by a command line argument at compilation time, and can be added as an argument in afl compilation. ASan is the alias commonly used.
 - **Bug Log**: the log made at compile time of a program, contains the output (warnings, errors, or ASan messages depending on the compilation context) of the compilation.
 - **Fuzzer**: a tool that seeks to find all the control flow areas of a program that takes input (via file or stdin) by mutating the input, and logs any crashes or hangs. For more detailed information on fuzzing, refer to docs/QuickStart.md.
 - **LLM**: large language model, such as GPT, LLAMA, or DeepSeek.
-
