@@ -1,13 +1,22 @@
 [project]
 name = 'autopatch'
-version = '0.1.0'
+version = '0.2.0'
 requires-python = '>=3.12.3'
 description = ''
-
-[build-system]
-requires = ['setuptools >= 61.0']
-build-backend = 'setuptools.build_meta'
+authors = [
+    { name = 'Robert D. Hernandez', email = 'rherna70@uic.edu' },
+    { name = 'Lily Leith', email = 'lleit@uic.edu' }
+]
 
 [tool.isort]
 profile = 'black'
-src_paths = ['src', 'test']
+src_paths = ['src']
+
+# Optional dependencies (e.g., for development)
+[project.optional-dependencies]
+dev = [
+    'isort',
+    'black',
+    'flake8',
+    'pytest'
+]

@@ -1,0 +1,15 @@
+[project]
+name = 'autopatchdatatypes'
+version = '0.2.0'
+description = 'Shared data types for the autopatch project'
+authors = [
+    { name = 'Robert D. Hernandez', email = 'rherna70@uic.edu' }
+]
+requires-python = '>=3.12.3'
+
+[build-system]
+requires = ['setuptools>=61.0']
+build-backend = 'setuptools.build_meta'
+
+[tool.setuptools]
+packages = ['autopatchdatatypes']
