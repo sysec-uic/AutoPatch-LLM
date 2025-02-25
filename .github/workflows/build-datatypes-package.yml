@@ -1,3 +1,4 @@
+# .github/workflows/build-datatypes-package.yml
 name: Build and Publish Python Package
 run-name: Build and Publish Python Package by @${{ github.actor }}
 
@@ -22,6 +23,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           sparse-checkout: |
+            src/autopatchdatatypes/pyproject.toml
             src/autopatchdatatypes/autopatchdatatypes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
