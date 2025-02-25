@@ -69,7 +69,7 @@
 					"editor.formatOnSave": true,
 					"editor.defaultFormatter": "ms-python.black-formatter",
 					"editor.codeActionsOnSave": {
-						"source.organizeImports": "explicit"
+						"source.sortImports": "explicit"
 					},
 					"isort.args": [
 						"--settings-path", "${workspaceFolder}"
