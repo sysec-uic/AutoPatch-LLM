@@ -28,7 +28,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v4
         with:
           python-version: '3.12.3'
 
@@ -42,7 +42,7 @@ jobs:
         run: python -m build
 
       - name: Upload Build Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v3
         with:
           name: python-package-build
           path: src/autopatchdatatypes/autopatchdatatypes/dist
