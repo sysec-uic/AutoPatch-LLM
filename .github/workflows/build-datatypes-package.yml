@@ -3,6 +3,11 @@ run-name: Build and Publish Python Package by @${{ github.actor }}
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'src/autopatchdatatypes/autopatchdatatypes/**'
 
 jobs:
   build:
