@@ -6,8 +6,10 @@ from datetime import datetime as real_datetime
 from types import SimpleNamespace
 from unittest.mock import mock_open
 
-import fuzzing_service as fuzzing_service
 import pytest
+from autopatchdatatypes import CrashDetail
+
+import fuzzing_service as fuzzing_service
 
 # Import the function to test from the module.
 from fuzzing_service import (
@@ -18,8 +20,6 @@ from fuzzing_service import (
     run_fuzzer,
     write_crashes_csv,
 )
-
-from autopatchdatatypes import CrashDetail
 
 
 # A fixed datetime class to always return the same timestamp.
