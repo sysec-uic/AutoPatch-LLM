@@ -6,6 +6,7 @@
 - [How It Works](#how-it-works)
 - [Pre-requisites](#pre-requisites)
 - [How to Run](#how-to-run)
+- [Versioning Strategy](#versioning-strategy)
 - [Logging](#logging)
 - [Glossary](#glossary)
 
@@ -88,6 +89,13 @@ AutoPatch is a GenAI-assisted tool designed to automatically detect and patch bu
 
 1. Clone the repository.  
 2. Run the script: `python3 main/main.py`
+
+## Versioning Strategy
+This project will use semantic versioning with following rules:
+
+MAJOR version increments when backwards incompatible changes is introduced.
+MINOR version increments when backwards compatible feature is introduced INCLUDING support for new datatype versions.
+PATCH version increments when a backwards compatible bug fix is introduced.
 
 ## Logging
 
