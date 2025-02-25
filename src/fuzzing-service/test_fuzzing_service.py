@@ -10,7 +10,6 @@ import fuzzing_service as fuzzing_service
 import pytest
 from autopatchdatatypes import CrashDetail
 
-
 # Import the function to test from the module.
 from fuzzing_service import (
     CONST_FUZZ_SVC_CONFIG,
