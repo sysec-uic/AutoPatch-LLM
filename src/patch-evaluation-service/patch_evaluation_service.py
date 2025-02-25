@@ -255,12 +255,13 @@ def log_results(results: dict, results_path: str) -> None:
                 f"Patch for {executable_name} fixed {patched} out of {total} crashes.\n"
             )
             log.write(line)
-            success_rate = patched / total
+            success_rate = round(patched / total * 100, 2)
             line = f"Patch is {success_rate}% successful.\n"
             log.write(line)
             total_crashes += total
             total_patched_crashes += patched
-        line = f"\nTotal success rate of {len(results.keys())} files is {total_patched_crashes} / {total_crashes}, or {total_patched_crashes / total_crashes}%.\n"
+        total_success_rate = round(total_patched_crashes / total_crashes * 100, 2)
+        line = f"\nTotal success rate of {len(results.keys())} files is {total_patched_crashes} / {total_crashes}, or {total_success_rate}%.\n"
 
 
 def main():
