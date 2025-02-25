@@ -23,7 +23,8 @@ jobs:
         with:
           fetch-depth: 1
           sparse-checkout: |
-            src/autopatchdatatypes/autopatchdatatypes/
+            src/autopatchdatatypes/autopatchdatatypes/**.py
+            src/autopatchdatatypes/autopatchdatatypes/pyproject.toml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
