@@ -35,6 +35,7 @@ jobs:
           sparse-checkout: |
             .github
             src
+            pyproject.toml
       - name: Super-linter
         uses: super-linter/super-linter@85f7611e0f7b53c8573cca84aa0ed4344f6f6a4d # v7.2.1 # x-release-please-version
         env:
