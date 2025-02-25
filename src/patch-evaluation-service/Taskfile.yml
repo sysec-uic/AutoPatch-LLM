@@ -28,3 +28,13 @@ tasks:
     desc: scrubs the workspace, old debug log files etc.
     cmds:
       - truncate -s 0 ./log/autopatch.patch-evaluation-service.debug.log
+  
+  rm-executables:
+    desc: removes the subdirectories in the executables directory.
+    cmds:
+      - rm -r ./executables/*
+  rm-dirs-for-dev:
+    desc: removes the subdirectories within the executables and data directories.
+    cmds:
+      - rm -r ./executables/*
+      - rm -r ./data/*
