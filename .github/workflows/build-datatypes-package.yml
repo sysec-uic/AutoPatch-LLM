@@ -39,7 +39,7 @@ jobs:
           pip install build
 
       - name: Build Package
-        working-directory: src/autopatchdatatypes/autopatchdatatypes
+        working-directory: src/autopatchdatatypes
         run: python -m build
 
       - name: Upload Build Artifact
