@@ -1,6 +1,4 @@
-# Pull Request Template
-
-## Title
+# Title
 <!-- Provide a short and descriptive title for your pull request -->
 
 ## Description
