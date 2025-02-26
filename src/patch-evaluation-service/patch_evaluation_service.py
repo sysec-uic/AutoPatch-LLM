@@ -233,10 +233,8 @@ def write_crashes_csv(
 
         logger.info(f"Logging crash information in {csv_path}.")
         timestamp = datetime.now().isoformat(timespec="seconds")
-        if inputFromFile:
-            pass
-        else:
-            line = f"{timestamp},{crash_detail},{return_code},False\n"
+
+        line = f"{timestamp},{crash_detail},{return_code},{inputFromFile}\n"
         f.write(line)
 
 
@@ -373,7 +371,7 @@ def main():
                 executable_name,
                 crash_detail.hex(),
                 return_code,
-                False,
+                inputFromFile,
             )
             results[executable_name]["total_crashes"] += 1
             if return_code == 0 or return_code == 1:
