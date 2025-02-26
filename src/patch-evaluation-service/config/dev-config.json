@@ -6,6 +6,7 @@
     "patch_eval_results":"/workspace/AutoPatch-LLM/src/patch-evaluation-service/data/",
     "patched_codes_path":"/workspace/AutoPatch-LLM/src/patch-evaluation-service/patched_codes/",
     "executables_path":"/workspace/AutoPatch-LLM/src/patch-evaluation-service/executables/",
+    "temp_crashes_path":"/workspace/AutoPatch-LLM/src/patch-evaluation-service/temp_crashes_files/",
     "mqtt_host": "localhost",
     "mqtt_port": 1883
 }

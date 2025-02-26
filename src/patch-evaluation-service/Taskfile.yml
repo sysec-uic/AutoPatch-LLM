@@ -3,6 +3,7 @@ version: '3'
 tasks:
   run:
     desc: run autopatch-patch-evaluation-service
+    dotenv: [".env"]
     generates:
       - ./log/autopatch.patch-evaluation-service.debug.log
     preconditions:

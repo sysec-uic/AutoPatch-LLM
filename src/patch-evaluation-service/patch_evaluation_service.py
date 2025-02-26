@@ -84,6 +84,7 @@ def load_config() -> dict:
     """
     # Read the environment variable
     config_path = os.environ.get(CONST_PATCH_EVAL_SVC_CONFIG)
+
     if not config_path:
         logger.error(
             "Error: The environment variable 'CONST_PATCH_EVAL_SVC_CONFIG' is not set or is empty."
@@ -116,17 +117,30 @@ def load_config() -> dict:
     return config
 
 
+def create_temp_crash_file(crashDetail: str, temp_dir_path: str) -> str:
+    crash_path = os.path.join(temp_dir_path, "crash")
+
+    with open(crash_path, "wb") as crash_file:
+        crash_file.write(crashDetail)
+    return crash_path
+
+
 # run the file with some given input
 def run_file(
     executable_path: str,
     executable_name: str,
     crash: str,
     input_from_file: bool,
+    temp_crash_file: str = None,
 ) -> int:
     # form the command
     if input_from_file:  # The program takes input from file
         # need to put it into a file: figure this out later
-        pass
+        # going to put it into a file (need to save the file name)
+        # already have the crash as a string
+        # need to then delete the file after execution
+        command = f"{executable_path} {temp_crash_file}"
+
     else:  # The program takes input from stdin
         command = f"echo {crash} | {executable_path}"
 
@@ -163,7 +177,7 @@ def run_file(
 
 
 # compiles the program
-def compile(file_path: str, file_name: str, executable_path: str) -> str:
+def compile_file(file_path: str, file_name: str, executable_path: str) -> str:
     # form the command
     warnings = "-Wall -Wextra -Wformat -Wshift-overflow -Wcast-align -Wstrict-overflow -fstack-protector-strong"
     executable_name = file_name.split(".")[0]
@@ -246,6 +260,7 @@ def log_results(results: dict, results_path: str) -> None:
     total_patched_crashes = 0
     logger.info(f"Creating batched info file {log_path}.")
     with open(log_path, "w") as log:
+        log.write("Results of running patches:\n")
         for executable_name in results.keys():
             total = results[executable_name]["total_crashes"]
             if total == 0:
@@ -260,6 +275,8 @@ def log_results(results: dict, results_path: str) -> None:
             log.write(line)
             total_crashes += total
             total_patched_crashes += patched
+        if total_crashes == 0:
+            return
         total_success_rate = round(total_patched_crashes / total_crashes * 100, 2)
         line = f"\nTotal success rate of {len(results.keys())} files is {total_patched_crashes} / {total_crashes}, or {total_success_rate}%.\n"
 
@@ -272,6 +289,7 @@ def main():
 
     _patched_codes_path: Final[str] = config["patched_codes_path"]
     _crashes_events_path: Final[str] = config["crashes_events"]
+    _temp_crashes_path: Final[str] = config["temp_crashes_path"]
 
     EVAL_SVC_START_TIMESTAMP: Final[str] = datetime.now().isoformat(timespec="seconds")
     _patch_eval_results_path: Final[str] = os.path.join(
@@ -286,6 +304,8 @@ def main():
     os.makedirs(_patch_eval_results_path, exist_ok=True)
     logger.info("Creating executables directory: " + _executables_path)
     os.makedirs(_executables_path, exist_ok=True)
+    logger.info("Creating temporary crash files directory: " + _temp_crashes_path)
+    os.makedirs(_temp_crashes_path, exist_ok=True)
 
     # the folders we need to make:
     # - new executable: the executable directory will already exist
@@ -301,7 +321,7 @@ def main():
         file_path = os.path.join(_patched_codes_path, file_name)
         # compile the file
         logger.info(f"Compiling: {file_path}")
-        executable_name = compile(file_path, file_name, _executables_path)
+        executable_name = compile_file(file_path, file_name, _executables_path)
         # if the compilation was successful, then add the executable path to the list of executables
         # to run
         if executable_name != "":
@@ -313,13 +333,14 @@ def main():
     # now we need to queue up all the crashes
     # using a list for now just to get the functionality down
     # also assuming for now that the json files are in a local folder
-
+    inputFromFile = False
     for crash_file in os.listdir(_crashes_events_path):
         crash_path = os.path.join(_crashes_events_path, crash_file)
         with open(crash_path, "r") as _crash:
             crash = json.load(_crash)
             timestamp = crash["timestamp"]
             executable_name = crash["executable_name"]
+
             logger.info(f"Processing crash {timestamp} for file {executable_name}.")
             if executable_name not in executables:
                 logger.info(
@@ -328,9 +349,22 @@ def main():
                 continue
 
             crash_detail = bytes.fromhex(crash["crash_detail"])
+            if executable_name[-2:] == "_f":
+                inputFromFile = True
+                temp_crash_file = create_temp_crash_file(
+                    crash_detail, _temp_crashes_path
+                )
+            else:
+                temp_crash_file = None
+                inputFromFile = False
+
             executable_path = os.path.join(_executables_path, executable_name)
             return_code = run_file(
-                executable_path, executable_name, crash_detail, False
+                executable_path,
+                executable_name,
+                crash_detail,
+                inputFromFile,
+                temp_crash_file,
             )
             logger.info(f"Result of running file {executable_name}: {return_code}.")
             logger.info(f"Updating the results csv for {executable_name}")
