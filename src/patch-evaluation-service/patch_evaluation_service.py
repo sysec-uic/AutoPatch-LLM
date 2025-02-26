@@ -246,14 +246,14 @@ def produce_output(
     inputFromFile: bool,
 ) -> None:
     csv_path: Final[str] = os.path.join(
-        results_path, f"{executable_name}_full_info.csv"
+        results_path, f"{executable_name}_evaluation.csv"
     )
 
     write_crashes_csv(crash_detail, return_code, csv_path, inputFromFile)
 
 
 def log_results(results: dict, results_path: str) -> None:
-    log_path = os.path.join(results_path, f"batched_info.txt")
+    log_path = os.path.join(results_path, f"evaluation.txt")
     total_crashes = 0
     total_patched_crashes = 0
     logger.info(f"Creating batched info file {log_path}.")
