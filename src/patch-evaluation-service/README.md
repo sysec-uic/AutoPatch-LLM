@@ -20,6 +20,9 @@ Use Task to run the task run autopatch-patch-evaluation-service.
 
 ### Imminent updates
 - update config.json
-- take input from mqtt
-- 
+- take input from mqtt: this changes where we extract the json files holding the crash details
+- take input from output of patching service: changes the path holding the patched codes
+- create batched results csv (headers: executable name, # triggers addressed, # triggers failed to address, success %, success designation [S, P, F])
+- testing suite
+  
 
