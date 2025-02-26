@@ -264,12 +264,17 @@ def log_results(results: dict, results_path: str) -> None:
             if total == 0:
                 continue
             patched = results[executable_name]["patched_crashes"]
-            line = (
-                f"Patch for {executable_name} fixed {patched} out of {total} crashes.\n"
-            )
+            line = f"{executable_name}: fixed {patched} out of {total} crashes.\n"
             log.write(line)
             success_rate = round(patched / total * 100, 2)
-            line = f"Patch is {success_rate}% successful.\n"
+            designation = ""
+            if success_rate == 100:
+                designation = "potential patch success."
+            elif success_rate > 80:
+                designation = "partial potential patch success."
+            else:
+                designation = "patch failure."
+            line = f"Patch is {success_rate}% successful: {designation}\n"
             log.write(line)
             total_crashes += total
             total_patched_crashes += patched
@@ -277,6 +282,7 @@ def log_results(results: dict, results_path: str) -> None:
             return
         total_success_rate = round(total_patched_crashes / total_crashes * 100, 2)
         line = f"\nTotal success rate of {len(results.keys())} files is {total_patched_crashes} / {total_crashes}, or {total_success_rate}%.\n"
+        log.write(line)
 
 
 def main():
