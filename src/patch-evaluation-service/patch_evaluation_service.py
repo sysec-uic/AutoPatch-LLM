@@ -156,15 +156,15 @@ def run_file(
             shell=True,
         )
         # return 0 on complete success
-        logger.info(f"Command run: {command}")
-        logger.info(
+        logger.debug(f"Command run: {command}")
+        logger.debug(
             f"File {executable_name} ran with input {crash} without any terminating errors."
         )
 
         return 0
     # if the program terminated with a signal != 0 then this exception is entered
     except subprocess.CalledProcessError as e:
-        logger.info(f"Command run: {command}")
+        logger.debug(f"Command run: {command}")
         logger.info(
             f"Run of {executable_name} terminated with return code {e.returncode}."
         )
@@ -340,6 +340,7 @@ def main():
     inputFromFile = False
     for crash_file in os.listdir(_crashes_events_path):
         crash_path = os.path.join(_crashes_events_path, crash_file)
+        logger.info(f"FILE NAME OF CRASH: {str(crash_path)} ")
         with open(crash_path, "r") as _crash:
             crash = json.load(_crash)
             timestamp = crash["timestamp"]
@@ -385,15 +386,6 @@ def main():
 
     log_results(results, _patch_eval_results_path)
 
-    # results files:
-    # one per executable detailing which crashes were fixed and which were not
-    # one per batch outlining total stats
-    # per file format: csv
-    # timestamp, crash_detail, return code
-    # per batch format:
-    # takes the info from each per file one and calculates stats for each file, and for the whole batch
-
-    # tabulate results for each file
     return 0
 
 
