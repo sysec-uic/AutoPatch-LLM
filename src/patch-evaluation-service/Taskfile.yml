@@ -33,9 +33,10 @@ tasks:
   rm-executables:
     desc: removes the subdirectories in the executables directory.
     cmds:
-      - rm -r ./executables/*
+      - rm -rf ./executables/*
   rm-dirs-for-dev:
     desc: removes the subdirectories within the executables and data directories.
     cmds:
-      - rm -r ./executables/*
-      - rm -r ./data/*
+      - rm -rf ./executables/*
+      - rm -rf ./data/*
+      - rm -rf ./temp_crashes_files/*
