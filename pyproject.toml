@@ -19,6 +19,7 @@ dev = [
     'black',
     'flake8',
     'pytest',
+    'pytest-asyncio',
     'pytest-cov',
     'build'
 ]

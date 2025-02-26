@@ -1,4 +1,5 @@
 import base64
+import asyncio
 import json
 import logging
 import logging.config
@@ -9,6 +10,7 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Final, List
+from cloudevents.http import CloudEvent
 
 from autopatchdatatypes import CrashDetail
 
@@ -24,6 +26,7 @@ class Config:
     version: str
     appname: str
     logging_config: str
+    concurrency_threshold: int
     fuzz_svc_input_codebase_path: str
     fuzz_svc_output_path: str
     fuzz_svc_output_topic: str
@@ -130,6 +133,33 @@ def load_config() -> dict:
     return config
 
 
+async def MapCrashDetailAsCloudEvent(crash_detail: CrashDetail) -> CloudEvent:
+    """
+    Maps a CrashDetail instance to a CloudEvent Occurence.
+
+    Parameters:
+        crash (CrashDetail): The crash detail to be mapped.
+
+    Returns:
+        CloudEvent: The corresponding CloudEvent Occurence.
+    """
+    attributes = {
+        "type": "autopatch.crashdetail",
+        "source": "autopatch.fuzzing-service",
+        "subject": crash_detail.executable_name,
+        "time": get_current_timestamp(),
+    }
+
+    data = {
+        "executable_name": crash_detail.executable_name,
+        "crash_detail_base64": crash_detail.base64_message,
+        "is_input_from_file": crash_detail.is_input_from_file,
+    }
+
+    event = CloudEvent(attributes, data)
+    return event
+
+
 def get_current_timestamp() -> str:
     """
     Get the current timestamp in ISO 8601 format.
@@ -160,7 +190,7 @@ def run_fuzzer(
     afl_executable = os.path.join(executables_afl_path, executable_name + ".afl")
     # Compile using AFL's compiler
     compile_command = f"{fuzzer_compiler_full_path} {config["compiler_warning_flags"]} {config["compiler_feature_flags"]} {src_path} -o {afl_executable}"
-    logger.debug(f"Compiling with AFL: {compile_command}")
+    logger.debug(f"Compile command: {compile_command}")
     try:
         result = subprocess.run(
             compile_command,
@@ -172,15 +202,15 @@ def run_fuzzer(
             check=True,
         )
         logger.debug(f"Fuzzer compile output: {result.stdout + result.stderr}")
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Fuzzer subprocess failed with return code {e.returncode}.")
-        logger.debug(f"Output of fuzzer subprocess: {e.output}")
+    except (OSError, subprocess.CalledProcessError) as e:
+        return_code = getattr(e, "returncode", "N/A")
+        output = getattr(e, "output", "N/A")
+        logger.error(f"Failed to start compiler subprocess. Return Code: {return_code}")
+        logger.debug(f"Output of compiler subprocess: {output}")
         return False
     except Exception as e:
-        logger.error(f"Error compiling with AFL: {e}")
+        logger.error(f"Error running fuzzer: {e}")
         return False
-
-    logger.debug(f"Fuzzer compile command: {compile_command}")
 
     # Prepare the fuzzing command
     fuzz_command = (
@@ -201,29 +231,32 @@ def run_fuzzer(
             shell=True,
             start_new_session=True,  # This creates a new process group
         )
-        process.communicate(timeout=fuzzer_timeout)
+
+        # Check if process started successfully
+        if process.poll() is not None:
+            logger.error("Fuzzer subprocess failed to start.")
+            return False
+
+        # Wait for process to complete or timeout
         stdout, stderr = process.communicate(timeout=fuzzer_timeout)
         logger.debug(f"Fuzzer command output: {stdout} {stderr}")
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Fuzzer subprocess failed with return code {e.returncode}.")
-        logger.debug(f"Output of fuzzer subprocess: {e.output}")
-        return False
     except subprocess.TimeoutExpired:
-        # Fuzzer may run indefinitely; timeout is expected.
         logger.info(f"Fuzzer run timed out after {fuzzer_timeout} seconds as expected.")
         # Kill the entire process group to ensure that all subprocesses are terminated.
         os.killpg(os.getpgid(process.pid), signal.SIGTERM)
-        # process.communicate()  # Wait for process to finish cleanup
-        stdout, stderr = process.communicate(timeout=fuzzer_timeout)
-        logger.debug(f"Close subprocess group command output: {stdout} {stderr}")
+        stdout, stderr = process.communicate()
+        logger.debug(f"Closed subprocess group output: {stdout} {stderr}")
+    except OSError as e:
+        return_code = getattr(e, "returncode", "N/A")
+        output = getattr(e, "output", "N/A")
+        logger.error(f"Failed to start compiler subprocess. Return Code: {return_code}")
+        logger.debug(f"Output of compiler subprocess: {output}")
+        return False
     except Exception as e:
         logger.error(f"Error running fuzzer: {e}")
         return False
 
-    # # Verify that the fuzzer started by checking for the "fuzzer_stats" file
-    if os.path.exists(f"{fuzzer_output_path}/{executable_name}/fuzzer_stats"):
-        return True
-    return False
+    return True
 
 
 def extract_crashes(
@@ -308,12 +341,48 @@ def write_crashes_csv(crash_details: List[CrashDetail], csv_path: str) -> None:
             )
 
 
-def produce_output(crash_details: List[CrashDetail]) -> None:
+async def MapCrashDetailsAsCloudEvents(
+    crash_details: List[CrashDetail],
+) -> List[CloudEvent]:
+    if len(crash_details) > config["concurrency_threshold"]:
+        # Run in parallel
+        tasks = [MapCrashDetailAsCloudEvent(detail) for detail in crash_details]
+        results = await asyncio.gather(*tasks)
+    else:
+        # Run sequentially
+        results = [await MapCrashDetailAsCloudEvent(detail) for detail in crash_details]
+
+    return results
+
+
+async def produce_output(crash_details: List[CrashDetail]) -> None:
+    crash_details_cloud_events = await MapCrashDetailsAsCloudEvents(crash_details)
+    logger.info(f"Producing {len(crash_details_cloud_events)} CloudEvents.")
+
+    def produce_event(event):
+        logger.debug(f"Producing CloudEvent: {event}")
+        # not yet implemented
+        # todo implement MQTT producer
+        # producer.produce(config["fuzz_svc_output_topic"], event)
+
+    async def produce_event_async(event):
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, produce_event, event)
+
+    if len(crash_details_cloud_events) > config["concurrency_threshold"]:
+        # Run in parallel using asyncio.gather
+        tasks = [produce_event_async(event) for event in crash_details_cloud_events]
+        await asyncio.gather(*tasks)
+    else:
+        # Run sequentially
+        for event in crash_details_cloud_events:
+            await produce_event_async(event)
+
     csv_path: Final[str] = os.path.join(config["fuzz_svc_output_path"], "crashes.csv")
     write_crashes_csv(crash_details, csv_path)
 
 
-def main():
+async def main():
     global config, logger
 
     config = load_config()
@@ -382,7 +451,7 @@ def main():
         # Process the crash outputs by appending to the appropriate CSV file.
         if crash_details:
             logger.info(f"Found {len(crash_details)} crash(es) for {source_file}:")
-            produce_output(crash_details)
+            await produce_output(crash_details)
         else:
             logger.info(f"No crashes found for {source_file}.")
 
@@ -394,5 +463,5 @@ def main():
     logger.info("Processing complete, exiting.")
 
 
-if __name__ == "__main__":
-    main()
+# Run the event loop
+asyncio.run(main())

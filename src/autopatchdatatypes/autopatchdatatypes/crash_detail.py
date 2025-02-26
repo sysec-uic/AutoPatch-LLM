@@ -19,5 +19,5 @@ class CrashDetail:
             # Decode and re-encode to verify valid base64
             decoded = base64.b64decode(data, validate=True)
             return base64.b64encode(decoded).decode("utf-8") == data
-        except (base64.binascii.Error, ValueError):
+        except ValueError:
             return False

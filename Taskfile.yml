@@ -7,6 +7,9 @@ includes:
  fuzzing-service:
     taskfile: ./src/fuzzing-service/Taskfile.yml
     dir: ./src/fuzzing-service
+ datatypes:
+    taskfile: ./src/autopatchdatatypes/Taskfile.yml
+    dir: ./src/autopatchdatatypes
  llm-dispatch:
     taskfile: ./src/llm-dispatch/Taskfile.yml
     dir: ./src/llm-dispatch
@@ -18,9 +21,16 @@ tasks:
          - "echo 'Running tests...'"
          - "echo Not Yet Implemented"
          # - task: autopatch:test
+         # - task: fuzzing-service:test
    lint:
       desc: Run linter
       cmds:
       - "echo 'Running linter...'"
       - "echo Not Yet Implemented"
-      # - task: autopatch:lint
+      # - task: fuzzing-service:lint
+   build-install-datatypes:
+      desc: Build and install datatypes package
+      cmds:
+      - "echo 'Building datatypes...'"
+      - task: datatypes:build
+      - task: datatypes:install
