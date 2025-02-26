@@ -1,7 +1,8 @@
 {
-    "version": "0.1.0",
+    "version": "0.2.0",
     "appname": "autopatch.fuzzing-service",
     "logging_config" : "/workspace/AutoPatch-LLM/src/fuzzing-service/config/logging-config.json",
+    "concurrency_threshold": 10,
     "fuzz_svc_input_codebase_path": "/workspace/AutoPatch-LLM/assets/input_codebase",
     "fuzz_svc_output_path": "/workspace/AutoPatch-LLM/src/fuzzing-service/data",
     "fuzz_svc_output_topic": "fuzz-svc/output",

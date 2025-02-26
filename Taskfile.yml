@@ -25,4 +25,10 @@ tasks:
       cmds:
       - "echo 'Running linter...'"
       - "echo Not Yet Implemented"
-      # - task: autopatch:lint
+      # - task: fuzzing-service:lint
+   build-install-datatypes:
+      desc: Build and install datatypes package
+      cmds:
+      - "echo 'Building datatypes...'"
+      - task: autopatchdatatypes:build
+      - task: autopatchdatatypes:install

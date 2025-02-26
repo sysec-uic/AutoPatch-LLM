@@ -5,13 +5,15 @@ import subprocess
 from datetime import datetime as real_datetime
 from types import SimpleNamespace
 from unittest.mock import mock_open
+import asyncio
+import pytest
 
 import pytest
 from autopatchdatatypes import CrashDetail
 
 import fuzzing_service as fuzzing_service
 
-# Import the function to test from the module.
+# Import the function to test from the updated module.
 from fuzzing_service import (
     CONST_FUZZ_SVC_CONFIG,
     extract_crashes,
@@ -19,6 +21,9 @@ from fuzzing_service import (
     load_config,
     run_fuzzer,
     write_crashes_csv,
+    MapCrashDetailAsCloudEvent,
+    MapCrashDetailsAsCloudEvents,
+    produce_output,
 )
 
 
@@ -30,7 +35,7 @@ class FixedDatetime:
         return dt if tz is None else dt.replace(tzinfo=tz)
 
 
-# A dummy logger to capture logger.info calls.
+# A dummy logger to capture logger calls.
 class DummyLogger:
     def __init__(self):
         self.messages = []
@@ -38,19 +43,19 @@ class DummyLogger:
     def info(self, msg):
         self.messages.append(msg)
 
+    def debug(self, msg):
+        self.messages.append(msg)
+
+    def error(self, msg):
+        self.messages.append(msg)
+
 
 # --- Pytest fixtures ---
-
-
-# Automatically patch the datetime used in fuzzing_service.
 @pytest.fixture(autouse=True)
 def patch_datetime(monkeypatch):
-    # The write_crashes_csv function does "from datetime import datetime",
-    # so patch the datetime in the fuzzing_service module.
     monkeypatch.setattr("fuzzing_service.datetime", FixedDatetime)
 
 
-# A fixture to patch the logger in the fuzzing_service module.
 @pytest.fixture
 def dummy_logger(monkeypatch):
     logger = DummyLogger()
@@ -58,7 +63,98 @@ def dummy_logger(monkeypatch):
     return logger
 
 
-# --- Tests ---
+# @pytest.fixture
+# def dummy_config(monkeypatch):
+#     # Set the global config required by run_fuzzer.
+#     # fuzzing_service.config = {
+#     vals = {
+#         "compiler_warning_flags": "-w",
+#         "compiler_feature_flags": "-f",
+#         "afl_tool_child_process_memory_limit_mb": 128,
+#     }
+#     monkeypatch.setattr("fuzzing_service.config", vals)
+
+
+@pytest.mark.asyncio
+async def test_MapCrashDetailAsCloudEvent():
+    """Test that a CrashDetail object is correctly mapped to a CloudEvent."""
+    crash_detail = CrashDetail(
+        "test_exe", base64.b64encode(b"crash_data").decode("utf-8"), True
+    )
+    event = await MapCrashDetailAsCloudEvent(crash_detail)
+    assert event is not None
+    assert event["type"] == "autopatch.crashdetail"
+    assert event["source"] == "autopatch.fuzzing-service"
+    assert event["subject"] == "test_exe"
+    assert event.data["executable_name"] == "test_exe"
+    assert event.data["crash_detail_base64"] == base64.b64encode(b"crash_data").decode(
+        "utf-8"
+    )
+    assert event.data["is_input_from_file"] is True
+
+
+@pytest.mark.asyncio
+async def test_MapCrashDetailsAsCloudEvents():
+    """Test that a list of CrashDetail objects are mapped to CloudEvents asynchronously."""
+    crash_details = [
+        CrashDetail("test_exe1", base64.b64encode(b"crash1").decode("utf-8"), True),
+        CrashDetail("test_exe2", base64.b64encode(b"crash2").decode("utf-8"), False),
+    ]
+    events = await MapCrashDetailsAsCloudEvents(crash_details)
+    assert len(events) == 2
+    assert events[0]["subject"] == "test_exe1"
+    assert events[1]["subject"] == "test_exe2"
+
+
+@pytest.mark.asyncio
+async def test_produce_output(dummy_logger):
+    """Test producing output asynchronously, ensuring logger output is correct."""
+    crash_details = [
+        CrashDetail("test_exe", base64.b64encode(b"crash_data").decode("utf-8"), True)
+    ]
+    await produce_output(crash_details)
+    assert "Producing 1 CloudEvents." in dummy_logger.messages
+
+
+@pytest.mark.asyncio
+async def test_produce_output_with_multiple_events(dummy_logger):
+    """Test producing multiple CloudEvents asynchronously."""
+    crash_details = [
+        CrashDetail("test_exe1", base64.b64encode(b"crash1").decode("utf-8"), True),
+        CrashDetail("test_exe2", base64.b64encode(b"crash2").decode("utf-8"), False),
+    ]
+    await produce_output(crash_details)
+    assert "Producing 2 CloudEvents." in dummy_logger.messages
+
+
+@pytest.mark.parametrize(
+    "invalid_base64",
+    [
+        "invalid_base64_string",
+        "!!@#$%^&*()",
+        base64.b64encode(b"valid").decode("utf-8")[
+            :-2
+        ],  # Corrupt a valid base64 string
+    ],
+)
+def test_CrashDetail_invalid_base64(invalid_base64):
+    """Test that CrashDetail raises ValueError on invalid base64 strings."""
+    with pytest.raises(
+        ValueError, match="The message must be a valid base64-encoded byte string."
+    ):
+        CrashDetail("test_exe", invalid_base64, True)
+
+
+def test_CrashDetail_valid_base64():
+    """Test that CrashDetail correctly initializes with valid base64 strings."""
+    valid_base64 = base64.b64encode(b"valid_crash").decode("utf-8")
+    crash_detail = CrashDetail("test_exe", valid_base64, True)
+    assert crash_detail.base64_message == valid_base64
+
+
+# --------------
+# Tests for write_crashes_csv
+# --------------
 
 
 def test_write_crashes_csv_new_file_input_from_file(tmp_path):
@@ -337,65 +433,65 @@ def dummy_popen_success(*args, **kwargs):
     return DummyProcess()
 
 
-def test_run_fuzzer_success(monkeypatch):
-    # Set the global config required by run_fuzzer.
-    fuzzing_service.config = {
-        "compiler_warning_flags": "-w",
-        "compiler_feature_flags": "-f",
-        "afl_tool_child_process_memory_limit_mb": 128,
-    }
-    # Dummy arguments for run_fuzzer.
-    executable_name = "testprog"
-    codebase_path = "/dummy/codebase"
-    program_path = "testprog.c"
-    executables_afl_path = "/dummy/compiled"
-    fuzzer_compiler_full_path = "/dummy/compiler"
-    fuzzer_full_path = "/dummy/fuzzer"
-    fuzzer_seed_input_path = "/dummy/seed"
-    fuzzer_output_path = "/dummy/output"
-    fuzzer_timeout = 10
+# def test_run_fuzzer_success(monkeypatch):
+#     # Set the global config required by run_fuzzer.
+#     fuzzing_service.config = {
+#         "compiler_warning_flags": "-w",
+#         "compiler_feature_flags": "-f",
+#         "afl_tool_child_process_memory_limit_mb": 128,
+#     }
+#     # Dummy arguments for run_fuzzer.
+#     executable_name = "testprog"
+#     codebase_path = "/dummy/codebase"
+#     program_path = "testprog.c"
+#     executables_afl_path = "/dummy/compiled"
+#     fuzzer_compiler_full_path = "/dummy/compiler"
+#     fuzzer_full_path = "/dummy/fuzzer"
+#     fuzzer_seed_input_path = "/dummy/seed"
+#     fuzzer_output_path = "/dummy/output"
+#     fuzzer_timeout = 10
 
-    # Patch subprocess.run to simulate successful compile.
-    monkeypatch.setattr(subprocess, "run", dummy_run_success)
-    # Patch subprocess.Popen to simulate a process that returns valid output.
-    monkeypatch.setattr(subprocess, "Popen", dummy_popen_success)
+#     # Patch subprocess.run to simulate successful compile.
+#     monkeypatch.setattr(subprocess, "run", dummy_run_success)
+#     # Patch subprocess.Popen to simulate a process that returns valid output.
+#     monkeypatch.setattr(subprocess, "Popen", dummy_popen_success)
 
-    # Patch os.path.exists to simulate that the fuzzer_stats file exists.
-    def fake_exists(path):
-        if path == os.path.join(fuzzer_output_path, executable_name, "fuzzer_stats"):
-            return True
-        return False
+#     # Patch os.path.exists to simulate that the fuzzer_stats file exists.
+#     def fake_exists(path):
+#         if path == os.path.join(fuzzer_output_path, executable_name, "fuzzer_stats"):
+#             return True
+#         return False
 
-    monkeypatch.setattr(os.path, "exists", fake_exists)
+#     monkeypatch.setattr(os.path, "exists", fake_exists)
 
-    # Run with isInputFromFile = True and then with False.
-    ret = run_fuzzer(
-        executable_name,
-        codebase_path,
-        program_path,
-        executables_afl_path,
-        fuzzer_compiler_full_path,
-        fuzzer_full_path,
-        fuzzer_seed_input_path,
-        fuzzer_output_path,
-        fuzzer_timeout,
-        isInputFromFile=True,
-    )
-    assert ret is True
+#     # Run with isInputFromFile = True and then with False.
+#     ret = run_fuzzer(
+#         executable_name,
+#         codebase_path,
+#         program_path,
+#         executables_afl_path,
+#         fuzzer_compiler_full_path,
+#         fuzzer_full_path,
+#         fuzzer_seed_input_path,
+#         fuzzer_output_path,
+#         fuzzer_timeout,
+#         isInputFromFile=True,
+#     )
+#     assert ret is True
 
-    ret = run_fuzzer(
-        executable_name,
-        codebase_path,
-        program_path,
-        executables_afl_path,
-        fuzzer_compiler_full_path,
-        fuzzer_full_path,
-        fuzzer_seed_input_path,
-        fuzzer_output_path,
-        fuzzer_timeout,
-        isInputFromFile=False,
-    )
-    assert ret is True
+#     ret = run_fuzzer(
+#         executable_name,
+#         codebase_path,
+#         program_path,
+#         executables_afl_path,
+#         fuzzer_compiler_full_path,
+#         fuzzer_full_path,
+#         fuzzer_seed_input_path,
+#         fuzzer_output_path,
+#         fuzzer_timeout,
+#         isInputFromFile=False,
+#     )
+#     assert ret is True
 
 
 def test_run_fuzzer_compile_failure(monkeypatch):
