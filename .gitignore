@@ -3,10 +3,6 @@
 venv/
 .task/
 
-src/executables/
-src/executables_afl/
-src/patched_codes/
-
 # Super-linter outputs
 super-linter-output
 super-linter.log

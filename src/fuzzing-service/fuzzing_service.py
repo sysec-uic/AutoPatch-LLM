@@ -1,3 +1,4 @@
+import base64
 import json
 import logging
 import logging.config
@@ -6,8 +7,10 @@ import signal
 import subprocess
 import sys
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Final
+from datetime import datetime, timezone
+from typing import Final, List
+
+from autopatchdatatypes import CrashDetail
 
 # this is the name of the environment variable that will be used point to the configuration map file to load
 CONST_FUZZ_SVC_CONFIG: Final[str] = "FUZZ_SVC_CONFIG"
@@ -127,6 +130,15 @@ def load_config() -> dict:
     return config
 
 
+def get_current_timestamp() -> str:
+    """
+    Get the current timestamp in ISO 8601 format.
+    """
+    return (
+        datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+    )
+
+
 def run_fuzzer(
     executable_name: str,
     codebase_path: str,
@@ -137,21 +149,18 @@ def run_fuzzer(
     fuzzer_seed_input_path: str,
     fuzzer_output_path: str,
     fuzzer_timeout: int,
-    inputFromFile,
-    isCodebase=True,
-):
+    isInputFromFile: bool,
+) -> bool:
     """
     Compile the C source file for AFL fuzzing and run the fuzzer.
     Returns True if the fuzzer appears to have started successfully.
     """
-    if isCodebase:
-        src_path = os.path.join(codebase_path, program_path)
-    else:
-        src_path = program_path
+    src_path = os.path.join(codebase_path, program_path)
 
     afl_executable = os.path.join(executables_afl_path, executable_name + ".afl")
     # Compile using AFL's compiler
     compile_command = f"{fuzzer_compiler_full_path} {config["compiler_warning_flags"]} {config["compiler_feature_flags"]} {src_path} -o {afl_executable}"
+    logger.debug(f"Compiling with AFL: {compile_command}")
     try:
         result = subprocess.run(
             compile_command,
@@ -178,7 +187,8 @@ def run_fuzzer(
         f"{fuzzer_full_path} -m {config['afl_tool_child_process_memory_limit_mb']} -i {fuzzer_seed_input_path} -o {fuzzer_output_path}/{executable_name} "
         f"-t {fuzzer_timeout} {afl_executable}"
     )
-    if inputFromFile:
+
+    if isInputFromFile:
         fuzz_command += " @@"
     logger.debug(f"Running Fuzzer with run command: {fuzz_command}")
     try:
@@ -217,11 +227,11 @@ def run_fuzzer(
 
 
 def extract_crashes(
-    fuzzer_output_path: str, executable_name: str, timeout: int, inputFromFile: bool
-):
+    fuzzer_output_path: str, executable_name: str, timeout: int, isInputFromFile: bool
+) -> List[CrashDetail]:
     """
     Examine the fuzzer output directory for crash inputs.
-    Returns a list of crash file paths (if inputFromFile is True) or raw byte contents.
+    Returns a list of crash file paths (if isInputFromFile is True) or raw byte contents.
     """
     crash_dir = os.path.join(f"{fuzzer_output_path}", f"{executable_name}", "crashes")
     crashes = []
@@ -230,7 +240,7 @@ def extract_crashes(
             if crash_file == "README.txt":
                 continue
             file_path = os.path.join(crash_dir, crash_file)
-            if inputFromFile:
+            if isInputFromFile:
                 # Convert file encoding to UTF-8 (if necessary)
                 convert_command = (
                     f"iconv -f ISO-8859-1 -t UTF-8 '{file_path}' > '{file_path}.utf8'"
@@ -260,21 +270,21 @@ def extract_crashes(
                 except Exception as e:
                     logger.error(f"Error converting crash file encoding: {e}")
                     continue
-                crashes.append(file_path)
+                crashes.append(
+                    base64.b64encode(file_path.encode("utf-8")).decode("utf-8")
+                )
             else:
                 with open(file_path, "rb") as f:
-                    crashes.append(f.read())
+                    crashes.append(base64.b64encode(f.read()).decode("utf-8"))
     except FileNotFoundError:
         logger.error(
             "No crashes directory found. Fuzzer might not have detected any crashes."
         )
 
-    return crashes
+    return [CrashDetail(executable_name, crash, isInputFromFile) for crash in crashes]
 
 
-def write_crashes_csv(
-    executable_name: str, crashes: list, csv_path: str, inputFromFile: bool
-) -> None:
+def write_crashes_csv(crash_details: List[CrashDetail], csv_path: str) -> None:
     """
     Process crash outputs by appending lines to the appropriate CSV file.
 
@@ -289,23 +299,18 @@ def write_crashes_csv(
 
     with open(csv_path, "a", encoding="utf-8") as f:
         if write_header:
-            f.write("timestamp,executable_name,crash_detail,inputFromFile\n")
-        for crash in crashes:
+            f.write("timestamp,executable_name,crash_detail_base64,isInputFromFile\n")
+        for crash in crash_details:
             logger.info(f"  - {crash}")
-            timestamp = datetime.now().isoformat(timespec="seconds")
-            if inputFromFile:
-                # Crash is a file path.
-                line = f"{timestamp},{executable_name},{crash},True\n"
-            else:
-                # Crash is raw bytes; convert to hexadecimal string.
-                crash_hex = crash.hex()
-                line = f"{timestamp},{executable_name},{crash_hex},False\n"
-            f.write(line)
+            timestamp = get_current_timestamp()
+            f.write(
+                f"{timestamp},{crash.executable_name},{crash.base64_message},{crash.is_input_from_file}\n"
+            )
 
 
-def produce_output(executable_name: str, crashes: list, inputFromFile: bool) -> None:
+def produce_output(crash_details: List[CrashDetail]) -> None:
     csv_path: Final[str] = os.path.join(config["fuzz_svc_output_path"], "crashes.csv")
-    write_crashes_csv(executable_name, crashes, csv_path, inputFromFile)
+    write_crashes_csv(crash_details, csv_path)
 
 
 def main():
@@ -314,7 +319,7 @@ def main():
     config = load_config()
     logger = init_logging(config["logging_config"], config["appname"])
 
-    FUZZ_SVC_START_TIMESTAMP: Final[str] = datetime.now().isoformat(timespec="seconds")
+    FUZZ_SVC_START_TIMESTAMP: Final[str] = get_current_timestamp()
 
     _fuzz_svc_input_codebase_path: Final[str] = config["fuzz_svc_input_codebase_path"]
     _fuzzer_tool_timeout_seconds: Final[int] = config["fuzzer_tool_timeout_seconds"]
@@ -345,7 +350,7 @@ def main():
         )
         executable_name = os.path.splitext(source_file)[0]
         # Optionally, decide if the target takes input from a file (e.g. based on naming convention)
-        inputFromFile = executable_name.endswith("_f")
+        isInputFromFile = executable_name.endswith("_f")
 
         # Step 1: Run the AFL fuzzer
         fuzzer_started = run_fuzzer(
@@ -358,8 +363,7 @@ def main():
             _afl_tool_seed_input_path,
             _afl_tool_output_path,
             _fuzzer_tool_timeout_seconds,
-            inputFromFile,
-            isCodebase=True,
+            isInputFromFile,
         )
         if fuzzer_started:
             logger.info(f"Fuzzer started for {source_file}.")
@@ -368,21 +372,21 @@ def main():
 
         # Step 2: Extract crash inputs (if any)
         logger.info("Entering step 3: extract crash inputs")
-        crashes = extract_crashes(
+        crash_details = extract_crashes(
             _afl_tool_output_path,
             executable_name,
             config["iconv_tool_timeout"],
-            inputFromFile,
+            isInputFromFile,
         )
 
         # Process the crash outputs by appending to the appropriate CSV file.
-        if crashes:
-            logger.info(f"Found {len(crashes)} crash(es) for {source_file}:")
-            produce_output(executable_name, crashes, inputFromFile)
+        if crash_details:
+            logger.info(f"Found {len(crash_details)} crash(es) for {source_file}:")
+            produce_output(crash_details)
         else:
             logger.info(f"No crashes found for {source_file}.")
 
-    FUZZ_SVC_END_TIMESTAMP: Final[str] = datetime.now().isoformat(timespec="seconds")
+    FUZZ_SVC_END_TIMESTAMP: Final[str] = get_current_timestamp()
     time_delta = datetime.fromisoformat(
         FUZZ_SVC_END_TIMESTAMP
     ) - datetime.fromisoformat(FUZZ_SVC_START_TIMESTAMP)

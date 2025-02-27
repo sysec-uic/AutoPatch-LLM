@@ -1,12 +1,12 @@
 [project]
-name = "autopatch.fuzzing-service"
-version = "0.1.0"
-requires-python = ">=3.12.3"
-readme = "README.md"
+name = 'autopatch.fuzzing-service'
+version = '0.2.0'
+requires-python = '>=3.12.3'
+readme = 'README.md'
 
 [build-system]
-requires = ["setuptools >= 61.0"]
-build-backend = "setuptools.build_meta"
+requires = ['setuptools >= 61.0']
+build-backend = 'setuptools.build_meta'
 
 [tool.isort]
-profile = "black"
+profile = 'black'

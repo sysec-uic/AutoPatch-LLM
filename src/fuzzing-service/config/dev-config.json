@@ -14,7 +14,7 @@
     "afl_tool_seed_input_path": "/workspace/AutoPatch-LLM/src/fuzzing-service/seed_input",
     "afl_tool_output_path": "/workspace/AutoPatch-LLM/src/fuzzing-service/data/afl_tool_output",
     "afl_tool_child_process_memory_limit_mb": 1000,
-    "afl_tool_compiled_binary_executables_output_path": "/workspace/AutoPatch-LLM/src/fuzzing-service/executables_afl",
+    "afl_tool_compiled_binary_executables_output_path": "/workspace/AutoPatch-LLM/src/fuzzing-service/bin",
     "afl_compiler_tool_full_path": "/workspace/AutoPatch-LLM/bin/afl-2.52b/afl-gcc",
     "iconv_tool_timeout": 120,
     "mqtt_host": "localhost",
