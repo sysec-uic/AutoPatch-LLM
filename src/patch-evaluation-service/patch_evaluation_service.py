@@ -172,6 +172,7 @@ def run_file(
             return 1
         return e.returncode - 128
     except Exception as e:
+        logger.debug(f"Command run: {command}")
         logger.error(f"An exception occurred during runtime: {e}")
         return -1
 
@@ -195,7 +196,7 @@ def compile_file(file_path: str, file_name: str, executable_path: str) -> str:
             timeout=COMPILE_TIMEOUT,
             shell=True,
         )
-        logger.info(f"Compiled with command {command}")
+        logger.debug(f"Compiled with command {command}")
     except Exception as e:
         # move this to a log
         logger.error(f"An error occurred while compiling {file_path}: {e}")
@@ -253,36 +254,52 @@ def produce_output(
 
 
 def log_results(results: dict, results_path: str) -> None:
-    log_path = os.path.join(results_path, f"evaluation.txt")
+    log_path = os.path.join(results_path, f"evaluation.md")
+    csv_log_path = os.path.join(results_path, "evaluation.csv")
     total_crashes = 0
     total_patched_crashes = 0
+
     logger.info(f"Creating batched info file {log_path}.")
+    logger.info(f"Creating batched csv file {csv_log_path}.")
     with open(log_path, "w") as log:
-        log.write("Results of running patches:\n")
-        for executable_name in results.keys():
-            total = results[executable_name]["total_crashes"]
-            if total == 0:
-                continue
-            patched = results[executable_name]["patched_crashes"]
-            line = f"{executable_name}: fixed {patched} out of {total} crashes.\n"
+        with open(csv_log_path, "w") as csv_log:
+            log.write("# Results of running patches:\n")
+            csv_log.write(
+                "executable_name,triggers_addressed,triggers_total,success_rate,designation[S,P,F]\n"
+            )
+            for executable_name in results.keys():
+                total = results[executable_name]["total_crashes"]
+                if total == 0:
+                    continue
+                patched = results[executable_name]["patched_crashes"]
+                line = f"### {executable_name}\n"
+                log.write(line)
+                line = f"**Patch addresses {patched} out of {total} trigger conditions.**\n\n"
+                log.write(line)
+                success_rate = round(patched / total * 100, 2)
+                designation = ""
+                designation_shorthand = ""
+                if success_rate == 100:
+                    designation = "potential patch success."
+                    designation_shorthand = "S"
+                elif success_rate > 80:
+                    designation = "partial potential patch success."
+                    designation_shorthand = "P"
+                else:
+                    designation = "patch failure."
+                    designation_shorthand = "F"
+                line = f"**Patch is {success_rate}% successful: {designation}**\n\n"
+                log.write(line)
+                csv_log.write(
+                    f"{executable_name},{patched},{total},{success_rate},{designation_shorthand}\n"
+                )
+                total_crashes += total
+                total_patched_crashes += patched
+            if total_crashes == 0:
+                return
+            total_success_rate = round(total_patched_crashes / total_crashes * 100, 2)
+            line = f"\n ### Total success rate of {len(results.keys())} files is {total_patched_crashes} / {total_crashes}, or {total_success_rate}%.\n"
             log.write(line)
-            success_rate = round(patched / total * 100, 2)
-            designation = ""
-            if success_rate == 100:
-                designation = "potential patch success."
-            elif success_rate > 80:
-                designation = "partial potential patch success."
-            else:
-                designation = "patch failure."
-            line = f"Patch is {success_rate}% successful: {designation}\n"
-            log.write(line)
-            total_crashes += total
-            total_patched_crashes += patched
-        if total_crashes == 0:
-            return
-        total_success_rate = round(total_patched_crashes / total_crashes * 100, 2)
-        line = f"\nTotal success rate of {len(results.keys())} files is {total_patched_crashes} / {total_crashes}, or {total_success_rate}%.\n"
-        log.write(line)
 
 
 def main():
@@ -340,7 +357,6 @@ def main():
     inputFromFile = False
     for crash_file in os.listdir(_crashes_events_path):
         crash_path = os.path.join(_crashes_events_path, crash_file)
-        logger.info(f"FILE NAME OF CRASH: {str(crash_path)} ")
         with open(crash_path, "r") as _crash:
             crash = json.load(_crash)
             timestamp = crash["timestamp"]
