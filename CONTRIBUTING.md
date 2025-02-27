@@ -16,14 +16,7 @@ We use [pull requests](https://github.com/sysec-uic/AutoPatch-LLM/pulls) to cont
 
 2. **Write Descriptive Commit Messages**  
    - Clearly describe the changes in each commit.  
-   - Follow a structured format where possible:  
-     ```
-     <type>(<scope>): <description>
-     ```
-     Example:  
-     ```
-     fix(auth): resolve login timeout issue
-     ```
+   - Follow a structured format where possible
 
 3. **Draft Pull Requests**  
    - Draft PRs are welcome if you need early feedback or are blocked by an issue.  
