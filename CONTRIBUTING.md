@@ -1,11 +1,4 @@
 # Contributing Guidelines: How to Collaborate and Improve This Project  <!-- omit in toc -->
-- [Making a Pull Request](#making-a-pull-request)
-  - [**Steps to Submit a Pull Request**](#steps-to-submit-a-pull-request)
-  - [**Keeping Your Branch Up to Date**](#keeping-your-branch-up-to-date)
-- [Code Quality](#code-quality)
-- [Run the formatter](#run-the-formatter)
-- [Ensure linting passes](#ensure-linting-passes)
-- [Run tests (if applicable) and verify no regressions](#run-tests-if-applicable-and-verify-no-regressions)
 
 👋 Hi there!  
 
