@@ -10,6 +10,9 @@ includes:
  llm-dispatch:
     taskfile: ./src/llm-dispatch/Taskfile.yml
     dir: ./src/llm-dispatch
+ patch-evaluation-service:
+   taskfile: ./src/patch-evaluation-service/Taskfile.yml
+   dir: ./src/patch-evaluation-service
 
 tasks:
    test:
@@ -24,3 +27,4 @@ tasks:
       - "echo 'Running linter...'"
       - "echo Not Yet Implemented"
       # - task: autopatch:lint
+

@@ -1,0 +1,7 @@
+.env
+log/*
+data/*
+crash_events/
+patched_codes/
+bin/
+temp_crashes_files/
