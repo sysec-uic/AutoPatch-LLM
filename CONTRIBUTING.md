@@ -1,4 +1,12 @@
-# Contributing Guidelines: How to Collaborate and Improve This Project  
+# Contributing Guidelines: How to Collaborate and Improve This Project  <!-- omit in toc -->
+- [Submitting a Pull Request](#submitting-a-pull-request)
+  - [**Steps to Submit a Pull Request**](#steps-to-submit-a-pull-request)
+  - [**Keeping Your Branch Up to Date**](#keeping-your-branch-up-to-date)
+- [Code Quality](#code-quality)
+- [Run the formatter](#run-the-formatter)
+- [Ensure linting passes](#ensure-linting-passes)
+- [Run tests (if applicable) and verify no regressions](#run-tests-if-applicable-and-verify-no-regressions)
+- [Making a Pull Request](#making-a-pull-request)
 
 👋 Hi there!  
 
@@ -26,31 +34,31 @@ Before creating a pull request, ensure your branch is up to date with `main`:
 
 - git pull origin main
 
-# Code Quality
+## Code Quality
 
 All code must follow these standards before submission:
 
-## Run the formatter:
+## Run the formatter
 
-```bash
+```sh
 black .
 isort .
 ```
 
-## Ensure linting passes:
+## Ensure linting passes
 
-```bash
+```sh
 flake8
 ```
 
-## Run tests (if applicable) and verify no regressions:
-```
+## Run tests (if applicable) and verify no regressions
+```sh
 pytest
 ```
 
 ## Making a Pull Request
 - Ensure your branch is up to date with main.
-```
+```sh
 git pull origin main
 ```
 - Run all tests and fix any issues.
