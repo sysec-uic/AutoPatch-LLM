@@ -1,22 +1,23 @@
 # Contributing Guidelines: How to Collaborate and Improve This Project  <!-- omit in toc -->
-- [Submitting a Pull Request](#submitting-a-pull-request)
+- [Making a Pull Request](#making-a-pull-request)
   - [**Steps to Submit a Pull Request**](#steps-to-submit-a-pull-request)
   - [**Keeping Your Branch Up to Date**](#keeping-your-branch-up-to-date)
 - [Code Quality](#code-quality)
 - [Run the formatter](#run-the-formatter)
 - [Ensure linting passes](#ensure-linting-passes)
 - [Run tests (if applicable) and verify no regressions](#run-tests-if-applicable-and-verify-no-regressions)
-- [Making a Pull Request](#making-a-pull-request)
 
 👋 Hi there!  
 
 We're thrilled that you'd like to contribute to this project. Your help is essential for keeping it great. Please take a moment to review these guidelines to ensure a smooth contribution process.  
 
-## Submitting a Pull Request  
+## Making a Pull Request
 
 We use [pull requests](https://github.com/sysec-uic/AutoPatch-LLM/pulls) to contribute new features, fixes, or documentation.  
 
 ### **Steps to Submit a Pull Request**  
+
+Submit a pull request with a clear title and description, address any feedback from reviewers.
 
 1. **Keep Changes Focused**  
    - If making multiple changes that are not dependent on each other, submit them as separate pull requests.  
@@ -32,7 +33,9 @@ We use [pull requests](https://github.com/sysec-uic/AutoPatch-LLM/pulls) to cont
 ### **Keeping Your Branch Up to Date**  
 Before creating a pull request, ensure your branch is up to date with `main`:  
 
-- git pull origin main
+```sh
+git pull origin main
+```
 
 ## Code Quality
 
@@ -52,17 +55,9 @@ flake8
 ```
 
 ## Run tests (if applicable) and verify no regressions
+
 ```sh
 pytest
 ```
-
-## Making a Pull Request
-- Ensure your branch is up to date with main.
-```sh
-git pull origin main
-```
-- Run all tests and fix any issues.
-- Submit a pull request with a clear title and description.
-- Address any feedback from reviewers.
 
 By following these guidelines, you help maintain a clean and efficient codebase. Happy coding!
