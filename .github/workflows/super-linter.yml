@@ -1,0 +1,68 @@
+# .github/workflows/super-linter.yml
+name: Lint
+run-name: Lint by @${{ github.actor }}
+
+on: # yamllint disable-line rule:truthy
+  push: null
+  pull_request: null
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    # Super-linter workflow running in check only mode
+    # See https://github.com/super-linter/super-linter#get-started
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+      # To report GitHub Actions status checks
+      statuses: write
+    steps:
+      - name: Harden-Runner
+        uses: step-security/harden-runner@4d991eb9b905ef189e4c376166672c3f2f230481 # v2.11.0
+        with:
+          egress-policy: audit
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # super-linter needs the full git history to get the
+          # list of files that changed across commits
+          fetch-depth: 0
+          # only checkout the files under consideration for linting
+          sparse-checkout: |
+            .github
+            src
+      - name: Display stats for flake8 file
+        env:
+          PYTHON_FLAKE8_CONFIG_FILE: ${{ github.workspace }}/.flake8
+        run: stat ${{ env.PYTHON_FLAKE8_CONFIG_FILE }}
+      - name: Super-linter
+        uses: super-linter/super-linter@85f7611e0f7b53c8573cca84aa0ed4344f6f6a4d # v7.2.1 # x-release-please-version
+        env:
+          # To report GitHub Actions status checks only, allow devs to fix their own PRs
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FIX_MARKDOWN: false
+          FIX_MARKDOWN_PRETTIER: false
+          FIX_YAML_PRETTIER: false
+          FIX_JSON_PRETTIER: false
+          FIX_PYTHON_BLACK: false
+          FIX_PYTHON_ISORT: false
+          VALIDATE_MARKDOWN_PRETTIER: false
+          VALIDATE_JSON_PRETTIER: false
+          VALIDATE_YAML_PRETTIER: false
+          VALIDATE_SHELL_SHFMT: false
+          VALIDATE_PYTHON_MYPY: false
+          VALIDATE_PYTHON_PYINK: false
+          VALIDATE_PYTHON_PYLINT: false
+          VALIDATE_PYTHON_RUFF: false
+          VALIDATE_CLANG_FORMAT: false
+          VALIDATE_CPP: false
+          VALIDATE_JAVASCRIPT_STANDARD: false
+          VALIDATE_JAVASCRIPT_PRETTIER: false
+          VALIDATE_JSCPD: false
+          VALIDATE_CHECKOV: false
+          VALIDATE_BASH: false
+          VALIDATE_BASH_EXEC: false

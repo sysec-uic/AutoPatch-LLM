@@ -1,6 +1,4 @@
-# Pull Request Template
-
-## Title
+# Title
 <!-- Provide a short and descriptive title for your pull request -->
 
 ## Description
@@ -15,6 +13,9 @@
 - [ ] I have added tests that prove my fix is effective or that my feature works.
 - [ ] New and existing tests pass locally with my changes.
 - [ ] I have checked for any linting or style issues.
+
+## Related Issues
+<!-- Add any related work items -->
 
 ## Screenshots
 <!-- If applicable, add screenshots to help explain your changes. Example: -->

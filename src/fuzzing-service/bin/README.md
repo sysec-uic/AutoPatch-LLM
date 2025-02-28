@@ -1,0 +1,1 @@
+# this folder serves as the binary output folder of the AFL compile step of the fuzzing service component.  Do not Git commit generated binary files into this directory

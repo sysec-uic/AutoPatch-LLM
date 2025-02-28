@@ -1,4 +1,41 @@
-# AutoPatch: Automated Vulnerable Code Patching with AFL, ASan and GPT
+# AutoPatch: Automated Vulnerable Code Patching with AFL, ASan and GPT <!-- omit in toc -->
+- [CI Status](#ci-status)
+- [Introduction](#introduction)
+  - [Features](#features)
+- [How It Works](#how-it-works)
+- [Pre-requisites](#pre-requisites)
+- [How to Run](#how-to-run)
+- [Logging](#logging)
+- [Glossary](#glossary)
+
+
+High level design sequence diagram:
+```mermaid
+sequenceDiagram
+    AutoPatch-->>+CPG-Interface: Hello, may I have some context?
+    CPG-Interface->>CPG-DAL: CQRS
+    CPG-DAL->>CPG-Interface: CQRS
+    CPG-Interface-->>-AutoPatch: Hello, here is your context!
+    AutoPatch-->>+FuzzingService: Hello, may I have some context?
+    FuzzingService->>+MQTT/Filesystem: save data
+    MQTT/Filesystem-->>-FuzzingService: 
+    FuzzingService-->>-AutoPatch: Hello, here is your context!
+    AutoPatch->>+LLM-Dispatch: Hello, may I have some patches?
+    LLM-Dispatch->>+LLM [1..n]: Hello, may I have a patch?
+    LLM [1..n] ->>-LLM-Dispatch: 
+    LLM-Dispatch->>+MQTT/Filesystem: Save data
+    MQTT/Filesystem-->>-LLM-Dispatch: Save data
+    LLM-Dispatch->>-AutoPatch: Hello, here are your patches!
+    AutoPatch->>+EvaluationService: Hello, may I have some metrics?
+    EvaluationService-->>+MQTT/Filesystem: save data
+    EvaluationService->>-AutoPatch: Hello, here are your metrics!
+    AutoPatch-->>+AutoPatch: compile metrics / create report etc.
+    AutoPatch-->>+MQTT/Filesystem: save data
+```
+
+## CI Status
+[![Super-Linter](https://github.com/sysec-uic/AutoPatch-LLM/actions/workflows/super-linter.yml/badge.svg)](https://github.com/marketplace/actions/super-linter)
+
 
 ## Introduction  
 
@@ -38,27 +75,22 @@ AutoPatch is a GenAI-assisted tool designed to automatically detect and patch bu
    You must log in as root OUTSIDE of a devcontainer and edit the `/proc/sys/kernel/core_pattern` file to read only "core" on the first line before proceeding
 
 ## How to Run
-If  
 
 1. Clone the repository.  
-2. Run the script:
-   ```bash
-   python3 main/main.py
-   ```
+2. Run the script: `python3 main/main.py`
 
 ## Logging
 
-- Automatically generates separate log directories and files for the ASan compiler output (asan_bugLog) and AFL compiler output (afl_bugLog).
-Example of afl_bugLog/vulnerable.txt:
-![afl_buglog_vulnerable_log_example](./docs/images/afl_buglog_vulnerable_log_example.jpeg)
+![`2025-02-25 02:53:34,846 - autopatch.fuzzing-service - INFO - Logger initialized successfully.`](docs/images/structured-logging.png)
 
-- Automatically logs commands executed during the running of the service in the command_logs directory. This is very useful for troubleshooting errors in the main service execution.
-![command_log_vulnerable_log](./docs/images/command_log_vulnerable_log.jpeg)
+- Uses structured logging via the python stdlib interface which is forward compatible with OTEL.  By default:
+  - INFO and ERROR messages use a Console handler capturing stdout and stderr
+  - DEBUG messages are logged to files.  The default config works out of the box with the dev container.  Update the file path in a service's `logging-config.json` to `/app/logs/debug.log` if running in a docker compose or kubernetes context
 
 ## Glossary
+
 - **Memory Safety Bug**: a vulnerability in which memory is accessed or written in a way that violates the logic (intention) or safety of the program, or performs actions outside of the permitted memory of that program. Common examples include buffer overflow, memory leaks, and use after free. If these vulnerabilities can be exposed by specific input by a user, they can be exploited.
 - **Address Sanitizer**: a compilation tool that is capable of improving recognition of memory safety bugs beyond the base compiler. Utilized by a command line argument at compilation time, and can be added as an argument in afl compilation. ASan is the alias commonly used.
 - **Bug Log**: the log made at compile time of a program, contains the output (warnings, errors, or ASan messages depending on the compilation context) of the compilation.
 - **Fuzzer**: a tool that seeks to find all the control flow areas of a program that takes input (via file or stdin) by mutating the input, and logs any crashes or hangs. For more detailed information on fuzzing, refer to docs/QuickStart.md.
 - **LLM**: large language model, such as GPT, LLAMA, or DeepSeek.
-

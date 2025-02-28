@@ -3,17 +3,14 @@
 venv/
 .task/
 
-src/asan_bugLog/
-src/afl_bugLog/
-src/executables/
-src/executables_afl/
-src/output*/
-src/patched_codes/
-src/command_log/
+# Super-linter outputs
+super-linter-output
+super-linter.log
 
-afl-2.52b/
+# GitHub Actions leftovers
+github_conf
 
-
+# macos
 .DS_Store
 
 ### Linux ###
