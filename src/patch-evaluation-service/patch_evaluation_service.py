@@ -246,9 +246,7 @@ def produce_output(
     return_code: int,
     inputFromFile: bool,
 ) -> None:
-    csv_path: Final[str] = os.path.join(
-        results_path, f"{executable_name}_evaluation.csv"
-    )
+    csv_path: Final[str] = os.path.join(results_path, f"{executable_name}.csv")
 
     write_crashes_csv(crash_detail, return_code, csv_path, inputFromFile)
 
