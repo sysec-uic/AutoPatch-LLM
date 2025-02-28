@@ -37,7 +37,7 @@ tasks:
   rm-dirs-for-dev:
     desc: removes the subdirectories within the executables and data directories.
     cmds:
-      - rm -rf ./executables/*
+      - rm -rf ./bin/executables/*
       - rm -rf ./data/*
       - rm -rf ./temp_crashes_files/*
       - rm -rf ./log/*
