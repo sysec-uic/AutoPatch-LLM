@@ -1,7 +1,7 @@
 {
     "python.testing.pytestArgs": [
-        "src", "--ignore=src/fuzzing-service/data"
+        "src"
     ],
     "python.testing.unittestEnabled": false,
-    "python.testing.pytestEnabled": true
+    "python.testing.pytestEnabled": true,
 }

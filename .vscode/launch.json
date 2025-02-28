@@ -10,7 +10,6 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "envFile": "/workspace/AutoPatch-LLM/src/fuzzing-service/.env",
         },
         {
             "name": "Python Debugger: AutoPatch Main",

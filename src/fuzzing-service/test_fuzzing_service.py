@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 import subprocess
@@ -7,6 +8,7 @@ from unittest.mock import mock_open
 
 import fuzzing_service as fuzzing_service
 import pytest
+from autopatchdatatypes import CrashDetail
 
 # Import the function to test from the module.
 from fuzzing_service import (
@@ -61,24 +63,32 @@ def dummy_logger(monkeypatch):
 def test_write_crashes_csv_new_file_input_from_file(tmp_path):
     """
     Test that when the CSV file does not exist, the header is written,
-    and when inputFromFile is True, the crashes (as strings) are written.
+    and when isInputFromFile is True, the crashes (as strings) are written.
     """
     csv_path = tmp_path / "crashes.csv"
     executable_name = "test_exe"
-    crashes = ["crash1", "crash2"]
+    dummy_base64_messages = ["crash1", "crash2"]
+    dummy_base64_messages = [
+        base64.b64encode(msg.encode("utf-8")).decode("utf-8")
+        for msg in dummy_base64_messages
+    ]
+    crash_details = [
+        CrashDetail(executable_name, base64_message, True)
+        for base64_message in dummy_base64_messages
+    ]
 
     # Call the function (it should create the file and write the header).
-    write_crashes_csv(executable_name, crashes, str(csv_path), True)
+    write_crashes_csv(crash_details, str(csv_path))
 
     # Read back the file.
     content = csv_path.read_text(encoding="utf-8")
     lines = content.splitlines()
 
     # Verify header is present.
-    assert lines[0] == "timestamp,executable_name,crash_detail,inputFromFile"
+    assert lines[0] == "timestamp,executable_name,crash_detail_base64,isInputFromFile"
     # Each crash line uses the fixed timestamp.
-    expected_line1 = f"2025-01-01T12:00:00Z,{executable_name},crash1,True"
-    expected_line2 = f"2025-01-01T12:00:00Z,{executable_name},crash2,True"
+    expected_line1 = f"2025-01-01T12:00:00Z,{crash_details[0].executable_name},{crash_details[0].base64_message},{crash_details[0].is_input_from_file}"
+    expected_line2 = f"2025-01-01T12:00:00Z,{crash_details[1].executable_name},{crash_details[1].base64_message},{crash_details[1].is_input_from_file}"
     assert lines[1] == expected_line1
     assert lines[2] == expected_line2
 
@@ -86,28 +96,34 @@ def test_write_crashes_csv_new_file_input_from_file(tmp_path):
 def test_write_crashes_csv_existing_file_no_header(tmp_path):
     """
     Test that if the CSV file already exists and is non-empty,
-    the header is not re-written. Also test the raw-bytes branch.
+    the header is not re-written.
     """
     csv_path = tmp_path / "crashes.csv"
     # Create a file with a header already.
-    header = "timestamp,executable_name,crash_detail,inputFromFile\n"
+    header = "timestamp,executable_name,crash_detail,isInputFromFile\n"
     csv_path.write_text(header, encoding="utf-8")
 
     executable_name = "test_exe"
-    # Provide crashes as raw bytes.
-    crashes = [b"\xde\xad", b"\xbe\xef"]
+    dummy_base64_messages = ["crash1", "crash2"]
+    dummy_base64_messages = [
+        base64.b64encode(msg.encode("utf-8")).decode("utf-8")
+        for msg in dummy_base64_messages
+    ]
+    crash_details = [
+        CrashDetail(executable_name, crash, False) for crash in dummy_base64_messages
+    ]
 
-    write_crashes_csv(executable_name, crashes, str(csv_path), False)
+    write_crashes_csv(crash_details, str(csv_path))
 
     content = csv_path.read_text(encoding="utf-8")
     lines = content.splitlines()
 
     # The first line should still be the original header.
-    assert lines[0] == "timestamp,executable_name,crash_detail,inputFromFile"
+    assert lines[0] == "timestamp,executable_name,crash_detail,isInputFromFile"
 
     # Compute the expected hex values.
-    expected_line1 = f"2025-01-01T12:00:00Z,{executable_name},{b'\xde\xad'.hex()},False"
-    expected_line2 = f"2025-01-01T12:00:00Z,{executable_name},{b'\xbe\xef'.hex()},False"
+    expected_line1 = f"2025-01-01T12:00:00Z,{crash_details[0].executable_name},{crash_details[0].base64_message},{crash_details[0].is_input_from_file}"
+    expected_line2 = f"2025-01-01T12:00:00Z,{crash_details[1].executable_name},{crash_details[1].base64_message},{crash_details[1].is_input_from_file}"
     assert lines[1] == expected_line1
     assert lines[2] == expected_line2
 
@@ -118,16 +134,15 @@ def test_write_crashes_csv_empty_crashes(tmp_path):
     only the header is written.
     """
     csv_path = tmp_path / "crashes.csv"
-    executable_name = "test_exe"
     crashes = []
 
-    write_crashes_csv(executable_name, crashes, str(csv_path), True)
+    write_crashes_csv(crashes, str(csv_path))
 
     content = csv_path.read_text(encoding="utf-8")
     lines = content.splitlines()
 
     # Only the header should be present.
-    assert lines == ["timestamp,executable_name,crash_detail,inputFromFile"]
+    assert lines == ["timestamp,executable_name,crash_detail_base64,isInputFromFile"]
 
 
 def test_write_crashes_csv_creates_directory(tmp_path):
@@ -138,19 +153,20 @@ def test_write_crashes_csv_creates_directory(tmp_path):
     subdir = tmp_path / "nonexistent_dir"
     csv_path = subdir / "crashes.csv"
     executable_name = "test_exe"
-    crashes = ["crash_in_dir"]
+    base64_encoded_message = base64.b64encode(b"crash_in_dir").decode("utf-8")
+    crash_details = [CrashDetail(executable_name, base64_encoded_message, True)]
 
     # Ensure the subdirectory does not exist yet.
     assert not subdir.exists()
 
-    write_crashes_csv(executable_name, crashes, str(csv_path), True)
+    write_crashes_csv(crash_details, str(csv_path))
 
     # Now the directory should have been created.
     assert subdir.exists()
 
     content = csv_path.read_text(encoding="utf-8")
     lines = content.splitlines()
-    expected_line = f"2025-01-01T12:00:00Z,{executable_name},crash_in_dir,True"
+    expected_line = f"2025-01-01T12:00:00Z,{crash_details[0].executable_name},{crash_details[0].base64_message},{crash_details[0].is_input_from_file}"
     # Header is the first line.
     assert lines[1] == expected_line
 
@@ -161,12 +177,17 @@ def test_write_crashes_csv_logger_called(tmp_path, dummy_logger):
     """
     csv_path = tmp_path / "crashes.csv"
     executable_name = "test_exe"
-    crashes = ["log_crash1", "log_crash2"]
+    log_crash1_base64 = base64.b64encode(b"log_crash1").decode("utf-8")
+    log_crash2_base64 = base64.b64encode(b"log_crash2").decode("utf-8")
+    dummy_base64_messages = [log_crash1_base64, log_crash2_base64]
+    crash_details = [
+        CrashDetail(executable_name, crash, True) for crash in dummy_base64_messages
+    ]
 
-    write_crashes_csv(executable_name, crashes, str(csv_path), True)
+    write_crashes_csv(crash_details, str(csv_path))
 
     # Verify that a log entry was recorded for each crash.
-    expected_messages = [f"  - {crash}" for crash in crashes]
+    expected_messages = [f"  - {crash}" for crash in crash_details]
     assert dummy_logger.messages == expected_messages
 
 
@@ -346,7 +367,7 @@ def test_run_fuzzer_success(monkeypatch):
 
     monkeypatch.setattr(os.path, "exists", fake_exists)
 
-    # Run with inputFromFile = True and then with False.
+    # Run with isInputFromFile = True and then with False.
     ret = run_fuzzer(
         executable_name,
         codebase_path,
@@ -357,7 +378,7 @@ def test_run_fuzzer_success(monkeypatch):
         fuzzer_seed_input_path,
         fuzzer_output_path,
         fuzzer_timeout,
-        inputFromFile=True,
+        isInputFromFile=True,
     )
     assert ret is True
 
@@ -371,7 +392,7 @@ def test_run_fuzzer_success(monkeypatch):
         fuzzer_seed_input_path,
         fuzzer_output_path,
         fuzzer_timeout,
-        inputFromFile=False,
+        isInputFromFile=False,
     )
     assert ret is True
 
@@ -400,7 +421,7 @@ def test_run_fuzzer_compile_failure(monkeypatch):
         raise subprocess.CalledProcessError(1, args[0], output="error")
 
     monkeypatch.setattr(subprocess, "run", fake_run_fail)
-    ret = run_fuzzer(executable_name, *dummy_args, inputFromFile=False)
+    ret = run_fuzzer(executable_name, *dummy_args, isInputFromFile=False)
     assert ret is False
 
 
@@ -430,7 +451,7 @@ def test_run_fuzzer_popen_failure(monkeypatch):
         "Popen",
         lambda *args, **kwargs: (_ for _ in ()).throw(Exception("Popen failed")),
     )
-    ret = run_fuzzer(executable_name, *dummy_args, inputFromFile=False)
+    ret = run_fuzzer(executable_name, *dummy_args, isInputFromFile=False)
     assert ret is False
 
 
@@ -445,6 +466,6 @@ def test_extract_crashes_no_directory(monkeypatch):
         os, "listdir", lambda path: (_ for _ in ()).throw(FileNotFoundError)
     )
     crashes = extract_crashes(
-        "/nonexistent/path", "testprog", timeout=5, inputFromFile=True
+        "/nonexistent/path", "testprog", timeout=5, isInputFromFile=True
     )
     assert crashes == []

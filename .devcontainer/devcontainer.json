@@ -61,14 +61,15 @@
 				"ms-python.black-formatter",
 				"mechatroner.rainbow-csv",
 				"bierner.markdown-mermaid",
-				"bpruitt-goddard.mermaid-markdown-syntax-highlighting"
+				"bpruitt-goddard.mermaid-markdown-syntax-highlighting",
+				"MS-vsliveshare.vsliveshare"
 			],
 			"settings": {
 				"[python]": {
 					"editor.formatOnSave": true,
 					"editor.defaultFormatter": "ms-python.black-formatter",
 					"editor.codeActionsOnSave": {
-						"source.organizeImports": "explicit"
+						"source.sortImports": "explicit"
 					},
 					"isort.args": [
 						"--settings-path", "${workspaceFolder}"
@@ -77,7 +78,10 @@
 			}
 		}
 	},
-	"runArgs": ["--env-file",".devcontainer/devcontainer.env"],
+	"runArgs": [
+		"--network", "autopatch-llm_autopatch-docker-network",
+		"--env-file", ".devcontainer/devcontainer.env"
+	],
 	"postCreateCommand": "task autopatch:install-devtools -- --break-system-packages",
 	"postStartCommand": "fastfetch && black --version && coverage --version && echo -n 'isort version: ' && isort --version-number",
 	"workspaceMount": "source=${localWorkspaceFolder},target=/workspace/AutoPatch-LLM,type=bind",
