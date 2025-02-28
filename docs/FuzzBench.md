@@ -67,7 +67,7 @@ report_filestore: /tmp/report-data
 # Flag that indicates this is a local experiment.
 local_experiment: true
 ```
-**Note**: Ensure you use absolute paths for both experiment_filestore and report_filestore.
+**Note**: Ensure you use absolute paths for both **experiment_filestore** and **report_filestore**.
 
 ## 4. Execute the fuzzer(s):
 Define an environment variable for your experiment name:
