@@ -3,9 +3,12 @@
     "appname": "autopatch.fuzzing-service",
     "logging_config" : "/workspace/AutoPatch-LLM/src/fuzzing-service/config/logging-config.json",
     "concurrency_threshold": 10,
+    "message_broker_host": "mosquitto",
+    "message_broker_port": 1883,
+    "message_broker_protocol": "mqtt",
+    "fuzz_svc_output_topic": "autopatch/crash_detail-v0.2.0",
     "fuzz_svc_input_codebase_path": "/workspace/AutoPatch-LLM/assets/input_codebase",
     "fuzz_svc_output_path": "/workspace/AutoPatch-LLM/src/fuzzing-service/data",
-    "fuzz_svc_output_topic": "fuzz-svc/output",
     "compiler_warning_flags": "-Wall -Wextra -Wformat -Wshift-overflow -Wcast-align -Wstrict-overflow",
     "compiler_feature_flags": "-m32 -fno-stack-protector -O1 -fsanitize=address",
     "fuzzer_tool_name": "afl",
@@ -18,6 +21,7 @@
     "afl_tool_compiled_binary_executables_output_path": "/workspace/AutoPatch-LLM/src/fuzzing-service/bin",
     "afl_compiler_tool_full_path": "/workspace/AutoPatch-LLM/bin/afl-2.52b/afl-gcc",
     "iconv_tool_timeout": 120,
-    "mqtt_host": "localhost",
-    "mqtt_port": 1883
+    "message_broker_ca_certs": "./server-ca.crt",
+    "message_broker_certfile": "./client.crt",
+    "message_broker_keyfile": "./client.key"
 }

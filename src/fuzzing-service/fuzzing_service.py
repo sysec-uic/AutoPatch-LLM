@@ -7,6 +7,10 @@ import os
 import signal
 import subprocess
 import sys
+import time
+import uuid
+import paho.mqtt.client as mqtt_client
+import paho.mqtt.enums as mqtt_enums
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Final, List
@@ -27,9 +31,12 @@ class Config:
     appname: str
     logging_config: str
     concurrency_threshold: int
+    message_broker_host: str
+    message_broker_port: int
+    message_broker_protocol: str
+    fuzz_svc_output_topic: str
     fuzz_svc_input_codebase_path: str
     fuzz_svc_output_path: str
-    fuzz_svc_output_topic: str
     compiler_warning_flags: str
     compiler_feature_flags: str
     fuzzer_tool_name: str
@@ -42,8 +49,9 @@ class Config:
     afl_tool_compiled_binary_executables_output_path: str
     afl_compiler_tool_full_path: str
     iconv_tool_timeout: int
-    mqtt_host: str
-    mqtt_port: int = 1833
+    message_broker_ca_certs: str
+    message_broker_certfile: str
+    message_broker_keyfile: str
 
 
 def init_logging(logging_config: str, appname: str) -> logging.Logger:
@@ -355,28 +363,98 @@ async def MapCrashDetailsAsCloudEvents(
     return results
 
 
+class MessageBrokerClient:
+    def __init__(self):
+        self.client = self.connect_message_broker
+        self.FIRST_RECONNECT_DELAY = 1
+        self.RECONNECT_RATE = 2
+        self.MAX_RECONNECT_COUNT = 12
+        self.MAX_RECONNECT_DELAY = 60
+
+    def is_connected(self) -> bool:
+        return self.client.is_connected()
+
+    def connect_message_broker(self) -> mqtt_client.Client:
+        def on_connect(client, userdata, flags, rc):
+            if rc == 0:
+                logger.info("Connected to MQTT Broker!")
+            else:
+                logger.error("Failed to connect to MQTT Broker!")
+                logger.debug("Failed to connect, return code %d\n", rc)
+
+        def on_disconnect(self, client, userdata, rc):
+            logging.info("Disconnected with result code: %s", rc)
+            reconnect_count, reconnect_delay = 0, self.FIRST_RECONNECT_DELAY
+            while reconnect_count < self.MAX_RECONNECT_COUNT:
+                logging.info("Reconnecting in %d seconds...", reconnect_delay)
+                time.sleep(reconnect_delay)
+
+                try:
+                    client.reconnect()
+                    logging.info("Reconnected successfully!")
+                    return
+                except Exception as err:
+                    logging.error("%s. Reconnect failed. Retrying...", err)
+
+                reconnect_delay *= self.RECONNECT_RATE
+                reconnect_delay = min(reconnect_delay, self.MAX_RECONNECT_DELAY)
+                reconnect_count += 1
+            logging.info(
+                "Reconnect failed after %s attempts. Exiting...", reconnect_count
+            )
+
+        def on_publish(client, userdata, mid):
+            logger.info("Message %s published", mid)
+
+        def generate_uuid():
+            return str(uuid.uuid4())
+
+        # Generate a Client ID with the publish prefix.
+        client_id = f"publish-{generate_uuid()}"
+        client = mqtt_client.Client(
+            client_id=client_id,
+            callback_api_version=mqtt_enums.CallbackAPIVersion.VERSION2,
+        )
+        # client.username_pw_set(username, password)
+        # client.tls_set(
+        #     ca_certs=config["message_broker_ca_certs"], certfile=config["message_broker_certfile"], keyfile=config["message_broker_keyfile"]
+        # )
+        client.on_connect = on_connect
+        client.on_disconnect = on_disconnect
+        client.on_publish = on_publish
+        client.connect(config["message_broker_host"], config["message_broker_port"])
+        return client
+
+    def publish(self, topic: str, message: str) -> None:
+        """
+        Publish a message to the specified topic.
+        """
+        # at least once delivery, publish is non-blocking by default
+        result: mqtt_client.MQTTMessageInfo = self.client.publish(topic, message, qos=1)
+        if result.rc != mqtt_enums.MQTTErrorCode.MQTT_ERR_SUCCESS:
+            logger.error(f"Failed to send message to topic `{topic}`")
+            return
+
+
 async def produce_output(crash_details: List[CrashDetail]) -> None:
-    crash_details_cloud_events = await MapCrashDetailsAsCloudEvents(crash_details)
-    logger.info(f"Producing {len(crash_details_cloud_events)} CloudEvents.")
 
-    def produce_event(event):
+    async def produce_event(event):
+        logger.debug(f"Producing on Topic: {config['fuzz_svc_output_topic']}")
         logger.debug(f"Producing CloudEvent: {event}")
-        # not yet implemented
-        # todo implement MQTT producer
-        # producer.produce(config["fuzz_svc_output_topic"], event)
+        message_broker_producer.publish(config["fuzz_svc_output_topic"], event)
 
-    async def produce_event_async(event):
-        loop = asyncio.get_running_loop()
-        await loop.run_in_executor(None, produce_event, event)
+    crash_details_cloud_events = await MapCrashDetailsAsCloudEvents(crash_details)
+    message_broker_producer: Final[MessageBrokerClient] = MessageBrokerClient()
 
+    logger.info(f"Producing {len(crash_details_cloud_events)} CloudEvents.")
     if len(crash_details_cloud_events) > config["concurrency_threshold"]:
         # Run in parallel using asyncio.gather
-        tasks = [produce_event_async(event) for event in crash_details_cloud_events]
+        tasks = [produce_event(event) for event in crash_details_cloud_events]
         await asyncio.gather(*tasks)
     else:
         # Run sequentially
         for event in crash_details_cloud_events:
-            await produce_event_async(event)
+            await produce_event(event)
 
     csv_path: Final[str] = os.path.join(config["fuzz_svc_output_path"], "crashes.csv")
     write_crashes_csv(crash_details, csv_path)
@@ -387,6 +465,7 @@ async def main():
 
     config = load_config()
     logger = init_logging(config["logging_config"], config["appname"])
+    message_broker_producer = MessageBrokerClient()
 
     FUZZ_SVC_START_TIMESTAMP: Final[str] = get_current_timestamp()
 
