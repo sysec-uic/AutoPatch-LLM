@@ -41,7 +41,6 @@ For each execution of the service, two batched information files are created:
 - update to using the CrashDetail object
 - mqtt
 - take input from output of patching service
-- create batched results csv (headers: executable name, # triggers addressed, # triggers failed to address, success %, success designation [S, P, F])
 - testing suite
   
 
