@@ -105,5 +105,3 @@ grep "uniq crashes found" /tmp/experiment-data/* -rn | less
 /tmp/experiment-data/myexp/experiment-folders/harfbuzz_hb-shape-fuzzer_17863b-afl/trial-6/results/fuzzer-log.txt:2379:[*] Fuzzi
 ng test case #2437 (6086 total, 23 uniq crashes found)...
 ```
-
-Happy fuzzing!
