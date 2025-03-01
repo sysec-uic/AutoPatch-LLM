@@ -21,7 +21,7 @@ Install the necessary build tools and Python development libraries:
 sudo apt-get install -y build-essential
 sudo apt-get install -y python3.10-dev python3.10-venv
 ```
-
+REF: https://google.github.io/fuzzbench/getting-started/prerequisites/
 ## 2. Configure Core Dumps if Running FuzzBench on Google Cloud VM
 
 If you are running on a Google Cloud VM, you might need to reset the core dump naming pattern. This helps ensure that core dump files are generated correctly when a program crashes:
