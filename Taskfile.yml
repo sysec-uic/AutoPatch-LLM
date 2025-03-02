@@ -1,22 +1,25 @@
 version: '3'
 
 includes:
- autopatch:
-    taskfile: ./src/Taskfile.yml
-    dir: ./src
- fuzzing-service:
-    taskfile: ./src/fuzzing-service/Taskfile.yml
-    dir: ./src/fuzzing-service
- llm-dispatch:
-    taskfile: ./src/llm-dispatch/Taskfile.yml
-    dir: ./src/llm-dispatch
+   autopatch:
+      taskfile: ./src/Taskfile.yml
+      dir: ./src
+   fuzzing-service:
+      taskfile: ./src/fuzzing-service/Taskfile.yml
+      dir: ./src/fuzzing-service
+   llm-dispatch:
+      taskfile: ./src/llm-dispatch/Taskfile.yml
+      dir: ./src/llm-dispatch
+   autopatchdatatypes:
+      taskfile: ./src/autopatchdatatypes/Taskfile.yml
+      dir: ./src/autopatchdatatypes
 
 tasks:
    test:
       desc: Run tests
       cmds:
          - "echo 'Running tests...'"
-         - "echo Not Yet Implemented"
+         - task fuzzing-service:test
          # - task: autopatch:test
    lint:
       desc: Run linter
