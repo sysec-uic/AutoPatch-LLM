@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - "main"
+      - "feature/automatic-pre-release-latest-dev-buildfeature/automatic-pre-release-latest-dev-build"
 
 env:
   PYTHON_VERSION: "3.12.3"
