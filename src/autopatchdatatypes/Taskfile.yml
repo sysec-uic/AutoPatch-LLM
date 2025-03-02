@@ -14,4 +14,9 @@ tasks:
     cmds:
       - echo "Installing AutoPatch datatypes"
       - pip install {{.CLI_ARGS}} $ARGS ./dist/*.whl
+  test:
+    desc: Run AutoPatch Datatypes automated tests
+    cmds:
+      - echo "Running AutoPatch Datatypes automated tests"
+      - pytest
     
