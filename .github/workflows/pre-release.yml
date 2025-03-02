@@ -43,7 +43,10 @@ jobs:
           python -m pip install --upgrade pip
       - name: Install build module
         run: |
-          pip install build
+          pip install build==1.2.2.post1
+      - name: Install test module
+        run: |
+          pip install pytest==8.3.4
       - name: Build AutoPatch.Datatypes Package
         run: task autopatchdatatypes:build
       - name: Install AutoPatch.Datatypes Package
