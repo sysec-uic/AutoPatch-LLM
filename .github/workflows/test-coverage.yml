@@ -57,7 +57,7 @@ jobs:
           pip install pytest==8.3.4 pytest-cov==6.0.0
       - name: Run tests with coverage
         run: |
-          pytest --cov=. --cov-report=xml
+          pytest --junitxml=pytest.xml --cov=. --cov-report=xml
       - name: Publish coverage report
         uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
         with:
@@ -67,3 +67,4 @@ jobs:
         uses: MishaKav/pytest-coverage-comment@81882822c5b22af01f91bd3eacb1cefb6ad73dc2 # v1.1.53
         with:
           pytest-xml-coverage-path: ./coverage.xml
+          junitxml-path: ./pytest.xml
