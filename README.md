@@ -1,4 +1,4 @@
-# AutoPatch: Automated Vulnerable Code Patching with AFL, ASan and GPT <!-- omit in toc -->
+# **AutoPatch: Automated Memory Safety CVE Patching Using a Competitive Ensemble of LLMs with Fuzzing, Address Sanitization, and Code Property Graphs** <!-- omit in toc -->
 - [CI Status](#ci-status)
 - [Introduction](#introduction)
   - [Features](#features)
@@ -8,29 +8,34 @@
 - [Logging](#logging)
 - [Glossary](#glossary)
 
-
 High level design sequence diagram:
 ```mermaid
 sequenceDiagram
-    AutoPatch-->>+CPG-Interface: Hello, may I have some context?
-    CPG-Interface->>CPG-DAL: CQRS
-    CPG-DAL->>CPG-Interface: CQRS
-    CPG-Interface-->>-AutoPatch: Hello, here is your context!
-    AutoPatch-->>+FuzzingService: Hello, may I have some context?
-    FuzzingService->>+MQTT/Filesystem: save data
-    MQTT/Filesystem-->>-FuzzingService: 
-    FuzzingService-->>-AutoPatch: Hello, here is your context!
-    AutoPatch->>+LLM-Dispatch: Hello, may I have some patches?
+    AutoPatch-->>+AutoPatch: onInvoke()
+    FuzzingService->>+FuzzingService: onInvoke()
+    FuzzingService->>FuzzingService: Discover 1..n C programs w/ memory safety CVEs in trusted repo
+    FuzzingService->>FuzzingService: Perform fuzzing over 1...n C programs w/ memory safety bug CVE
+    FuzzingService-->>FuzzingService: ∀ Produce (Autopatch.CrashDetail)
+    FuzzingService->>-FuzzingService: ∀ Write CSV Entry
+    PatchEvaluationService->>+PatchEvaluationService: onConsume(AutoPatch.CrashDetail) as CloudEvent on 'autopatch/crash-detail-v1'   
+    deactivate PatchEvaluationService
+    AutoPatch->>+LLM-Dispatch: QueueRequestPatches([...]) or Produce(AutoPatch.CvePatchRequest)
+    LLM-Dispatch-->>LLM-Dispatch: onConsume(AutoPatch.CvePatchRequest)
+    deactivate LLM-Dispatch
+    AutoPatch->>+CPG-Interface: Invoke_Get_Context([...])
+    CPG-Interface->>+CPG-DAL: CQRS
+    CPG-DAL-->>-CPG-Interface: CQRS
+    CPG-Interface-->>-AutoPatch: Return Invoke_Get_Context([...])
+    AutoPatch-->>AutoPatch: correlate Context (Fuzzing, CPG, etc.) with CVE and UUID
+    AutoPatch-->>-AutoPatch: Produce(AutoPatch.CvePatchRequest)
+    LLM-Dispatch->>+LLM-Dispatch: onConsume(AutoPatch.CvePatchRequest)
     LLM-Dispatch->>+LLM [1..n]: Hello, may I have a patch?
-    LLM [1..n] ->>-LLM-Dispatch: 
-    LLM-Dispatch->>+MQTT/Filesystem: Save data
-    MQTT/Filesystem-->>-LLM-Dispatch: Save data
-    LLM-Dispatch->>-AutoPatch: Hello, here are your patches!
-    AutoPatch->>+EvaluationService: Hello, may I have some metrics?
-    EvaluationService-->>+MQTT/Filesystem: save data
-    EvaluationService->>-AutoPatch: Hello, here are your metrics!
+    LLM [1..n]-->>-LLM-Dispatch: 
+    LLM-Dispatch->>-LLM-Dispatch: Produce (Autopatch.CvePatchCandidate) as CloudEvent on 'autopatch/cve-patch-candidate-v1'
+    PatchEvaluationService->>+PatchEvaluationService: onConsume(AutoPatch.CvePatchCandidate) 
+    PatchEvaluationService->>-PatchEvaluationService: produce autopatch.patch-evaluation-result
     AutoPatch-->>+AutoPatch: compile metrics / create report etc.
-    AutoPatch-->>+MQTT/Filesystem: save data
+    deactivate AutoPatch
 ```
 
 ## CI Status
