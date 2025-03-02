@@ -19,8 +19,7 @@ tasks:
       desc: Run tests
       cmds:
          - "echo 'Running tests...'"
-         - task fuzzing-service:test
-         # - task: autopatch:test
+         - pytest
    lint:
       desc: Run linter
       cmds:
