@@ -1,0 +1,22 @@
+version: '3'
+
+env:
+  ARGS: --break-system-packages # Use this If you are installing packages using the Taskfile Extension for VSCode UI and devcontainer
+
+tasks:
+  build:
+    desc: Build AutoPatch datatypes
+    cmds:
+      - echo "Building AutoPatch datatypes"
+      - python -m build
+  install:
+    desc: Install AutoPatch datatypes
+    cmds:
+      - echo "Installing AutoPatch datatypes"
+      - pip install {{.CLI_ARGS}} $ARGS ./dist/*.whl
+  test:
+    desc: Run AutoPatch Datatypes automated tests
+    cmds:
+      - echo "Running AutoPatch Datatypes automated tests"
+      - pytest
+    

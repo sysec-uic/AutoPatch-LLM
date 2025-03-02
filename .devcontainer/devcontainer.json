@@ -62,7 +62,8 @@
 				"mechatroner.rainbow-csv",
 				"bierner.markdown-mermaid",
 				"bpruitt-goddard.mermaid-markdown-syntax-highlighting",
-				"MS-vsliveshare.vsliveshare"
+				"MS-vsliveshare.vsliveshare",
+				"GitHub.vscode-github-actions"
 			],
 			"settings": {
 				"[python]": {
