@@ -5,6 +5,9 @@ run-name: Test & Coverage by @${{ github.actor }}
 
 on:
   workflow_dispatch:  
+  push:
+    branches:
+      - 'feature/CI-test-coverage'
   pull_request:
     branches:
       - main
