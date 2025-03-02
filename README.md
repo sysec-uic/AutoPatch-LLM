@@ -1,5 +1,6 @@
 # **AutoPatch: Automated Memory Safety CVE Patching Using a Competitive Ensemble of LLMs with Fuzzing, Address Sanitization, and Code Property Graphs** <!-- omit in toc -->
 - [CI Status](#ci-status)
+- [Project MetaData](#project-metadata)
 - [Introduction](#introduction)
   - [Features](#features)
 - [How It Works](#how-it-works)
@@ -40,6 +41,10 @@ sequenceDiagram
 
 ## CI Status
 [![Super-Linter](https://github.com/sysec-uic/AutoPatch-LLM/actions/workflows/super-linter.yml/badge.svg)](https://github.com/marketplace/actions/super-linter)
+
+## Project MetaData
+![Python Version from PEP 621 TOML](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Fsysec-uic%2FAutoPatch-LLM%2Fmain%2Fpyproject.toml)
+![Project Version](https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsysec-uic%2FAutoPatch-LLM%2Fmain%2Fpyproject.toml&query=%24.project.version&label=version)
 
 
 ## Introduction  

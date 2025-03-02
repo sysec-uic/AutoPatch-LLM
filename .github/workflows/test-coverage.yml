@@ -1,5 +1,7 @@
+---
 # .github/workflows/test-coverage.yml
 name: Test & Coverage
+run-name: Test & Coverage by @${{ github.actor }}
 
 on:
   workflow_dispatch:  
@@ -45,3 +47,7 @@ jobs:
         with:
           name: coverage-report
           path: coverage.xml
+      - name: Pytest Coverage Comment
+        uses: MishaKav/pytest-coverage-comment@81882822c5b22af01f91bd3eacb1cefb6ad73dc2 # v1.1.53
+        with:
+          pytest-xml-coverage-path: ./coverage.xml
