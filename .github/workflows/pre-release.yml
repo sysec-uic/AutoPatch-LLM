@@ -3,14 +3,9 @@ name: "pre-release"
 run-name: "Pre Release by @${{ github.actor }}"
 
 on:
-  workflow_dispatch:
-  pull_request:
-    branches:
-      - "main"
   push:
     branches:
       - "main"
-      - "feature/automatic-pre-release-latest-dev-build"
 
 permissions:
   contents: write
