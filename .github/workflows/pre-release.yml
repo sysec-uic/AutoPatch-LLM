@@ -65,5 +65,5 @@ jobs:
           prerelease: true
           title: "Development Build"
           files: |
-            *.whl
-            autopatchdatatypes-*.tar.gz
+            **/*.whl
+            **/autopatchdatatypes-*.tar.gz
