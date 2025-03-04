@@ -42,10 +42,9 @@ jobs:
       - name: Install test module
         run: |
           pip install pytest==8.3.4
-      - name: Build AutoPatch.Datatypes Package
-        run: task autopatchdatatypes:build
-      - name: Install AutoPatch.Datatypes Package
-        run: task autopatchdatatypes:install
+      - name: Install test module
+        run: |
+          task install-package-dependencies
       - name: "Build & test"
         run: |
           task test
