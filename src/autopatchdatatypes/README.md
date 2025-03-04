@@ -1,13 +1,13 @@
 # AutoPatch Datatypes <!-- omit in toc -->
+
 - [Building and Installing the module](#building-and-installing-the-module)
 - [Using a datatype](#using-a-datatype)
 - [Creating new datatypes](#creating-new-datatypes)
 
-
 This package is to hold shared simple data classes for use by AutoPatch
 
 > [!WARNING]  
-> If you update a datatype be sure to rebuild and reinstall the module.  As you make improvements update the version according to Semantic Versioning 
+> If you update a datatype be sure to rebuild and reinstall the module.  As you make improvements update the version according to Semantic Versioning
 
 ## Building and Installing the module
 
@@ -15,6 +15,7 @@ First build the package
 Navigate to `/workspace/AutoPatch-LLM/src/autopatchdatatypes`
 
 Then run
+
 ```sh
 python -m build
 
