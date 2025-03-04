@@ -58,12 +58,12 @@ def test_crash_detail_long_message():
 
     assert crash.base64_message == long_message
 
+
 def test_CrashDetail_valid_base64():
     """Test that CrashDetail correctly initializes with valid base64 strings."""
     valid_base64 = base64.b64encode(b"valid_crash").decode("utf-8")
     crash_detail = CrashDetail("test_exe", valid_base64, True)
     assert crash_detail.base64_message == valid_base64
-
 
 
 # Robust Tests (Invalid Inputs)
@@ -100,6 +100,7 @@ def test_crash_detail_none_message():
             base64_message=None,  # type: ignore
             is_input_from_file=False,
         )
+
 
 @pytest.mark.parametrize(
     "invalid_base64",
