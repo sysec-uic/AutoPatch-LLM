@@ -41,14 +41,45 @@ jobs:
       - name: Install build module
         run: |
           pip install build==1.2.2.post1
+      - name: Install Test Harness dependencies
+        run: |
+          pip install pytest==8.3.4 pytest-cov==6.0.0 pytest-asyncio==0.25.3
       - name: Install test module
         run: |
-          pip install pytest==8.3.4
-      - name: Build AutoPatch.Datatypes Package
-        run: task autopatchdatatypes:build
-      - name: Install AutoPatch.Datatypes Package
-        run: task autopatchdatatypes:install
-      - name: "Build & test"
+          task install-package-dependencies
+      - name: Create JSON config file
+        run: |
+          cat <<EOF > config.json
+          {
+              "version": "0.2.0",
+              "appname": "autopatch.fuzzing-service",
+              "logging_config" : "${{ github.workspace }}/src/fuzzing-service/config/logging-config.json",
+              "concurrency_threshold": 10,
+              "message_broker_host": "mosquitto",
+              "message_broker_port": 1883,
+              "message_broker_protocol": "mqtt",
+              "fuzz_svc_output_topic": "autopatch/crash_detail",
+              "fuzz_svc_input_codebase_path": "${{ github.workspace }}/assets/input_codebase",
+              "fuzz_svc_output_path": "${{ github.workspace }}/data/fuzz_svc_output",
+              "compiler_warning_flags": "-Wall -Wextra -Wformat -Wshift-overflow -Wcast-align -Wstrict-overflow",
+              "compiler_feature_flags": "-m32 -fno-stack-protector -O1 -fsanitize=address",
+              "fuzzer_tool_name": "afl",
+              "fuzzer_tool_timeout_seconds": 120,
+              "fuzzer_tool_version": "2.52b",
+              "afl_tool_full_path": "${{ github.workspace }}/bin/afl-2.52b/afl-fuzz",
+              "afl_tool_seed_input_path": "${{ github.workspace }}/assets/seed_input",
+              "afl_tool_output_path": "${{ github.workspace }}/src/fuzzing-service/data/afl_tool_output",
+              "afl_tool_child_process_memory_limit_mb": 6000,
+              "afl_tool_compiled_binary_executables_output_path": "${{ github.workspace }}/bin/executables_afl",
+              "afl_compiler_tool_full_path": "${{ github.workspace }}/bin/afl-2.52b/afl-gcc",
+              "iconv_tool_timeout": 120
+          }
+          EOF
+      - name: Verify JSON file
+        run: cat config.json
+      - name: Run Tests
+        env:
+          FUZZ_SVC_CONFIG: ${{ github.workspace}}/config.json
         run: |
           task test
       - name: Automatic Releases
