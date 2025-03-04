@@ -15,9 +15,9 @@ from typing import Final, List
 
 import paho.mqtt.client as mqtt_client
 import paho.mqtt.enums as mqtt_enums
+from autopatchdatatypes import CrashDetail
 from cloudevents.http import CloudEvent
 
-from autopatchdatatypes import CrashDetail
 
 # this is the name of the environment variable that will be used point to the configuration map file to load
 CONST_FUZZ_SVC_CONFIG: Final[str] = "FUZZ_SVC_CONFIG"

@@ -1,3 +1,5 @@
+# This file is example code only and can be used as a development tool to test the MQTT broker.
+
 import paho.mqtt.client as mqtt
 
 
