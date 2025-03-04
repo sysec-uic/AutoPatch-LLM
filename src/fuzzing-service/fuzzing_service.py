@@ -1,5 +1,5 @@
-import base64
 import asyncio
+import base64
 import json
 import logging
 import logging.config
@@ -9,11 +9,12 @@ import subprocess
 import sys
 import time
 import uuid
-import paho.mqtt.client as mqtt_client
-import paho.mqtt.enums as mqtt_enums
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Final, List
+
+import paho.mqtt.client as mqtt_client
+import paho.mqtt.enums as mqtt_enums
 from cloudevents.http import CloudEvent
 
 from autopatchdatatypes import CrashDetail

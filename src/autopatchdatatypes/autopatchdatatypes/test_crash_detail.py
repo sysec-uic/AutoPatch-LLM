@@ -1,7 +1,9 @@
 import base64
 
 import pytest
+
 from autopatchdatatypes import CrashDetail
+
 
 @pytest.mark.parametrize(
     "invalid_base64",

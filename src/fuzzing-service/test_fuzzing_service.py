@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import json
 import os
@@ -6,27 +7,26 @@ from datetime import datetime as real_datetime
 from types import SimpleNamespace
 from unittest import mock
 from unittest.mock import mock_open
-import pytest
-import paho.mqtt.client as mqtt_client
-import asyncio
-
-from autopatchdatatypes import CrashDetail
 
 import fuzzing_service as fuzzing_service
+import paho.mqtt.client as mqtt_client
+import pytest
 
 # Import the function to test from the updated module.
 from fuzzing_service import (
     CONST_FUZZ_SVC_CONFIG,
+    MapCrashDetailAsCloudEvent,
+    MapCrashDetailsAsCloudEvents,
+    compile_program_run_fuzzer,
     extract_crashes,
     init_logging,
     load_config,
-    compile_program_run_fuzzer,
-    write_crashes_csv,
-    MapCrashDetailAsCloudEvent,
-    MapCrashDetailsAsCloudEvents,
-    produce_output,
     main,
+    produce_output,
+    write_crashes_csv,
 )
+
+from autopatchdatatypes import CrashDetail
 
 
 # A fixed datetime class to always return the same timestamp.
