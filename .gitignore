@@ -2,11 +2,13 @@
 .env
 venv/
 .task/
-
+bin/*
 # Super-linter outputs
 super-linter-output
 super-linter.log
 
+# REMOVE THIS FROM SRC
+output_vulnerable/
 # GitHub Actions leftovers
 github_conf
 
