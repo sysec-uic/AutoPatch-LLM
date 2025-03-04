@@ -30,6 +30,7 @@ jobs:
           sparse-checkout: |
             .github
             src
+            assets/input_codebase
             Taskfile.yml
       - name: Set up Python
         uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v4
