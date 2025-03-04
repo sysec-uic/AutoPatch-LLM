@@ -58,3 +58,4 @@ jobs:
           files: |
             **/*.whl
             **/autopatchdatatypes-*.tar.gz
+            **/autopatchpubsub-*.tar.gz
