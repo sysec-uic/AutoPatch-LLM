@@ -38,6 +38,7 @@ jobs:
           sparse-checkout: |
             .github
             src
+            assets/input_codebase
             pyproject.toml
             Taskfile.yml
       - name: Set up Python
