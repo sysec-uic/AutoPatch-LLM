@@ -54,7 +54,7 @@ jobs:
         run: task autopatchdatatypes:install
       - name: Install Package Dependencies
         run: |
-          pip install -r requirements.txt
+          task install-package-dependencies
       - name: Install Test Harness dependencies
         run: |
           pip install pytest==8.3.4 pytest-cov==6.0.0
