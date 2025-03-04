@@ -48,10 +48,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install build==1.2.2.post1
-      - name: Build AutoPatch.Datatypes Package
-        run: task autopatchdatatypes:build
-      - name: Install AutoPatch.Datatypes Package
-        run: task autopatchdatatypes:install
       - name: Install Package Dependencies
         run: |
           task install-package-dependencies
