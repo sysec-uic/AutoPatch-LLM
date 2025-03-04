@@ -1,4 +1,3 @@
-import asyncio
 import base64
 import json
 import os
@@ -21,7 +20,6 @@ from fuzzing_service import (
     extract_crashes,
     init_logging,
     load_config,
-    main,
     produce_output,
     write_crashes_csv,
 )

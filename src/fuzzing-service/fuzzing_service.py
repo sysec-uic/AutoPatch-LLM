@@ -208,11 +208,14 @@ def compile_program_run_fuzzer(
     """
     src_path = os.path.join(input_codebase_path, program_path)
 
-    fuzzer_compatible_executable_name = os.path.join(
+    # Name of the executable that was compiled with the fuzzer's version of GCC
+    executable_name = os.path.join(
         fuzzer_compatible_executables_output_directory_path, program_name + ".afl"
     )
     # Compile using AFL's compiler
-    compile_command = f"{fuzzer_compiler_full_path} {config["compiler_warning_flags"]} {config["compiler_feature_flags"]} {src_path} -o {fuzzer_compatible_executable_name}"
+    warn_flags = config["compiler_warning_flags"]
+    feature_flags = config["compiler_feature_flags"]
+    compile_command = f"{fuzzer_compiler_full_path} {warn_flags} {feature_flags} {src_path} -o {executable_name}"
     logger.debug(f"Compile command: {compile_command}")
     try:
         result = subprocess.run(
@@ -238,12 +241,11 @@ def compile_program_run_fuzzer(
     # Prepare the fuzzing command
     fuzz_command = (
         f"{fuzzer_full_path} -m {config['afl_tool_child_process_memory_limit_mb']} -i {fuzzer_seed_input_path} -o {fuzzer_output_path}/{program_name} "
-        f"-t {fuzzer_timeout} {fuzzer_compatible_executable_name}"
+        f"-t {fuzzer_timeout} {executable_name}"
     )
 
     if isInputFromFile:
         fuzz_command += " @@"
-    subprocess_error_flag: bool = False
     logger.debug(f"Running Fuzzer with run command: {fuzz_command}")
     try:
         fuzz_start_timestamp = get_current_timestamp()
@@ -260,7 +262,6 @@ def compile_program_run_fuzzer(
         # Check if process started successfully
         if process.poll() is not None:
             logger.error("Fuzzer subprocess failed to start.")
-            subprocess_error_flag = True
         else:
             # Wait for process to complete or timeout
             stdout, stderr = process.communicate(timeout=fuzzer_timeout)
