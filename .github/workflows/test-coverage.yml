@@ -54,7 +54,7 @@ jobs:
           task install-package-dependencies
       - name: Install Test Harness dependencies
         run: |
-          pip install pytest==8.3.4 pytest-cov==6.0.0
+          pip install pytest==8.3.4 pytest-cov==6.0.0 pytest-asyncio==0.25.3
       - name: Create JSON config file
         run: |
           cat <<EOF > config.json
