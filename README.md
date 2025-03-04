@@ -1,4 +1,5 @@
 # **AutoPatch: Automated Memory Safety CVE Patching Using a Competitive Ensemble of LLMs with Fuzzing, Address Sanitization, and Code Property Graphs** <!-- omit in toc -->
+
 - [CI Status](#ci-status)
 - [Project MetaData](#project-metadata)
 - [Introduction](#introduction)
@@ -11,6 +12,7 @@
 - [Glossary](#glossary)
 
 High level design sequence diagram:
+
 ```mermaid
 sequenceDiagram
     AutoPatch-->>+AutoPatch: onInvoke()
@@ -41,12 +43,13 @@ sequenceDiagram
 ```
 
 ## CI Status
+
 [![Super-Linter](https://github.com/sysec-uic/AutoPatch-LLM/actions/workflows/super-linter.yml/badge.svg)](https://github.com/marketplace/actions/super-linter)
 
 ## Project MetaData
+
 ![Python Version from PEP 621 TOML](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Fsysec-uic%2FAutoPatch-LLM%2Fmain%2Fpyproject.toml)
 ![Project Version](https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsysec-uic%2FAutoPatch-LLM%2Fmain%2Fpyproject.toml&query=%24.project.version&label=version)
-
 
 ## Introduction  
 
@@ -71,6 +74,8 @@ AutoPatch is a GenAI-assisted tool designed to automatically detect and patch bu
 
 ## Pre-requisites
 
+0. docker network "autopatch-llm_autopatch-docker-network"
+
 1. Task: <https://taskfile.dev/installation/>
 
 2. If you are running the fuzzing-service in GCE or another cloud provider you may see your fuzzer return an exit code 1 and you may get this message in your debug log:
@@ -88,14 +93,16 @@ AutoPatch is a GenAI-assisted tool designed to automatically detect and patch bu
 ## How to Run
 
 1. Clone the repository.  
-2. Run the script: `python3 main/main.py`
+2. Run the script: `docker compose up`
+<!-- 2. Run the script: `python3 main/main.py` -->
 
 ## Versioning Strategy
+
 This project will use semantic versioning with following rules:
 
-MAJOR version increments when backwards incompatible changes is introduced.
-MINOR version increments when backwards compatible feature is introduced INCLUDING support for new datatype versions.
-PATCH version increments when a backwards compatible bug fix is introduced.
+MAJOR version increments when backward incompatible changes is introduced.
+MINOR version increments when backward compatible feature is introduced INCLUDING support for new datatype versions.
+PATCH version increments when a backward compatible bugfix is introduced.
 
 ## Logging
 
