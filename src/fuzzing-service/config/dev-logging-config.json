@@ -7,6 +7,12 @@
       }
     },
     "handlers": {
+      "file_debug_handler": {
+        "class": "logging.FileHandler",
+        "level": "DEBUG",
+        "formatter": "standard",
+        "filename": "/workspace/AutoPatch-LLM/src/fuzzing-service/log/autopatch.fuzzing-service.debug.log"
+      },
       "console_err_handler": {
         "class": "logging.StreamHandler",
         "level": "ERROR",
@@ -22,8 +28,8 @@
     },
     "loggers": {
       "autopatch.fuzzing-service": {
-        "handlers": ["console_err_handler", "console_info_handler"],
-        "level": "ERROR",
+        "handlers": ["file_debug_handler", "console_err_handler", "console_info_handler"],
+        "level": "DEBUG",
         "propagate": false
       }
     }

@@ -33,6 +33,10 @@ class FixedDatetime:
         dt = real_datetime(2025, 1, 1, 12, 0, 0)
         return dt if tz is None else dt.replace(tzinfo=tz)
 
+    @classmethod
+    def fromisoformat(cls, iso_str):
+        return FixedDatetime.now()
+
 
 # A dummy logger to capture logger calls.
 class DummyLogger:
