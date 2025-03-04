@@ -4,9 +4,11 @@ import os
 import subprocess
 from datetime import datetime as real_datetime
 from types import SimpleNamespace
+from unittest import mock
 from unittest.mock import mock_open
 import pytest
 import paho.mqtt.client as mqtt_client
+import asyncio
 
 from autopatchdatatypes import CrashDetail
 
@@ -57,21 +59,22 @@ class DummyLogger:
 
 
 # --- Pytest fixtures ---
-@pytest.fixture
-def mqtt_client_mock(mocker):
-    mock_client = mocker.Mock(spec=mqtt_client.Client)
-    mocker.patch("paho.mqtt.client.Client", return_value=mock_client)
-    return mock_client
+# @pytest.fixture
+# def mqtt_client_mock(mocker):
+#     mock_client = mocker.Mock(spec=mqtt_client.Client)
+#     mocker.patch("paho.mqtt.client.Client", return_value=mock_client)
+#     return mock_client
 
 
 @pytest.fixture(autouse=True)
 def fake_message_broker_client(monkeypatch):
     class DummyMessageBrokerClient:
         def __init__(self, *args, **kwargs):
-            pass
+            self.client = mock.Mock(spec=mqtt_client.Client)
 
         def publish(self, topic, message):
             # Optionally, record calls or simply do nothing.
+            # self.client.publish(topic, message)
             pass
 
     monkeypatch.setattr(
