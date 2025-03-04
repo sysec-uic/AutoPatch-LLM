@@ -46,6 +46,7 @@ sequenceDiagram
 
 [![Super-Linter](https://github.com/sysec-uic/AutoPatch-LLM/actions/workflows/super-linter.yml/badge.svg)](https://github.com/marketplace/actions/super-linter)
 [![Test & Coverage](https://github.com/sysec-uic/AutoPatch-LLM/actions/workflows/test-coverage.yml/badge.svg)](https://github.com/sysec-uic/AutoPatch-LLM/actions/workflows/test-coverage.yml)
+[![pre-release](https://github.com/sysec-uic/AutoPatch-LLM/actions/workflows/pre-release.yml/badge.svg)](https://github.com/sysec-uic/AutoPatch-LLM/actions/workflows/pre-release.yml)
 
 ## Project MetaData
 
