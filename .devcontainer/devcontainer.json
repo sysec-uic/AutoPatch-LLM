@@ -83,7 +83,7 @@
 		"--network", "autopatch-llm_autopatch-docker-network",
 		"--env-file", ".devcontainer/devcontainer.env"
 	],
-	"postCreateCommand": "task autopatch:install-devtools && task build-install-datatypes && task prep-docker-context",
+	"postCreateCommand": "task autopatch:install-devtools",
 	"postStartCommand": "fastfetch && black --version && coverage --version && echo -n 'isort version: ' && isort --version-number",
 	"workspaceMount": "source=${localWorkspaceFolder},target=/workspace/AutoPatch-LLM,type=bind",
 	"workspaceFolder": "/workspace/AutoPatch-LLM"

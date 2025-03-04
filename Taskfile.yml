@@ -13,12 +13,17 @@ includes:
    autopatchdatatypes:
       taskfile: ./src/autopatchdatatypes/Taskfile.yml
       dir: ./src/autopatchdatatypes
+   autopatchpubsub:
+      taskfile: ./src/autopatchpubsub/Taskfile.yml
+      dir: ./src/autopatchpubsub
 
 tasks:
    install-devtools:
       desc: Install devtools
       cmds:
       - task autopatch:install-devtools
+      - task build-install-datatypes
+      - task autopatchpubsub:install
       # - task fuzzing-service:install-devtools
       # - task llm-dispatch:install-devtools
       # - task autopatchdatatypes:install-devtools
@@ -52,7 +57,6 @@ tasks:
       desc: Install package dependencies
       cmds:
       - "echo 'Installing package dependencies...'"
-      - pip install -r requirements.txt
       - task fuzzing-service:install
       # - task llm-dispatch:install
       # - task patch-request-generator-component:install

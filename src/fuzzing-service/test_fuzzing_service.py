@@ -5,10 +5,9 @@ import subprocess
 from datetime import datetime as real_datetime
 from types import SimpleNamespace
 from unittest.mock import mock_open
-import asyncio
 import pytest
+import paho.mqtt.client as mqtt_client
 
-import pytest
 from autopatchdatatypes import CrashDetail
 
 import fuzzing_service as fuzzing_service
@@ -54,6 +53,13 @@ class DummyLogger:
 
 
 # --- Pytest fixtures ---
+@pytest.fixture
+def mqtt_client_mock(mocker):
+    mock_client = mocker.Mock(spec=mqtt_client.Client)
+    mocker.patch("paho.mqtt.client.Client", return_value=mock_client)
+    return mock_client
+
+
 @pytest.fixture(autouse=True)
 def fake_message_broker_client(monkeypatch):
     class DummyMessageBrokerClient:
