@@ -45,6 +45,7 @@ sequenceDiagram
 ## CI Status
 
 [![Super-Linter](https://github.com/sysec-uic/AutoPatch-LLM/actions/workflows/super-linter.yml/badge.svg)](https://github.com/marketplace/actions/super-linter)
+[![Test & Coverage](https://github.com/sysec-uic/AutoPatch-LLM/actions/workflows/test-coverage.yml/badge.svg)](https://github.com/sysec-uic/AutoPatch-LLM/actions/workflows/test-coverage.yml)
 
 ## Project MetaData
 
