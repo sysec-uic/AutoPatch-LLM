@@ -1,14 +1,15 @@
-import csv
+import base64
 import json
 import logging
 import logging.config
 import os
-import re
 import subprocess
 import sys
+from autopatchdatatypes import CrashDetail
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Final
+
 
 COMPILE_TIMEOUT = 10
 RUN_TIMEOUT = 10
@@ -117,11 +118,11 @@ def load_config() -> dict:
     return config
 
 
-def create_temp_crash_file(crashDetail: str, temp_dir_path: str) -> str:
+def create_temp_crash_file(crash_detail: CrashDetail, temp_dir_path: str) -> str:
     crash_path = os.path.join(temp_dir_path, "crash")
 
     with open(crash_path, "wb") as crash_file:
-        crash_file.write(crashDetail)
+        crash_file.write(base64.b64decode(crash_detail.base64_message))
     return crash_path
 
 
@@ -129,12 +130,13 @@ def create_temp_crash_file(crashDetail: str, temp_dir_path: str) -> str:
 def run_file(
     executable_path: str,
     executable_name: str,
-    crash: str,
-    input_from_file: bool,
+    crash_detail: CrashDetail,
     temp_crash_file: str = None,
 ) -> int:
     # form the command
-    if input_from_file:  # The program takes input from file
+    crash = base64.b64decode(crash_detail.base64_message)
+
+    if crash_detail.is_input_from_file:  # The program takes input from file
         # need to put it into a file: figure this out later
         # going to put it into a file (need to save the file name)
         # already have the crash as a string
@@ -242,13 +244,13 @@ def write_crashes_csv(
 def produce_output(
     results_path: str,
     executable_name: str,
-    crash_detail: str,
+    crash_detail: CrashDetail,
     return_code: int,
     inputFromFile: bool,
 ) -> None:
     csv_path: Final[str] = os.path.join(results_path, f"{executable_name}.csv")
 
-    write_crashes_csv(crash_detail, return_code, csv_path, inputFromFile)
+    write_crashes_csv(crash_detail.base64_message, return_code, csv_path, inputFromFile)
 
 
 def log_results(results: dict, results_path: str) -> None:
@@ -300,6 +302,44 @@ def log_results(results: dict, results_path: str) -> None:
             log.write(line)
 
 
+# this is how i want it to flow now:
+# WE DONT KNOW IF IT WILL RUN IN PARALLEL WITH THE FUZZING SERVICE so ignore dynamic/static input part
+
+# basically need to break it down into units
+
+# I'm going to assume that we have a list of crash detail objects
+# for my testing, I'm going to create this list of them from the crash_events json files
+
+
+def create_crash_detail_objects_for_testing(
+    crashes_events_path: str,
+) -> list[CrashDetail]:
+    crash_details = list()
+    for crash_file in os.listdir(crashes_events_path):
+        crash_path = os.path.join(crashes_events_path, crash_file)
+        with open(crash_path, "r") as _crash:
+            crash = json.load(_crash)
+            timestamp = crash["timestamp"]
+            executable_name = crash["executable_name"]
+            if crash["inputFromFile"] == "False":
+                inputFromFile = False
+            else:
+                inputFromFile = True
+            ## eventually the crash input will already be encoded like this
+
+            crash_detail_string = bytes.fromhex(crash["crash_detail"]).decode(
+                "utf-8", errors="ignore"
+            )
+            encoded_bytes = base64.b64encode(
+                crash_detail_string.encode("utf-8")
+            ).decode("utf-8")
+
+            crash_detail = CrashDetail(executable_name, encoded_bytes, inputFromFile)
+            logger.debug(f"Created crash detail {crash_detail}")
+            crash_details.append(crash_detail)
+    return crash_details
+
+
 def main():
     global config, logger
 
@@ -349,55 +389,46 @@ def main():
             results[executable_name]["total_crashes"] = 0
             results[executable_name]["patched_crashes"] = 0
 
-    # now we need to queue up all the crashes
-    # using a list for now just to get the functionality down
-    # also assuming for now that the json files are in a local folder
-    inputFromFile = False
-    for crash_file in os.listdir(_crashes_events_path):
-        crash_path = os.path.join(_crashes_events_path, crash_file)
-        with open(crash_path, "r") as _crash:
-            crash = json.load(_crash)
-            timestamp = crash["timestamp"]
-            executable_name = crash["executable_name"]
+    logger.info(
+        "Converting .json events into CrashDetail objects (development phase only)."
+    )
+    crash_details = create_crash_detail_objects_for_testing(_crashes_events_path)
 
-            logger.info(f"Processing crash {timestamp} for file {executable_name}.")
-            if executable_name not in executables:
-                logger.info(
-                    f"Skipping crash {timestamp}: executable {executable_name} does not exist in {_executables_path}."
-                )
-                continue
-
-            crash_detail = bytes.fromhex(crash["crash_detail"])
-            if executable_name[-2:] == "_f":
-                inputFromFile = True
-                temp_crash_file = create_temp_crash_file(
-                    crash_detail, _temp_crashes_path
-                )
-            else:
-                temp_crash_file = None
-                inputFromFile = False
-
-            executable_path = os.path.join(_executables_path, executable_name)
-            return_code = run_file(
-                executable_path,
-                executable_name,
-                crash_detail,
-                inputFromFile,
-                temp_crash_file,
+    for crash_detail in crash_details:
+        logger.info(f"Processing crash....")
+        executable_name = crash_detail.executable_name
+        if executable_name not in executables:
+            logger.info(
+                f"Skipping this crash because {executable_name} not in list of compiled executables."
             )
-            logger.info(f"Result of running file {executable_name}: {return_code}.")
-            logger.info(f"Updating the results csv for {executable_name}")
-            produce_output(
-                _patch_eval_results_path,
-                executable_name,
-                crash_detail.hex(),
-                return_code,
-                inputFromFile,
-            )
-            results[executable_name]["total_crashes"] += 1
-            if return_code == 0 or return_code == 1:
-                results[executable_name]["patched_crashes"] += 1
+            continue
 
+        temp_crash_file = None
+        inputFromFile = crash_detail.is_input_from_file
+        if inputFromFile:
+            temp_crash_file = create_temp_crash_file(crash_detail, _temp_crashes_path)
+
+        executable_path = os.path.join(_executables_path, executable_name)
+        return_code = run_file(
+            executable_path,
+            executable_name,
+            crash_detail,
+            temp_crash_file,
+        )
+
+        logger.info(f"Result of running file {executable_name}: {return_code}.")
+        logger.info(f"Updating the results csv for {executable_name}")
+        produce_output(
+            _patch_eval_results_path,
+            executable_name,
+            crash_detail,
+            return_code,
+            inputFromFile,
+        )
+
+        results[executable_name]["total_crashes"] += 1
+        if return_code == 0 or return_code == 1:
+            results[executable_name]["patched_crashes"] += 1
     log_results(results, _patch_eval_results_path)
 
     return 0
