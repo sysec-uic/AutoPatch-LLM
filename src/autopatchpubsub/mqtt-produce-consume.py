@@ -1,4 +1,5 @@
 import paho.mqtt.client as mqtt
+import paho.mqtt.enums as mqtt_enums
 
 
 def on_connect(client, userdata, flags, rc):
@@ -17,6 +18,7 @@ def on_message(client, userdata, msg):
 server = "mosquitto"
 port = 1883
 client = mqtt.Client()
+# client = mqtt.Client(callback_api_version=mqtt_enums.CallbackAPIVersion.VERSION2)
 client.on_message = on_message
 client.on_connect = on_connect
 print("connecting to mosquitto")
