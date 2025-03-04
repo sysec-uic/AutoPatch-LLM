@@ -52,12 +52,15 @@ jobs:
         run: task autopatchdatatypes:build
       - name: Install AutoPatch.Datatypes Package
         run: task autopatchdatatypes:install
-      - name: Install Test dependencies
+      - name: Install Package Dependencies
+        run: |
+          pip install -r requirements.txt
+      - name: Install Test Harness dependencies
         run: |
           pip install pytest==8.3.4 pytest-cov==6.0.0
       - name: Run tests with coverage
         run: |
-          pytest --junitxml=pytest.xml --cov=. --cov-report=xml
+          task test-with-coverage
       - name: Publish coverage report
         uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
         with:

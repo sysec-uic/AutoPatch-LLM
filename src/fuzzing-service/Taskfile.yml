@@ -36,6 +36,11 @@ tasks:
     cmds:
       - pytest
 
+  install:
+    desc: install autopatch-fuzzingservice
+    cmds:
+      - pip install -r requirements.txt
+
   clean:
     desc: scrubs the workspace, old debug log files etc.
     cmds:

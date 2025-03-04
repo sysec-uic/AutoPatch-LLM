@@ -5,3 +5,7 @@ tasks:
     dotenv: ['.env']
     cmds:
       - python invoke-chatgpt-API-hello-world.py
+  install:
+    desc: install autopatch-llmdispatch
+    cmds:
+      - pip install -r requirements.txt
