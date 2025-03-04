@@ -1,21 +1,33 @@
+---
+# docker-compose.yaml
 # this file is intended for interactive development only
 
 services:
-  autopatch:
-    build: ./src
-    container_name: autopatch
-    env_file:
-      - ./src/.env
-    volumes:
-      - ./afl-2.52b:/app/afl-2.52b
-      - ./src/bugLog:/app/src/bugLog
-      - ./assets/input_codebase:/app/src/codebase
-      - ./src/executables:/app/src/executables
-      - ./src/executables_afl:/app/src/executables_afl
-      - ./src/input:/app/src/input
-      - ./src/patched_codes:/app/src/patched_codes
+  # autopatch:
+  #   networks:
+  #     - autopatch-docker-network-test
+  #   build: ./src
+  #   container_name: autopatch
+  #   env_file:
+  #     - ./src/.env
+  #   volumes:
+  #     - ./afl-2.52b:/app/afl-2.52b
+  #     - ./src/bugLog:/app/src/bugLog
+  #     - ./assets/input_codebase:/app/src/codebase
+  #     - ./src/executables:/app/src/executables
+  #     - ./src/executables_afl:/app/src/executables_afl
+  #     - ./src/input:/app/src/input
+  #     - ./src/patched_codes:/app/src/patched_codes
+  #   working_dir: /app
+  autopatchpubsub:
+    networks:
+      - autopatch-llm_autopatch-docker-network
+    build: ./src/autopatchpubsub
+    container_name: autopatchpubsub
     working_dir: /app
   autopatch-fuzzing-service:
+    networks:
+      - autopatch-llm_autopatch-docker-network
     build: ./src/fuzzing-service
     container_name: autopatch-fuzzing-service
     environment:
@@ -29,3 +41,21 @@ services:
       - ./assets/input_codebase:/app/input_codebase:ro
       - ./src/fuzzing-service/seed_input:/app/seed_input:ro
     working_dir: /app
+  mosquitto:
+    image: eclipse-mosquitto:2.0.20
+    hostname: mosquitto
+    container_name: mosquitto
+    restart: unless-stopped
+    networks:
+      - autopatch-llm_autopatch-docker-network
+    ports:
+      - "1883:1883" # MQTT
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+      - ./mosquitto/data:/mosquitto/data:rw
+      - ./mosquitto/log:/mosquitto/log:rw
+
+networks:
+  autopatch-llm_autopatch-docker-network:
+    external: true
+    driver: bridge

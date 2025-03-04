@@ -3,6 +3,10 @@ name = 'autopatch.fuzzing-service'
 version = '0.2.0'
 requires-python = '>=3.12.3'
 readme = 'README.md'
+authors = [
+    { name = 'Robert D. Hernandez', email = 'rherna70@uic.edu' },
+    { name = 'Lily Leith', email = 'lleit@uic.edu' }
+]
 
 [build-system]
 requires = ['setuptools >= 61.0']

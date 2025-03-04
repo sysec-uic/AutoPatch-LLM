@@ -39,6 +39,13 @@ def test_crash_detail_long_message():
     assert crash.base64_message == long_message
 
 
+def test_CrashDetail_valid_base64():
+    """Test that CrashDetail correctly initializes with valid base64 strings."""
+    valid_base64 = base64.b64encode(b"valid_crash").decode("utf-8")
+    crash_detail = CrashDetail("test_exe", valid_base64, True)
+    assert crash_detail.base64_message == valid_base64
+
+
 # Robust Tests (Invalid Inputs)
 
 
@@ -73,6 +80,24 @@ def test_crash_detail_none_message():
             base64_message=None,  # type: ignore
             is_input_from_file=False,
         )
+
+
+@pytest.mark.parametrize(
+    "invalid_base64",
+    [
+        "invalid_base64_string",
+        "!!@#$%^&*()",
+        base64.b64encode(b"valid").decode("utf-8")[
+            :-2
+        ],  # Corrupt a valid base64 string
+    ],
+)
+def test_CrashDetail_invalid_base64(invalid_base64):
+    """Test that CrashDetail raises ValueError on invalid base64 strings."""
+    with pytest.raises(
+        ValueError, match="The message must be a valid base64-encoded byte string."
+    ):
+        CrashDetail("test_exe", invalid_base64, True)
 
 
 # Edge Case Tests (Boundary Testing)

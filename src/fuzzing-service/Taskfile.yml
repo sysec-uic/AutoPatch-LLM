@@ -16,18 +16,18 @@ tasks:
   run:
     desc: run autopatch-fuzzingservice
     generates:
-      - autopatch-fuzzingservice.log
+      - log/autopatch-fuzzingservice.log
     preconditions:
-      - stat config.json
+      - stat config/config.json
     cmds:
       - python ./fuzzing_service.py
   
   debug:
     desc: debug autopatch-fuzzingservice
     generates:
-      - autopatch-fuzzingservice.log
+      - log/autopatch-fuzzingservice.log
     preconditions:
-      - stat config.json
+      - stat config/config.json
     cmds:
       - python -m pdb ./fuzzing_service.py
   
@@ -35,6 +35,11 @@ tasks:
     desc: test autopatch-fuzzingservice
     cmds:
       - pytest
+
+  install:
+    desc: install autopatch-fuzzingservice
+    cmds:
+      - pip install -r requirements.txt  --break-system-packages
 
   clean:
     desc: scrubs the workspace, old debug log files etc.
