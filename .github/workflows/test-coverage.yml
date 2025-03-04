@@ -1,0 +1,70 @@
+---
+# .github/workflows/test-coverage.yml
+name: Test & Coverage
+run-name: Test & Coverage by @${{ github.actor }}
+
+on:
+  workflow_dispatch:  
+  push:
+    branches:
+      - 'feature/CI-test-coverage'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'tests/**'
+
+permissions:
+  contents: write
+  checks: write
+  pull-requests: write
+env:
+  PYTHON_VERSION: '3.12.3'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Harden-Runner
+        uses: step-security/harden-runner@4d991eb9b905ef189e4c376166672c3f2f230481 # v2.11.0
+        with:
+          egress-policy: audit
+      - name: arduino/setup-task
+        uses: arduino/setup-task@b91d5d2c96a56797b48ac1e0e89220bf64044611 # v2.0.0
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          sparse-checkout: |
+            .github
+            src
+            pyproject.toml
+            Taskfile.yml
+      - name: Set up Python
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install build module
+        run: |
+          python -m pip install --upgrade pip
+          pip install build==1.2.2.post1
+      - name: Build AutoPatch.Datatypes Package
+        run: task autopatchdatatypes:build
+      - name: Install AutoPatch.Datatypes Package
+        run: task autopatchdatatypes:install
+      - name: Install Test dependencies
+        run: |
+          pip install pytest==8.3.4 pytest-cov==6.0.0
+      - name: Run tests with coverage
+        run: |
+          pytest --junitxml=pytest.xml --cov=. --cov-report=xml
+      - name: Publish coverage report
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        with:
+          name: coverage-report
+          path: coverage.xml
+      - name: Pytest Coverage Comment
+        uses: MishaKav/pytest-coverage-comment@81882822c5b22af01f91bd3eacb1cefb6ad73dc2 # v1.1.53
+        with:
+          pytest-xml-coverage-path: ./coverage.xml
+          junitxml-path: ./pytest.xml
