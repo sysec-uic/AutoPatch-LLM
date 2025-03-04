@@ -49,14 +49,11 @@ tasks:
       - "echo 'Building datatypes...'"
       - task: autopatchdatatypes:build
       - task: autopatchdatatypes:install
-   prep-docker-context:
-      desc: Prepare docker context
-      cmds:
-      - cp ./src/autopatchdatatypes/dist/*.whl ./src/fuzzing-service
    install-package-dependencies:
       desc: Install package dependencies
       cmds:
       - "echo 'Installing package dependencies...'"
+      - cp ./src/autopatchdatatypes/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet
       - task fuzzing-service:install
       # - task llm-dispatch:install
       # - task patch-request-generator-component:install
