@@ -21,7 +21,7 @@ tasks:
    install-devtools:
       desc: Install devtools
       cmds:
-        - task: install-devtools
+        - task: autopatch:install-devtools
         - task: install-package-dependencies
       # - task: fuzzing-service:install-devtools
       # - task: llm-dispatch:install-devtools
