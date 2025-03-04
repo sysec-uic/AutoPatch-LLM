@@ -59,6 +59,8 @@ jobs:
         run: |
           pip install pytest==8.3.4 pytest-cov==6.0.0
       - name: Run tests with coverage
+        env:
+          FUZZ_SVC_CONFIG: ${{ github.workspace }}/src/fuzzing-service/config/config.json
         run: |
           task test-with-coverage
       - name: Publish coverage report

@@ -23,7 +23,7 @@
     "loggers": {
       "autopatch.fuzzing-service": {
         "handlers": ["console_err_handler", "console_info_handler"],
-        "level": "ERROR",
+        "level": "DEBUG",
         "propagate": false
       }
     }
