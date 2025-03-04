@@ -1,3 +1,4 @@
 paho-mqtt==2.1.0
-autopatchdatatypes==0.2.0
+# autopatchdatatypes==0.2.0
+autopatchdatatypes-0.2.0-py3-none-any.whl
 cloudevents==1.11.0

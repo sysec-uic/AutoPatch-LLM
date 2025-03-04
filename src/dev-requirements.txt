@@ -2,6 +2,7 @@ black==25.1.0
 isort==6.0.0
 flake8==7.1.1
 pytest==8.3.4
+pytest-asyncio==0.25.3
 pytest-cov==6.0.0
 build==1.2.2.post1
 coverage==7.6.12

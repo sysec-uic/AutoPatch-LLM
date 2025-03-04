@@ -19,7 +19,7 @@ from fuzzing_service import (
     extract_crashes,
     init_logging,
     load_config,
-    run_fuzzer,
+    compile_program_run_fuzzer,
     write_crashes_csv,
     MapCrashDetailAsCloudEvent,
     MapCrashDetailsAsCloudEvents,
@@ -49,8 +49,26 @@ class DummyLogger:
     def error(self, msg):
         self.messages.append(msg)
 
+    def log(self, msg, *args, **kwargs):
+        self.messages.append(msg)
+
 
 # --- Pytest fixtures ---
+@pytest.fixture(autouse=True)
+def fake_message_broker_client(monkeypatch):
+    class DummyMessageBrokerClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def publish(self, topic, message):
+            # Optionally, record calls or simply do nothing.
+            pass
+
+    monkeypatch.setattr(
+        fuzzing_service, "MessageBrokerClient", DummyMessageBrokerClient
+    )
+
+
 @pytest.fixture(autouse=True)
 def patch_datetime(monkeypatch):
     monkeypatch.setattr("fuzzing_service.datetime", FixedDatetime)
@@ -408,7 +426,7 @@ def test_load_config_invalid_json(monkeypatch, tmp_path):
 
 
 # --------------
-# Tests for run_fuzzer
+# Tests for compile_program_run_fuzzer
 # --------------
 
 
@@ -518,7 +536,9 @@ def test_run_fuzzer_compile_failure(monkeypatch):
         raise subprocess.CalledProcessError(1, args[0], output="error")
 
     monkeypatch.setattr(subprocess, "run", fake_run_fail)
-    ret = run_fuzzer(executable_name, *dummy_args, isInputFromFile=False)
+    ret = compile_program_run_fuzzer(
+        executable_name, *dummy_args, isInputFromFile=False
+    )
     assert ret is False
 
 
@@ -548,7 +568,9 @@ def test_run_fuzzer_popen_failure(monkeypatch):
         "Popen",
         lambda *args, **kwargs: (_ for _ in ()).throw(Exception("Popen failed")),
     )
-    ret = run_fuzzer(executable_name, *dummy_args, isInputFromFile=False)
+    ret = compile_program_run_fuzzer(
+        executable_name, *dummy_args, isInputFromFile=False
+    )
     assert ret is False
 
 
