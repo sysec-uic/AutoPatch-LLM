@@ -1,27 +1,26 @@
+import base64
 import json
 import os
-import base64
 import subprocess
 from datetime import datetime as real_datetime
 from types import SimpleNamespace
 from unittest.mock import mock_open
+
+import pytest
 from autopatchdatatypes import CrashDetail
 
 import patch_evaluation_service as patch_evaluation_service
-import pytest
-
 
 # Import the function to test from the module.
 from patch_evaluation_service import (
     CONST_PATCH_EVAL_SVC_CONFIG,
     compile_file,
+    create_temp_crash_file,
     init_logging,
     load_config,
     log_results,
-    log_crash_information,
     run_file,
     write_crashes_csv,
-    create_temp_crash_file,
 )
 
 
@@ -327,7 +326,7 @@ def test_log_results_empty_results_dict(tmp_path):
 
     assert (
         csv_lines[0]
-        == f"executable_name,triggers_addressed,triggers_total,success_rate,designation[S,P,F]"
+        == "executable_name,triggers_addressed,triggers_total,success_rate,designation[S,P,F]"
     )
     assert md_lines[0] == "# Results of running patches:"
 
@@ -372,11 +371,11 @@ def test_log_results_non_empty_results(tmp_path):
 
     assert (
         csv_lines[0]
-        == f"executable_name,triggers_addressed,triggers_total,success_rate,designation[S,P,F]"
+        == "executable_name,triggers_addressed,triggers_total,success_rate,designation[S,P,F]"
     )
-    assert csv_lines[1] == f"test_exec1,3,4,75.0,F"
-    assert csv_lines[2] == f"test_exec2,4,5,80.0,P"
-    assert csv_lines[3] == f"test_exec3,5,5,100.0,S"
+    assert csv_lines[1] == "test_exec1,3,4,75.0,F"
+    assert csv_lines[2] == "test_exec2,4,5,80.0,P"
+    assert csv_lines[3] == "test_exec3,5,5,100.0,S"
 
     assert md_lines[0] == "# Results of running patches:"
     line_num = 1
@@ -427,7 +426,7 @@ def test_log_results_logger_called(tmp_path, dummy_logger):
     expected_messages = [
         f"Creating batched info file {md_path}.",
         f"Creating batched csv file {csv_path}.",
-        f"Success of evaluation: 85.71%.",
+        "Success of evaluation: 85.71%.",
     ]
 
     # Verify that a log entry was recorded for each crash.
@@ -449,7 +448,7 @@ def test_create_temp_crash_file_creates_dir(tmp_path):
     )
     crash_detail = CrashDetail("test_exec", base64_encoded_message, True)
 
-    path = create_temp_crash_file(crash_detail, subdir)
+    create_temp_crash_file(crash_detail, subdir)
     assert subdir.exists()
 
 
@@ -518,14 +517,13 @@ def test_compile_file_success(monkeypatch):
 
     compile_result = compile_file(source_code_path, file_name, exec_dir_path)
 
-    assert compile_result == f"test"
+    assert compile_result == "test"
 
 
 def test_compile_file_failure(monkeypatch):
     exec_dir_path = "/dummy/executables"
     source_code_path = "test.c"
     file_name = "test.c"
-    executable_name = "test"
 
     patch_evaluation_service.config = {
         "compiler_warning_flags": "-Wall -Wextra -Wformat -Wshift-overflow -Wcast-align -Wstrict-overflow -fstack-protector-strong",

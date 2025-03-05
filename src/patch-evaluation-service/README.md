@@ -22,7 +22,7 @@ Use Task to run the task **run autopatch-patch-evaluation-service**.
 Use of dockerfile upcoming.
 
 ### Config files
-- config.json (for use when dockerfile set up) and dev-config.json have paths to the necessary inputs: the patched code and the input json files (to be updated to CrashDetail objects)
+- config.json  and dev-config.json have paths to the necessary inputs: the patched code and the input json files (to be updated to CrashDetail objects)
 
 - Ensure the `PATCH_EVAL_SVC_CONFIG` env var is set.  You may remove the "example" suffix from `/src/patch-evaluation-service/.env.example` remove the "example suffix" and set the appvar contained within `PATCH_EVAL_SVC_CONFIG` to point to the above "config.json" and source the file into your environment to use.
 
@@ -34,13 +34,6 @@ For each patch being evaluated, the service will make a csv **<executable_name>.
 For each execution of the service, two batched information files are created:
 
 - **evaluation.csv:** outlines the success of each patch with less detail, listing their trigger addressment rate and their metric designation (S, P, or F).
-- **evaluation.md:** outlines the above information in a human readable markdown file.
-
-### Imminent updates
-- dockerfile
-- update to using the CrashDetail object
-- mqtt
-- take input from output of patching service
-- testing suite
+- **evaluation.md:** outlines the above information in a human readable Markdown file.
   
 
