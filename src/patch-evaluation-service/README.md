@@ -1,6 +1,6 @@
 # Patch Evaluation Service
 
-### Evaluation metric
+## Evaluation metric
 This service evaluates the success of a patch by the following metric:
 
 **Potential patch success:** the patch addresses all of the trigger inputs of the original code identified by the fuzzer.
@@ -10,7 +10,7 @@ This service evaluates the success of a patch by the following metric:
 **Patch failure:** the patch fails to address at least 80% of the trigger inputs of the original code identified by the fuzzer.
 
 
-### Trigger input addressment metric
+## Trigger input addressment metric
 A trigger is deemed addressed or not addressed by the following metric:
 
 **Addressed:** a trigger input is said to be addressed by the patch when use of this input for the patch results in a return code of 0 (normal execution) or 1 (usually indicates that a program-handled issue occurred: different from a crash).
