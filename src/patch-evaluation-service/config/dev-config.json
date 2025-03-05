@@ -8,6 +8,8 @@
     "executables_path":"/workspace/AutoPatch-LLM/src/patch-evaluation-service/bin/executables/",
     "temp_crashes_path":"/workspace/AutoPatch-LLM/src/patch-evaluation-service/temp_crashes_files/",
     "compiler_warning_flags":"-Wall -Wextra -Wformat -Wshift-overflow -Wcast-align -Wstrict-overflow -fstack-protector-strong",
+    "compile_timeout":10,
+    "run_timeout":10,
     "mqtt_host": "localhost",
     "mqtt_port": 1883
 }
