@@ -16,8 +16,8 @@ import pytest
 # - load config X
 # - write crashes csv X
 # - log results X
-# - compile file
-# - run file
+# - compile file X
+# - run file X
 # - create temp file
 
 
@@ -31,6 +31,7 @@ from patch_evaluation_service import (
     log_crash_information,
     run_file,
     write_crashes_csv,
+    create_temp_crash_file,
 )
 
 
@@ -445,13 +446,204 @@ def test_log_results_logger_called(tmp_path, dummy_logger):
 
 
 # --------------
+# Tests for create_temp_crash_file
+# --------------
+
+
+def test_create_temp_crash_file_creates_dir(tmp_path):
+    subdir = tmp_path / "temp_crash_dir_dne"
+    assert not subdir.exists()
+    crash_string = "hello_world"
+    base64_encoded_message = base64.b64encode(crash_string.encode("utf-8")).decode(
+        "utf-8"
+    )
+    crash_detail = CrashDetail("test_exec", base64_encoded_message, True)
+
+    path = create_temp_crash_file(crash_detail, subdir)
+    assert subdir.exists()
+
+
+def test_create_temp_crash_file_creates_file(tmp_path):
+    subdir = tmp_path / "temp_crash_dir_dne"
+    crash_string = "hello_world"
+    base64_encoded_message = base64.b64encode(crash_string.encode("utf-8")).decode(
+        "utf-8"
+    )
+    crash_detail = CrashDetail("test_exec", base64_encoded_message, True)
+
+    path = create_temp_crash_file(crash_detail, subdir)
+
+    assert path == f"{subdir}/crash"
+
+
+# --------------
 # Tests for compile_file
 # --------------
 
-# flow that calls compile_file: iterate through source codes directory, and compile each one
 
-# tests needed for compile_file:
-# makes the executables directory if it does not exist
-# check that the correct logging info is made if the compile is not successful
-# check that when the compile is successful that the executable file is made
-#
+class DummyProcess:
+    def __init__(self, timeout_return=("dummy stdout", "dummy stderr")):
+        self.pid = 1234
+        self.called = 0
+        self.timeout_return = timeout_return
+
+    def communicate(self, timeout):
+        self.called += 1
+        return self.timeout_return
+
+
+def dummy_run_success(*args, **kwargs):
+    # Return an object with stdout and stderr attributes.
+    dummy = SimpleNamespace(stdout="compile ok", stderr="")
+    return dummy
+
+
+def dummy_popen_success(*args, **kwargs):
+    return DummyProcess()
+
+
+def test_compile_file_success(monkeypatch):
+    exec_dir_path = "/dummy/executables"
+    source_code_path = "test.c"
+    file_name = "test.c"
+    executable_name = "test"
+
+    patch_evaluation_service.config = {
+        "compiler_warning_flags": "-Wall -Wextra -Wformat -Wshift-overflow -Wcast-align -Wstrict-overflow -fstack-protector-strong",
+        "compile_timeout": 10,
+    }
+
+    # Patch subprocess.run to simulate successful compile.
+    monkeypatch.setattr(subprocess, "run", dummy_run_success)
+    # Patch subprocess.Popen to simulate a process that returns valid output.
+    monkeypatch.setattr(subprocess, "Popen", dummy_popen_success)
+
+    # Patch os.path.exists to simulate that the fuzzer_stats file exists.
+    def fake_exists(path):
+        if path == os.path.join(exec_dir_path, executable_name):
+            return True
+        return False
+
+    monkeypatch.setattr(os.path, "exists", fake_exists)
+
+    compile_result = compile_file(source_code_path, file_name, exec_dir_path)
+
+    assert compile_result == f"test"
+
+
+def test_compile_file_failure(monkeypatch):
+    exec_dir_path = "/dummy/executables"
+    source_code_path = "test.c"
+    file_name = "test.c"
+    executable_name = "test"
+
+    patch_evaluation_service.config = {
+        "compiler_warning_flags": "-Wall -Wextra -Wformat -Wshift-overflow -Wcast-align -Wstrict-overflow -fstack-protector-strong",
+        "compile_timeout": 10,
+    }
+
+    # Simulate compile failure.
+    def fake_run_fail(*args, **kwargs):
+        raise subprocess.CalledProcessError(1, args[0], output="error")
+
+    monkeypatch.setattr(subprocess, "run", fake_run_fail)
+    compile_result = compile_file(source_code_path, file_name, exec_dir_path)
+
+    assert compile_result == ""
+
+
+# --------------
+# Tests for run_file
+# --------------
+"""def run_file(
+    executable_path: str,
+    executable_name: str,
+    crash_detail: CrashDetail,
+    temp_crash_file: str = None,
+) -> int:"""
+
+
+def test_run_file_success_stdin(monkeypatch):
+    exec_file_path = "/dummy/executables/test"
+    executable_name = "test"
+    crash_string = "hello_world"
+    crash_encoded = base64.b64encode(crash_string.encode("utf-8")).decode("utf-8")
+    crash_detail = CrashDetail(executable_name, crash_encoded, False)
+
+    patch_evaluation_service.config = {
+        "run_timeout": 10,
+    }
+
+    # Patch subprocess.run to simulate successful compile.
+    monkeypatch.setattr(subprocess, "run", dummy_run_success)
+    # Patch subprocess.Popen to simulate a process that returns valid output.
+    monkeypatch.setattr(subprocess, "Popen", dummy_popen_success)
+
+    return_code = run_file(exec_file_path, executable_name, crash_detail)
+
+    assert return_code == 1 or return_code == 0
+
+
+def test_run_file_failure_stdin(monkeypatch):
+    exec_file_path = "/dummy/executables/test"
+    executable_name = "test"
+    crash_string = "hello_world"
+    crash_encoded = base64.b64encode(crash_string.encode("utf-8")).decode("utf-8")
+    crash_detail = CrashDetail(executable_name, crash_encoded, False)
+
+    patch_evaluation_service.config = {
+        "run_timeout": 10,
+    }
+
+    # Simulate compile failure.
+    def fake_run_fail(*args, **kwargs):
+        raise subprocess.CalledProcessError(127, args[0], output="error")
+
+    monkeypatch.setattr(subprocess, "run", fake_run_fail)
+
+    return_code = run_file(exec_file_path, executable_name, crash_detail)
+
+    assert return_code == -1
+
+
+def test_run_file_success_file_input(monkeypatch):
+    exec_file_path = "/dummy/executables/test"
+    executable_name = "test"
+    crash_string = "hello_world"
+    crash_encoded = base64.b64encode(crash_string.encode("utf-8")).decode("utf-8")
+    crash_detail = CrashDetail(executable_name, crash_encoded, True)
+
+    patch_evaluation_service.config = {
+        "run_timeout": 10,
+    }
+
+    # Patch subprocess.run to simulate successful compile.
+    monkeypatch.setattr(subprocess, "run", dummy_run_success)
+    # Patch subprocess.Popen to simulate a process that returns valid output.
+    monkeypatch.setattr(subprocess, "Popen", dummy_popen_success)
+
+    return_code = run_file(exec_file_path, executable_name, crash_detail)
+
+    assert return_code == 1 or return_code == 0
+
+
+def test_run_file_failure_file_input(monkeypatch):
+    exec_file_path = "/dummy/executables/test"
+    executable_name = "test"
+    crash_string = "hello_world"
+    crash_encoded = base64.b64encode(crash_string.encode("utf-8")).decode("utf-8")
+    crash_detail = CrashDetail(executable_name, crash_encoded, True)
+
+    patch_evaluation_service.config = {
+        "run_timeout": 10,
+    }
+
+    # Simulate compile failure.
+    def fake_run_fail(*args, **kwargs):
+        raise subprocess.CalledProcessError(127, args[0], output="error")
+
+    monkeypatch.setattr(subprocess, "run", fake_run_fail)
+
+    return_code = run_file(exec_file_path, executable_name, crash_detail)
+
+    assert return_code == -1
