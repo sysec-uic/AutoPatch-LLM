@@ -6,6 +6,7 @@
     "patch_eval_results":"/app/data/",
     "patched_codes_path":"/app/patched_codes/",
     "executables_path":"/app/bin/executables/",
+    "compiler_warning_flags":"-Wall -Wextra -Wformat -Wshift-overflow -Wcast-align -Wstrict-overflow -fstack-protector-strong",
     "temp_crashes_path":"/app/temp_crashes_files/",
     "mqtt_host": "localhost",
     "mqtt_port": 1883
