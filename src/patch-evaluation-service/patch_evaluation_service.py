@@ -246,7 +246,7 @@ def write_crashes_csv(
         f.write(line)
 
 
-def produce_output(
+def log_crash_information(
     results_path: str, executable_name: str, crash_detail: CrashDetail, return_code: int
 ) -> None:
     csv_path: Final[str] = os.path.join(results_path, f"{executable_name}.csv")
@@ -420,7 +420,7 @@ def main():
 
         logger.info(f"Result of running file {executable_name}: {return_code}.")
         logger.info(f"Updating the results csv for {executable_name}")
-        produce_output(
+        log_crash_information(
             _patch_eval_results_path,
             executable_name,
             crash_detail,
