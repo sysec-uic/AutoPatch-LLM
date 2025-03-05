@@ -11,9 +11,6 @@ from datetime import datetime
 from typing import Final
 
 
-COMPILE_TIMEOUT = 10
-RUN_TIMEOUT = 10
-
 # this is the name of the environment variable that will be used point to the configuration map file to load
 CONST_PATCH_EVAL_SVC_CONFIG: Final[str] = "PATCH_EVAL_SVC_CONFIG"
 
