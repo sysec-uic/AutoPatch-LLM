@@ -119,6 +119,10 @@ def load_config() -> dict:
 
 
 def create_temp_crash_file(crash_detail: CrashDetail, temp_dir_path: str) -> str:
+    """
+    Creates a file with the crash_detail information for passing an executable a path via file.
+    """
+    os.makedirs(temp_dir_path, exist_ok=True)
     crash_path = os.path.join(temp_dir_path, "crash")
 
     with open(crash_path, "wb") as crash_file:
@@ -126,24 +130,21 @@ def create_temp_crash_file(crash_detail: CrashDetail, temp_dir_path: str) -> str
     return crash_path
 
 
-# run the file with some given input
 def run_file(
     executable_path: str,
     executable_name: str,
     crash_detail: CrashDetail,
     temp_crash_file: str = None,
 ) -> int:
-    # form the command
+    """
+    Run the binary at executable_path with the input given by CrashDetail, either through stdin or via a file.
+    """
+
+    # get the crash detail and form the command
     crash = base64.b64decode(crash_detail.base64_message)
-
-    if crash_detail.is_input_from_file:  # The program takes input from file
-        # need to put it into a file: figure this out later
-        # going to put it into a file (need to save the file name)
-        # already have the crash as a string
-        # need to then delete the file after execution
+    if crash_detail.is_input_from_file:
         command = f"{executable_path} {temp_crash_file}"
-
-    else:  # The program takes input from stdin
+    else:
         command = f"echo {crash} | {executable_path}"
 
     # run the command
@@ -154,7 +155,7 @@ def run_file(
             stderr=subprocess.PIPE,
             stdout=subprocess.PIPE,
             universal_newlines=True,
-            timeout=RUN_TIMEOUT,
+            timeout=config["run_timeout"],
             shell=True,
         )
         # return 0 on complete success
@@ -162,31 +163,30 @@ def run_file(
         logger.debug(
             f"File {executable_name} ran with input {crash} without any terminating errors."
         )
-
         return 0
-    # if the program terminated with a signal != 0 then this exception is entered
+    # if the program terminated with a signal != 0
     except subprocess.CalledProcessError as e:
         logger.debug(f"Command run: {command}")
         logger.info(
             f"Run of {executable_name} terminated with return code {e.returncode}."
         )
+        # if returncode == 1, then return it, otherwise subtract 128 to get the interrupting signal and return
         if e.returncode == 1:
             return 1
         return e.returncode - 128
+    # if an exception occurred in running the process, this is an error.
     except Exception as e:
         logger.debug(f"Command run: {command}")
         logger.error(f"An exception occurred during runtime: {e}")
         return -1
 
 
-# compiles the program
 def compile_file(file_path: str, file_name: str, executable_path: str) -> str:
-
-    # create the executables directory if it does not exist
-    os.makedirs(executable_path, exist_ok=True)
-
+    """
+    Compiles the file at file_path into a binary executable in the executable_path directory.
+    """
     # form the command
-    warnings = "-Wall -Wextra -Wformat -Wshift-overflow -Wcast-align -Wstrict-overflow -fstack-protector-strong"
+    warnings = config["compiler_warning_flags"]
     executable_name = file_name.split(".")[0]
     command = (
         f"gcc {file_path} {warnings} -O1 -g -o {executable_path}/{executable_name}"
@@ -199,13 +199,13 @@ def compile_file(file_path: str, file_name: str, executable_path: str) -> str:
             stderr=subprocess.PIPE,
             stdout=subprocess.PIPE,
             universal_newlines=True,
-            timeout=COMPILE_TIMEOUT,
+            timeout=config["compile_timeout"],
             shell=True,
         )
         logger.debug(f"Compiled with command {command}")
         logger.debug(f"stderr of the compile: {result.stderr}")
     except Exception as e:
-        # move this to a log
+        # if an error occurs during compilation, log
         logger.error(f"An error occurred while compiling {file_path}: {e}")
         logger.error(f"stderr of the compile: {result.stderr}")
     finally:
@@ -224,9 +224,9 @@ def write_crashes_csv(
     csv_path: str,
 ) -> None:
     """
-    Process crash outputs by appending lines to the appropriate CSV file.
+    Process crash by logging in the associated executable's csv file.
 
-    Each line contains the timestamp, executable name, and crash detail.
+    Each line contains the timestamp, crash detail, return code, and inputFromFile.
     """
 
     # Ensure the output directory exists.
@@ -249,34 +249,45 @@ def write_crashes_csv(
 def log_crash_information(
     results_path: str, executable_name: str, crash_detail: CrashDetail, return_code: int
 ) -> None:
+    """
+    invokes the call to log the crash information for the given executable
+    """
     csv_path: Final[str] = os.path.join(results_path, f"{executable_name}.csv")
 
     write_crashes_csv(crash_detail, return_code, csv_path)
 
 
 def log_results(results: dict, results_path: str) -> None:
+    """
+    logs the results of the entire run (all files tested) in a human-readable markdown file and a csv file describing
+    the results
+    """
+    # create the paths
     log_path = os.path.join(results_path, f"evaluation.md")
     csv_log_path = os.path.join(results_path, "evaluation.csv")
+    # tallies for total and addressed crashes
     total_crashes = 0
     total_patched_crashes = 0
 
     logger.info(f"Creating batched info file {log_path}.")
     logger.info(f"Creating batched csv file {csv_log_path}.")
+
     with open(log_path, "w") as log:
         with open(csv_log_path, "w") as csv_log:
+            # write the headers for both files
             log.write("# Results of running patches:\n")
             csv_log.write(
                 "executable_name,triggers_addressed,triggers_total,success_rate,designation[S,P,F]\n"
             )
+            # iterate through the evaluated code
             for executable_name in results.keys():
                 total = results[executable_name]["total_crashes"]
+                # if the total number of crashes is 0, then no crashes were associated with this executable, skip
                 if total == 0:
                     continue
+
+                # get the number of patched crashes, the success rate, and calculate its designation
                 patched = results[executable_name]["patched_crashes"]
-                line = f"### {executable_name}\n"
-                log.write(line)
-                line = f"**Patch addresses {patched} out of {total} trigger conditions.**\n\n"
-                log.write(line)
                 success_rate = round(patched / total * 100, 2)
                 designation = ""
                 designation_shorthand = ""
@@ -289,33 +300,38 @@ def log_results(results: dict, results_path: str) -> None:
                 else:
                     designation = "patch failure."
                     designation_shorthand = "F"
-                line = f"**Patch is {success_rate}% successful: {designation}**\n\n"
+
+                # write the results in markdown
+                line = f"### {executable_name}\n"
+                line += f"**Patch addresses {patched} out of {total} trigger conditions.**\n\n"
+                line += f"**Patch is {success_rate}% successful: {designation}**\n\n"
                 log.write(line)
+
+                # add the csv line
                 csv_log.write(
                     f"{executable_name},{patched},{total},{success_rate},{designation_shorthand}\n"
                 )
+                # update the tallies
                 total_crashes += total
                 total_patched_crashes += patched
+
+            # if total crashes == 0, then none of the crashes were associated with any of the executables, or the results dict was empty, return
             if total_crashes == 0:
                 return
+            # get the total success rate, log in markdown file
             total_success_rate = round(total_patched_crashes / total_crashes * 100, 2)
             line = f"\n ### Total success rate of {len(results.keys())} files is {total_patched_crashes} / {total_crashes}, or {total_success_rate}%.\n"
             log.write(line)
             logger.info(f"Success of evaluation: {total_success_rate}%.")
 
 
-# this is how i want it to flow now:
-# WE DONT KNOW IF IT WILL RUN IN PARALLEL WITH THE FUZZING SERVICE so ignore dynamic/static input part
-
-# basically need to break it down into units
-
-# I'm going to assume that we have a list of crash detail objects
-# for my testing, I'm going to create this list of them from the crash_events json files
-
-
 def create_crash_detail_objects_for_testing(
     crashes_events_path: str,
 ) -> list[CrashDetail]:
+    """
+    This function creates a list of CrashDetail objects from a local directory of json files representing crashes.
+    To be deprecated with init of mqtt.
+    """
     crash_details = list()
     for crash_file in os.listdir(crashes_events_path):
         crash_path = os.path.join(crashes_events_path, crash_file)
@@ -327,7 +343,6 @@ def create_crash_detail_objects_for_testing(
                 inputFromFile = False
             else:
                 inputFromFile = True
-            ## eventually the crash input will already be encoded like this
 
             crash_detail_string = bytes.fromhex(crash["crash_detail"]).decode(
                 "utf-8", errors="ignore"
@@ -345,14 +360,19 @@ def create_crash_detail_objects_for_testing(
 def main():
     global config, logger
 
+    # initialize the logger
     config = load_config()
     logger = init_logging(config["logging_config"], config["appname"])
 
+    # get the paths of the patched codes, crash events (to be deprecated), and the temp crashes directory from the config
     _patched_codes_path: Final[str] = config["patched_codes_path"]
     _crashes_events_path: Final[str] = config["crashes_events"]
     _temp_crashes_path: Final[str] = config["temp_crashes_path"]
 
+    # get the current timestamp
     EVAL_SVC_START_TIMESTAMP: Final[str] = datetime.now().isoformat(timespec="seconds")
+
+    # create the timestamped directories
     _patch_eval_results_path: Final[str] = os.path.join(
         config["patch_eval_results"], EVAL_SVC_START_TIMESTAMP
     )
@@ -360,6 +380,7 @@ def main():
         config["executables_path"], EVAL_SVC_START_TIMESTAMP
     )
 
+    # log some info, make the directories if they DNE
     logger.info("AppVersion: " + config["version"])
     logger.info("Creating results directory: " + _patch_eval_results_path)
     os.makedirs(_patch_eval_results_path, exist_ok=True)
@@ -368,13 +389,7 @@ def main():
     logger.info("Creating temporary crash files directory: " + _temp_crashes_path)
     os.makedirs(_temp_crashes_path, exist_ok=True)
 
-    # the folders we need to make:
-    # - new executable: the executable directory will already exist
-    # - new results: the data directory will already exist
-
-    # proposed flow: 1. compile all the patched codes
-    # 2. iterate through each crash that has reference to executable name, track the fails/successes
-
+    # list of files successfully compiled and a dict for the results of each
     executables = list()
     results = dict()
     # iterate through the patched codes directory
@@ -383,33 +398,37 @@ def main():
         # compile the file
         logger.info(f"Compiling: {file_path}")
         executable_name = compile_file(file_path, file_name, _executables_path)
-        # if the compilation was successful, then add the executable path to the list of executables
-        # to run
+        # if the compilation was successful, then add the executable path to the list of executables to run
         if executable_name != "":
             executables.append(executable_name)
             results[executable_name] = dict()
             results[executable_name]["total_crashes"] = 0
             results[executable_name]["patched_crashes"] = 0
 
+    # discussion point
     logger.info(
         "Converting .json events into CrashDetail objects (development phase only)."
     )
     crash_details = create_crash_detail_objects_for_testing(_crashes_events_path)
 
+    # iterate through each crash (to be deprecated)
     for crash_detail in crash_details:
-        logger.info(f"Processing crash....")
+        logger.info(f"Processing crash {crash_detail}")
         executable_name = crash_detail.executable_name
+        # if the crash executable is not in our executables base, then skip it
         if executable_name not in executables:
             logger.info(
                 f"Skipping this crash because {executable_name} not in list of compiled executables."
             )
             continue
 
+        # determine if we need to create a temporary crash file, make it if needed
         temp_crash_file = None
         inputFromFile = crash_detail.is_input_from_file
         if inputFromFile:
             temp_crash_file = create_temp_crash_file(crash_detail, _temp_crashes_path)
 
+        # run the file
         executable_path = os.path.join(_executables_path, executable_name)
         return_code = run_file(
             executable_path,
@@ -418,6 +437,7 @@ def main():
             temp_crash_file,
         )
 
+        # log the crash information to that executables dedicated csv file
         logger.info(f"Result of running file {executable_name}: {return_code}.")
         logger.info(f"Updating the results csv for {executable_name}")
         log_crash_information(
@@ -427,9 +447,11 @@ def main():
             return_code,
         )
 
+        # update the results dict for that executable with the result of the run
         results[executable_name]["total_crashes"] += 1
         if return_code == 0 or return_code == 1:
             results[executable_name]["patched_crashes"] += 1
+    # log the batched results
     log_results(results, _patch_eval_results_path)
 
     return 0
