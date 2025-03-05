@@ -11,16 +11,6 @@ import patch_evaluation_service as patch_evaluation_service
 import pytest
 
 
-## functions to test
-# - init logging X
-# - load config X
-# - write crashes csv X
-# - log results X
-# - compile file X
-# - run file X
-# - create temp file
-
-
 # Import the function to test from the module.
 from patch_evaluation_service import (
     CONST_PATCH_EVAL_SVC_CONFIG,
@@ -555,12 +545,6 @@ def test_compile_file_failure(monkeypatch):
 # --------------
 # Tests for run_file
 # --------------
-"""def run_file(
-    executable_path: str,
-    executable_name: str,
-    crash_detail: CrashDetail,
-    temp_crash_file: str = None,
-) -> int:"""
 
 
 def test_run_file_success_stdin(monkeypatch):
