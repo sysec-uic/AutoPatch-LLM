@@ -181,6 +181,10 @@ def run_file(
 
 # compiles the program
 def compile_file(file_path: str, file_name: str, executable_path: str) -> str:
+
+    # create the executables directory if it does not exist
+    os.makedirs(executable_path, exist_ok=True)
+
     # form the command
     warnings = "-Wall -Wextra -Wformat -Wshift-overflow -Wcast-align -Wstrict-overflow -fstack-protector-strong"
     executable_name = file_name.split(".")[0]
@@ -199,9 +203,11 @@ def compile_file(file_path: str, file_name: str, executable_path: str) -> str:
             shell=True,
         )
         logger.debug(f"Compiled with command {command}")
+        logger.debug(f"stderr of the compile: {result.stderr}")
     except Exception as e:
         # move this to a log
         logger.error(f"An error occurred while compiling {file_path}: {e}")
+        logger.error(f"stderr of the compile: {result.stderr}")
     finally:
         # log the command and return either the path to the executable or an empty string on failure
         if os.path.exists(f"{executable_path}/{executable_name}"):
@@ -213,10 +219,9 @@ def compile_file(file_path: str, file_name: str, executable_path: str) -> str:
 
 
 def write_crashes_csv(
-    crash_detail: str,
+    crash_detail: CrashDetail,
     return_code: int,
     csv_path: str,
-    inputFromFile: bool,
 ) -> None:
     """
     Process crash outputs by appending lines to the appropriate CSV file.
@@ -234,23 +239,19 @@ def write_crashes_csv(
         if write_header:
             f.write("timestamp,crash_detail,return_code,inputFromFile\n")
 
-        logger.info(f"Logging crash information in {csv_path}.")
+        logger.info(f"  - {crash_detail}")
         timestamp = datetime.now().isoformat(timespec="seconds")
 
-        line = f"{timestamp},{crash_detail},{return_code},{inputFromFile}\n"
+        line = f"{timestamp},{crash_detail.base64_message},{return_code},{crash_detail.is_input_from_file}\n"
         f.write(line)
 
 
 def produce_output(
-    results_path: str,
-    executable_name: str,
-    crash_detail: CrashDetail,
-    return_code: int,
-    inputFromFile: bool,
+    results_path: str, executable_name: str, crash_detail: CrashDetail, return_code: int
 ) -> None:
     csv_path: Final[str] = os.path.join(results_path, f"{executable_name}.csv")
 
-    write_crashes_csv(crash_detail.base64_message, return_code, csv_path, inputFromFile)
+    write_crashes_csv(crash_detail, return_code, csv_path)
 
 
 def log_results(results: dict, results_path: str) -> None:
@@ -282,7 +283,7 @@ def log_results(results: dict, results_path: str) -> None:
                 if success_rate == 100:
                     designation = "potential patch success."
                     designation_shorthand = "S"
-                elif success_rate > 80:
+                elif success_rate >= 80:
                     designation = "partial potential patch success."
                     designation_shorthand = "P"
                 else:
@@ -300,6 +301,7 @@ def log_results(results: dict, results_path: str) -> None:
             total_success_rate = round(total_patched_crashes / total_crashes * 100, 2)
             line = f"\n ### Total success rate of {len(results.keys())} files is {total_patched_crashes} / {total_crashes}, or {total_success_rate}%.\n"
             log.write(line)
+            logger.info(f"Success of evaluation: {total_success_rate}%.")
 
 
 # this is how i want it to flow now:
@@ -423,7 +425,6 @@ def main():
             executable_name,
             crash_detail,
             return_code,
-            inputFromFile,
         )
 
         results[executable_name]["total_crashes"] += 1
