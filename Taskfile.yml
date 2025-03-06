@@ -30,7 +30,6 @@ tasks:
         - python3 assets/create-docker-network.py
    run:
       desc: Run AutoPatch-LLM
-      cmds:
         - docker compose up
    install-devtools:
       desc: Install devtools

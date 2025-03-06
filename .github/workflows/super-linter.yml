@@ -3,6 +3,9 @@ name: Lint
 run-name: Lint by @${{ github.actor }}
 
 on: # yamllint disable-line rule:truthy
+  push:
+    branches:
+      - main
   pull_request: null
 
 permissions:
