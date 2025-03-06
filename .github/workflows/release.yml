@@ -1,11 +1,12 @@
+# .github/workflows/release.yml
 ---
-name: "pre-release"
-run-name: "Pre Release by @${{ github.actor }}"
+name: Tagged-Release
+run-name: Tagged Release by @${{ github.actor }}
 
 on:
   push:
-    branches:
-      - "main"
+    tags:
+      - "v*"
 
 permissions:
   contents: write
@@ -14,8 +15,8 @@ env:
   PYTHON_VERSION: "3.12.3"
 
 jobs:
-  pre-release:
-    name: "Pre Release"
+  tagged-release:
+    name: "Tagged Release"
     runs-on: "ubuntu-latest"
     steps:
       - name: Harden-Runner
@@ -83,13 +84,13 @@ jobs:
           FUZZ_SVC_CONFIG: ${{ github.workspace}}/config.json
         run: |
           task test
-      - name: Automatic Releases
+      - name: Automatic Tagged Release
         uses: marvinpinto/action-automatic-releases@919008cf3f741b179569b7a6fb4d8860689ab7f0 # v1.2.1
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "latest"
-          prerelease: true
-          title: "Development Build"
+          prerelease: false
+          draft: true
           files: |
             **/*.whl
             **/autopatchdatatypes-*.tar.gz
+            **/autopatchpubsub-*.tar.gz

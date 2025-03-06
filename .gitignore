@@ -3,6 +3,10 @@
 venv/
 .task/
 bin/*
+
+# pytest reports, if you really need historical test reports, archive them from CI instead of comitting them
+pytest.xml
+
 # Super-linter outputs
 super-linter-output
 super-linter.log

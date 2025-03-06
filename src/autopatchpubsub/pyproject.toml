@@ -1,7 +1,7 @@
 [project]
-name = 'autopatchdatatypes'
+name = 'autopatchpubsub'
 version = '0.2.3'
-description = 'Shared data types for the autopatch project'
+description = 'Message Broker Publish Subscribe Facade for the autopatch project'
 authors = [
     { name = 'Robert D. Hernandez', email = 'rherna70@uic.edu' }
 ]
@@ -12,4 +12,4 @@ requires = ['setuptools>=61.0']
 build-backend = 'setuptools.build_meta'
 
 [tool.setuptools]
-packages = ['autopatchdatatypes']
+packages = ['autopatchpubsub']

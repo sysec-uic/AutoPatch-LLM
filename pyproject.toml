@@ -1,6 +1,6 @@
 [project]
 name = 'autopatch'
-version = '0.2.0'
+version = '0.2.3'
 requires-python = '>=3.12.3'
 description = ''
 authors = [
@@ -19,6 +19,7 @@ dev = [
     'black',
     'flake8',
     'pytest',
+    'pytest-asyncio',
     'pytest-cov',
     'build'
 ]

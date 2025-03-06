@@ -16,17 +16,51 @@ includes:
    patch-evaluation-service:
       taskfile: ./src/patch-evaluation-service/Taskfile.yml
       dir: ./src/patch-evaluation-service
+   autopatchpubsub:
+      taskfile: ./src/autopatchpubsub/Taskfile.yml
+      dir: ./src/autopatchpubsub
 
 tasks:
+   install-devtools:
+      desc: Install devtools
+      cmds:
+        - task: autopatch:install-devtools
+        - task: install-package-dependencies
+      # - task: fuzzing-service:install-devtools
+      # - task: llm-dispatch:install-devtools
+      # - task: autopatchdatatypes:install-devtools
+   test-with-coverage:
+      desc: Run tests with coverage
+      cmds:
+        - "echo 'Running tests with coverage...'"
+        - pytest --junitxml=pytest.xml --cov=. --cov-report=xml
    test:
       desc: Run tests
       cmds:
-         - "echo 'Running tests...'"
-         - pytest
+        - "echo 'Running tests...'"
+        - pytest
    lint:
       desc: Run linter
       cmds:
       - "echo 'Running linter...'"
       - "echo Not Yet Implemented"
-      # - task: autopatch:lint
-
+   build-install-datatypes:
+      desc: Build and install datatypes package
+      cmds:
+        - "echo 'Building datatypes...'"
+        - task: autopatchdatatypes:build
+        - task: autopatchdatatypes:install
+   install-package-dependencies:
+      desc: Install package dependencies
+      cmds:
+        - "echo 'Installing package dependencies...'"
+        - task: build-install-datatypes
+        - task: autopatchpubsub:install
+        - cp ./src/autopatchdatatypes/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet
+        - task: fuzzing-service:install
+        # - task llm-dispatch:install
+        # - task patch-request-generator-component:install
+        # - task main:install
+        # - task report-generaation:install
+        # - task patch-evaluation-service:install
+        # - task prompt-evaluation-service:install
