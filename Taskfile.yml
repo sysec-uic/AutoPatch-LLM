@@ -30,6 +30,7 @@ tasks:
         - python3 assets/create-docker-network.py
    run:
       desc: Run AutoPatch-LLM
+      cmds:
         - docker compose up
    install-devtools:
       desc: Install devtools
@@ -66,8 +67,8 @@ tasks:
         - "echo 'Building message broker facade...'"
         - task: autopatchpubsub:build
         - task: autopatchpubsub:install
-      #   - cp ./src/autopatchpubsub/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet
-      #   - cp ./src/autopatchpubsub/dist/*.whl ./src/patch-evaluation-service # no private pacakge feeds yet
+        - cp ./src/autopatchpubsub/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet
+        - cp ./src/autopatchpubsub/dist/*.whl ./src/patch-evaluation-service # no private pacakge feeds yet
    build-install-shared:
       desc: Build and install shared modules package
       cmds:
@@ -81,8 +82,8 @@ tasks:
       cmds:
         - "echo 'Installing package dependencies...'"
         - task: build-install-datatypes
-      #   - task: build-install-facades
         - task: build-install-shared
+        - task: build-install-facades
         - task: fuzzing-service:install
         # - task llm-dispatch:install
         # - task patch-request-generator-component:install
