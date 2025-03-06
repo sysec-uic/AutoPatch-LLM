@@ -27,6 +27,7 @@ tasks:
         - python3 assets/create-docker-network.py
    run:
       desc: Run AutoPatch-LLM
+      cmds:
         - docker compose up
    install-devtools:
       desc: Install devtools
@@ -71,6 +72,12 @@ tasks:
         - "echo 'Building shared modules...'"
         - task: autopatchshared:build
         - task: autopatchshared:install
+   build-install-facades:
+      desc: Build and install
+      cmds:
+        - "echo 'Building message broker facade...'"
+        - task: autopatchpubsub:build
+        - task: autopatchpubsub:install
    install-package-dependencies:
       desc: Install package dependencies
       cmds:

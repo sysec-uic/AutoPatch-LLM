@@ -1,6 +1,10 @@
 version: '3'
 
 tasks:
+  build:
+    desc: build autopatchpubsub
+    cmds:
+      - python -m build
   install:
     desc: install autopatchpubsub
     cmds:
