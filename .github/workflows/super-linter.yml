@@ -8,6 +8,10 @@ on: # yamllint disable-line rule:truthy
       - main
   pull_request: null
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
