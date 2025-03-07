@@ -16,6 +16,9 @@ includes:
    autopatchpubsub:
       taskfile: ./src/autopatchpubsub/Taskfile.yml
       dir: ./src/autopatchpubsub
+   autopatchshared:
+      taskfile: ./src/autopatchshared/Taskfile.yml
+      dir: ./src/autopatchshared
 
 tasks:
    install-devtools:
@@ -59,6 +62,7 @@ tasks:
       cmds:
         - "echo 'Installing package dependencies...'"
         - task: build-install-datatypes
+        - task: build-install-shared
         - task: autopatchpubsub:install
         - cp ./src/autopatchdatatypes/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet
         - cp ./src/autopatchshared/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet
