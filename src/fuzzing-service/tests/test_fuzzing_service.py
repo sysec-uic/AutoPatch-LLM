@@ -24,7 +24,6 @@ from fuzzing_service import (
 )
 
 
-
 # A fixed datetime class to always return the same timestamp.
 class FixedDatetime:
     @classmethod
