@@ -1,7 +1,7 @@
-import os
 import json
 import logging
 import logging.config
+import os
 
 
 def init_logging(logging_config: str, appname: str) -> logging.Logger:
