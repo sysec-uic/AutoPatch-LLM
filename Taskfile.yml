@@ -64,6 +64,12 @@ tasks:
         - "echo 'Building message broker facade...'"
         - task: autopatchpubsub:build
         - task: autopatchpubsub:install
+   build-install-shared:
+      desc: Build and install shared modules package
+      cmds:
+        - "echo 'Building shared modules...'"
+        - task: autopatchshared:build
+        - task: autopatchshared:install
    install-package-dependencies:
       desc: Install package dependencies
       cmds:
@@ -71,7 +77,7 @@ tasks:
         - task: build-install-datatypes
       #   - task: build-install-facades
         - cp ./src/autopatchdatatypes/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet
-      #   - cp ./src/autopatchpubsub/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet
+        - cp ./src/autopatchshared/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet
         - task: fuzzing-service:install
         # - task llm-dispatch:install
         # - task patch-request-generator-component:install

@@ -1,5 +1,5 @@
 [project]
-name = 'autopatch.fuzzing-service'
+name = 'autopatchshared'
 version = '0.3.0'
 requires-python = '>=3.12.3'
 readme = 'README.md'
