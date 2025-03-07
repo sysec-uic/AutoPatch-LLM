@@ -48,6 +48,7 @@ jobs:
         env:
           # To report GitHub Actions status checks only, allow devs to fix their own PRs
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PYTHON_ISORT_CONFIG_FILE: pyproject.toml
           FIX_MARKDOWN: false
           FIX_MARKDOWN_PRETTIER: false
           FIX_YAML_PRETTIER: false
