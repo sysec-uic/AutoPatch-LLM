@@ -10,8 +10,6 @@ import time
 from datetime import datetime
 from typing import Final, List
 
-from cloudevents.http import CloudEvent
-
 from autopatchdatatypes import CrashDetail
 from autopatchpubsub import MessageBrokerClient
 from autopatchshared import get_current_timestamp, init_logging, load_config_as_json
