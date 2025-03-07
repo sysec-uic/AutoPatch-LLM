@@ -23,8 +23,6 @@ from fuzzing_service import (
     write_crashes_csv,
 )
 
-from autopatchdatatypes import CrashDetail
-
 
 def dummy_FuzzSvcConfig() -> FuzzSvcConfig:
     dummy_config = {
