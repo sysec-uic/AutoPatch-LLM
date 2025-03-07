@@ -19,4 +19,15 @@ tasks:
     cmds:
       - echo "Running AutoPatch Datatypes automated tests"
       - pytest
+  uninstall:
+    desc: uninstall datatypes
+    cmds:
+      - pip uninstall autopatchdatatypes-*-py3-none-any.whl --break-system-packages
+  clean:
+    desc: Clean AutoPatch datatypes
+    cmds:
+      - echo "Cleaning AutoPatch datatypes"
+      - rm -rf ./dist
+      - rm -rf ./build
+      - rm -rf ./autopatchdatatypes.egg-info
     
