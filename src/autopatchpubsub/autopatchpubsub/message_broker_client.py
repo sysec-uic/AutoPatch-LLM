@@ -29,16 +29,26 @@ class MessageBrokerClient:
         def on_connect(client, userdata, flags, rc):
             if rc == 0:
                 self.logger.info("MessageBrokerClient - Connected to MQTT Broker!")
-                self.logger.info("{classname} - Connected to MQTT Broker!", self.classname)
+                self.logger.info(
+                    "{classname} - Connected to MQTT Broker!", self.classname
+                )
             else:
-                self.logger.error("MessageBrokerClient - Failed to connect to MQTT Broker!")
-                self.logger.debug(f"MessageBrokerClient - Failed to connect, return code {rc}\n")
+                self.logger.error(
+                    "MessageBrokerClient - Failed to connect to MQTT Broker!"
+                )
+                self.logger.debug(
+                    f"MessageBrokerClient - Failed to connect, return code {rc}\n"
+                )
 
         def on_disconnect(client, userdata, disconnect_flags, reason_code, properties):
-            self.logger.info(f"MessageBrokerClient - Disconnected with result code: {reason_code}")
+            self.logger.info(
+                f"MessageBrokerClient - Disconnected with result code: {reason_code}"
+            )
             reconnect_count, reconnect_delay = 0, self.FIRST_RECONNECT_DELAY
             while reconnect_count < self.MAX_RECONNECT_COUNT:
-                self.logger.info(f"MessageBrokerClient - Reconnecting in {reconnect_delay} seconds...")
+                self.logger.info(
+                    f"MessageBrokerClient - Reconnecting in {reconnect_delay} seconds..."
+                )
                 time.sleep(reconnect_delay)
 
                 try:
@@ -46,7 +56,9 @@ class MessageBrokerClient:
                     self.logger.info("MessageBrokerClient - Reconnected successfully!")
                     return
                 except Exception as err:
-                    logging.error(f"MessageBrokerClient - {err}. Reconnect failed. Retrying...")
+                    logging.error(
+                        f"MessageBrokerClient - {err}. Reconnect failed. Retrying..."
+                    )
 
                 reconnect_delay *= self.RECONNECT_RATE
                 reconnect_delay = min(reconnect_delay, self.MAX_RECONNECT_DELAY)
@@ -89,7 +101,9 @@ class MessageBrokerClient:
         # at least once delivery, publish is non-blocking by default
         result: mqtt_client.MQTTMessageInfo = self.client.publish(topic, message, qos=1)
         if result.rc != mqtt_enums.MQTTErrorCode.MQTT_ERR_SUCCESS:
-            self.logger.error(f"{self.classname} - Failed to send message to topic {topic}")
+            self.logger.error(
+                f"{self.classname} - Failed to send message to topic {topic}"
+            )
             return
         self.logger.info(f"{self.classname} - Published message to topic {topic}")
 
