@@ -11,10 +11,11 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Final, List
 
+from cloudevents.http import CloudEvent
+
 from autopatchdatatypes import CrashDetail
 from autopatchshared import init_logging
 from autopatchpubsub import MessageBrokerClient
-from cloudevents.http import CloudEvent
 
 # this is the name of the environment variable that will be used point to the configuration map file to load
 CONST_FUZZ_SVC_CONFIG: Final[str] = "FUZZ_SVC_CONFIG"
