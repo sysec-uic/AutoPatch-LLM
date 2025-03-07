@@ -1,7 +1,6 @@
 import base64
 
 import pytest
-
 from autopatchdatatypes import CrashDetail
 
 # Normal Tests (Valid Use Cases)
