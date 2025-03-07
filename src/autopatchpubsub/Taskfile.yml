@@ -4,8 +4,20 @@ tasks:
   build:
     desc: build autopatchpubsub
     cmds:
+      - pip install -r requirements.txt --break-system-packages
       - python -m build
   install:
     desc: install autopatchpubsub
     cmds:
-      - pip install -r requirements.txt --break-system-packages
+      - pip install dist/*.whl --break-system-packages
+  uninstall:
+    desc: uninstall autopatchpubsub
+    cmds:
+      - pip uninstall autopatchpubsub-*-py3-none-any.whl --break-system-packages
+  clean:
+    desc: Clean AutoPatch pubsub
+    cmds:
+      - echo "Cleaning AutoPatch pubsub"
+      - rm -rf ./dist
+      - rm -rf ./build
+      - rm -rf ./autopatchpubsub.egg-info
