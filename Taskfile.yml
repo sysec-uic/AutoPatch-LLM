@@ -85,8 +85,8 @@ tasks:
         - task: build-install-facades
         - task: build-install-shared
         - cp ./src/autopatchdatatypes/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet
-        - cp ./src/autopatchpubsub/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet
         - cp ./src/autopatchshared/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet
+        - cp ./src/autopatchpubsub/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet
         - task: fuzzing-service:install
         # - task llm-dispatch:install
         # - task patch-request-generator-component:install
