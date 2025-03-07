@@ -37,11 +37,13 @@ jobs:
           sparse-checkout: |
             .github
             src
+            pyproject.toml
       - name: Super-linter
         uses: super-linter/super-linter@85f7611e0f7b53c8573cca84aa0ed4344f6f6a4d # v7.2.1 # x-release-please-version
         env:
           # To report GitHub Actions status checks only, allow devs to fix their own PRs
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PYTHON_ISORT_CONFIG_FILE: pyproject.toml
           FIX_MARKDOWN: false
           FIX_MARKDOWN_PRETTIER: false
           FIX_YAML_PRETTIER: false
