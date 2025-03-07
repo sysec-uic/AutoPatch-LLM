@@ -71,7 +71,6 @@ class MessageBrokerClient:
                     logging.error(
                         f"{self.__class__.__name__} - {err}. Reconnect failed. Retrying..."
                     )
-
                 reconnect_delay *= self.RECONNECT_RATE
                 reconnect_delay = min(reconnect_delay, self.MAX_RECONNECT_DELAY)
                 reconnect_count += 1
