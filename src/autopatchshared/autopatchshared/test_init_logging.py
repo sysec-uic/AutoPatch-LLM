@@ -1,6 +1,5 @@
 import json
 import logging
-import logging.config
 import os
 from unittest import mock
 from unittest.mock import mock_open
