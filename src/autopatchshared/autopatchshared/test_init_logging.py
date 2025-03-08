@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from typing import Final
 from unittest.mock import mock_open
 
 from .init_logging import init_logging
@@ -14,7 +15,7 @@ def test_init_logging_file_not_found(monkeypatch, capsys):
     # Force os.path.exists to always return False
     monkeypatch.setattr(os.path, "exists", lambda path: False)
     # Call init_logging with a dummy path.
-    logger = init_logging("dummy_logging.json", "test_app")
+    logger: Final[logging.Logger] = init_logging("dummy_logging.json", "test_app")
     captured = capsys.readouterr().out
     assert "not found" in captured
     assert "Falling back to basic logging configuration." in captured
@@ -28,7 +29,7 @@ def test_init_logging_invalid_json(monkeypatch, capsys):
     # Provide invalid JSON content.
     m = mock_open(read_data="not valid json")
     monkeypatch.setattr("builtins.open", m)
-    logger = init_logging("dummy_logging.json", "test_app")
+    logger: Final[logging.Logger] = init_logging("dummy_logging.json", "test_app")
     captured = capsys.readouterr().out
     assert "Error decoding JSON" in captured or "Unexpected error" in captured
     assert "Falling back to basic logging configuration." in captured
@@ -60,7 +61,7 @@ def test_init_logging_valid(monkeypatch, capsys):
     monkeypatch.setattr(os.path, "exists", lambda path: True)
     m = mock_open(read_data=config_str)
     monkeypatch.setattr("builtins.open", m)
-    logger = init_logging("dummy_logging.json", "test_app")
+    logger: Final[logging.Logger] = init_logging("dummy_logging.json", "test_app")
     # The logger should be configured and have logged the initialization.
     captured = capsys.readouterr().out
     assert "Logger initialized successfully." in captured
