@@ -5,7 +5,6 @@ import subprocess
 from datetime import datetime as real_datetime
 from types import SimpleNamespace
 from unittest import mock
-from unittest.mock import mock_open
 
 import fuzzing_service as fuzzing_service
 import paho.mqtt.client as mqtt_client
