@@ -16,6 +16,9 @@ includes:
    autopatchpubsub:
       taskfile: ./src/autopatchpubsub/Taskfile.yml
       dir: ./src/autopatchpubsub
+   autopatchshared:
+      taskfile: ./src/autopatchshared/Taskfile.yml
+      dir: ./src/autopatchshared
 
 tasks:
    create-docker-network:
@@ -56,6 +59,12 @@ tasks:
         - "echo 'Building datatypes...'"
         - task: autopatchdatatypes:build
         - task: autopatchdatatypes:install
+   build-install-shared:
+      desc: Build and install shared modules package
+      cmds:
+        - "echo 'Building shared modules...'"
+        - task: autopatchshared:build
+        - task: autopatchshared:install
    build-install-facades:
       desc: Build and install
       cmds:
@@ -68,7 +77,9 @@ tasks:
         - "echo 'Installing package dependencies...'"
         - task: build-install-datatypes
         - task: build-install-facades
+        - task: build-install-shared
         - cp ./src/autopatchdatatypes/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet
+        - cp ./src/autopatchshared/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet
         - cp ./src/autopatchpubsub/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet
         - task: fuzzing-service:install
         # - task llm-dispatch:install
