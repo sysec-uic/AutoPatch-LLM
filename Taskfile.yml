@@ -21,9 +21,17 @@ includes:
       dir: ./src/autopatchshared
 
 tasks:
+   create-docker-network:
+      desc: Create docker network
+      cmds:
+        - python3 assets/create-docker-network.py
+   run:
+      desc: Run AutoPatch-LLM
+        - docker compose up
    install-devtools:
       desc: Install devtools
       cmds:
+        - task: create-docker-network
         - task: autopatch:install-devtools
         - task: install-package-dependencies
       # - task: fuzzing-service:install-devtools
@@ -57,15 +65,22 @@ tasks:
         - "echo 'Building shared modules...'"
         - task: autopatchshared:build
         - task: autopatchshared:install
+   build-install-facades:
+      desc: Build and install
+      cmds:
+        - "echo 'Building message broker facade...'"
+        - task: autopatchpubsub:build
+        - task: autopatchpubsub:install
    install-package-dependencies:
       desc: Install package dependencies
       cmds:
         - "echo 'Installing package dependencies...'"
         - task: build-install-datatypes
+        - task: build-install-facades
         - task: build-install-shared
-        - task: autopatchpubsub:install
         - cp ./src/autopatchdatatypes/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet
         - cp ./src/autopatchshared/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet
+        - cp ./src/autopatchpubsub/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet
         - task: fuzzing-service:install
         # - task llm-dispatch:install
         # - task patch-request-generator-component:install

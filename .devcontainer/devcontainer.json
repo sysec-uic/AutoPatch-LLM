@@ -79,6 +79,7 @@
 			}
 		}
 	},
+	"initializeCommand": ["python3", "assets/create-docker-network.py"],
 	"runArgs": [
 		"--network", "autopatch-llm_autopatch-docker-network",
 		"--env-file", ".devcontainer/devcontainer.env"
