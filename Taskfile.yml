@@ -13,6 +13,9 @@ includes:
    autopatchdatatypes:
       taskfile: ./src/autopatchdatatypes/Taskfile.yml
       dir: ./src/autopatchdatatypes
+   patch-evaluation-service:
+      taskfile: ./src/patch-evaluation-service/Taskfile.yml
+      dir: ./src/patch-evaluation-service
    autopatchpubsub:
       taskfile: ./src/autopatchpubsub/Taskfile.yml
       dir: ./src/autopatchpubsub
@@ -47,9 +50,8 @@ tasks:
    lint:
       desc: Run linter
       cmds:
-        - "echo 'Running linter...'"
-        - "echo Not Yet Implemented"
-        # - task: fuzzing-service:lint
+      - "echo 'Running linter...'"
+      - "echo Not Yet Implemented"
    build-install-datatypes:
       desc: Build and install datatypes package
       cmds:
@@ -77,4 +79,3 @@ tasks:
         # - task report-generaation:install
         # - task patch-evaluation-service:install
         # - task prompt-evaluation-service:install
-

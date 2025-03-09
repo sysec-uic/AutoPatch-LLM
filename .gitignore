@@ -2,6 +2,7 @@
 .env
 venv/
 .task/
+bin/*
 
 # pytest reports, if you really need historical test reports, archive them from CI instead of comitting them
 pytest.xml
@@ -10,6 +11,8 @@ pytest.xml
 super-linter-output
 super-linter.log
 
+# REMOVE THIS FROM SRC
+output_vulnerable/
 # GitHub Actions leftovers
 github_conf
 
