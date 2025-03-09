@@ -67,7 +67,7 @@ tasks:
       cmds:
         - "echo 'Installing package dependencies...'"
         - task: build-install-datatypes
-        - task: build-install-facades
+      #   - task: build-install-facades
         - cp ./src/autopatchdatatypes/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet
         - cp ./src/autopatchpubsub/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet
         - task: fuzzing-service:install
