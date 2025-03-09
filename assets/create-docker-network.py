@@ -1,5 +1,6 @@
 # assets/create-docker-network.py
-# This script idempotently creates a supporting docker network for the autopatch-llm project.
+# 
+# This supporting script idempotently creates a supporting docker network for the autopatch-llm project.
 # and is not strictly a component of the application but rather a network as code defintion
 # to be used by the docker-compose.yml file.
 #
