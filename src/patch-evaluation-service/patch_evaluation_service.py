@@ -156,6 +156,7 @@ def run_file(
         )
         # return 0 on complete success
         logger.debug(f"Command run: {command}")
+        logger.debug(f"Command executed with result: {result}")
         logger.debug(
             f"File {executable_name} ran with input {crash} without any terminating errors."
         )
@@ -259,7 +260,7 @@ def log_results(results: dict, results_path: str) -> None:
     the results
     """
     # create the paths
-    log_path = os.path.join(results_path, f"evaluation.md")
+    log_path = os.path.join(results_path, "evaluation.md")
     csv_log_path = os.path.join(results_path, "evaluation.csv")
     # tallies for total and addressed crashes
     total_crashes = 0
