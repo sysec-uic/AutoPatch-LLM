@@ -334,7 +334,6 @@ def create_crash_detail_objects_for_testing(
         crash_path = os.path.join(crashes_events_path, crash_file)
         with open(crash_path, "r") as _crash:
             crash = json.load(_crash)
-            timestamp = crash["timestamp"]
             executable_name = crash["executable_name"]
             if crash["inputFromFile"] == "False":
                 inputFromFile = False
