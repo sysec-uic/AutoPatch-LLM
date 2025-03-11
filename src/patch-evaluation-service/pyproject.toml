@@ -1,8 +1,12 @@
 [project]
 name = 'autopatch.patch-evaluation-service'
-version = '0.1.0'
+version = '0.3.0'
 requires-python = '>=3.12.3'
 readme = 'README.md'
+authors = [
+    { name = 'Lily Leith', email = 'lleit@uic.edu' }
+    { name = 'Robert D. Hernandez', email = 'rherna70@uic.edu' },
+]
 
 [build-system]
 requires = ['setuptools >= 61.0']

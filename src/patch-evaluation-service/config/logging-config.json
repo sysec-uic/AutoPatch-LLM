@@ -7,12 +7,6 @@
       }
     },
     "handlers": {
-      "file_debug_handler": {
-        "class": "logging.FileHandler",
-        "level": "DEBUG",
-        "formatter": "standard",
-        "filename": "/workspace/AutoPatch-LLM/src/patch-evaluation-service/log/autopatch.patch-evaluation-service.debug.log"
-      },
       "console_err_handler": {
         "class": "logging.StreamHandler",
         "level": "ERROR",
@@ -28,7 +22,7 @@
     },
     "loggers": {
       "autopatch.patch-evaluation-service": {
-        "handlers": ["file_debug_handler", "console_err_handler", "console_info_handler"],
+        "handlers": ["console_err_handler", "console_info_handler"],
         "level": "DEBUG",
         "propagate": false
       }

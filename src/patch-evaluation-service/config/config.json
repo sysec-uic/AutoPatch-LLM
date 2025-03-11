@@ -1,15 +1,16 @@
 {
-    "version": "0.1.0",
+    "version": "0.3.0-alpha",
     "appname": "autopatch.patch-evaluation-service",
     "logging_config" : "/app/config/logging-config.json",
-    "crashes_events":"/app/crash_events/",
-    "patch_eval_results":"/app/data/",
-    "patched_codes_path":"/app/patched_codes/",
-    "executables_path":"/app/bin/executables/",
+    "crashes_events":"/app/crash_events",
+    "patch_eval_results":"/app/data",
+    "patched_codes_path":"/app/patched_codes",
+    "executables_path":"/app/bin/executables",
     "compiler_warning_flags":"-Wall -Wextra -Wformat -Wshift-overflow -Wcast-align -Wstrict-overflow -fstack-protector-strong",
-    "temp_crashes_path":"/app/temp_crashes_files/",
+    "temp_crashes_path":"/app/temp_crashes_files",
     "compile_timeout":10,
     "run_timeout":10,
-    "mqtt_host": "localhost",
-    "mqtt_port": 1883
+    "message_broker_host": "mosquitto",
+    "message_broker_port": 1883,
+    "autopatch_crash_detail_input_topic": "autopatch/crash_detail"
 }
