@@ -8,6 +8,7 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Final
+
 from autopatchdatatypes import CrashDetail
 
 # this is the name of the environment variable that will be used point to the configuration map file to load
