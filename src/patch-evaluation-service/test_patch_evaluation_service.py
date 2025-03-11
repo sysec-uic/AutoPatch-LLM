@@ -5,10 +5,10 @@ import subprocess
 from datetime import datetime as real_datetime
 from types import SimpleNamespace
 from unittest.mock import mock_open
+
 import patch_evaluation_service as patch_evaluation_service
 import pytest
 from autopatchdatatypes import CrashDetail
-
 
 
 # Import the function to test from the module.
