@@ -10,7 +10,6 @@ import patch_evaluation_service as patch_evaluation_service
 import pytest
 from autopatchdatatypes import CrashDetail
 
-
 # Import the function to test from the module.
 from patch_evaluation_service import (
     CONST_PATCH_EVAL_SVC_CONFIG,
