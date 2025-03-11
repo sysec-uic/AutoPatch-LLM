@@ -1,5 +1,5 @@
 # this file is currently being replaced using the strangler pattern and is not in active use
-# this file will be replaced with
+# with the following components:
 # autopatchdatatypes
 # fuzzing-service
 # llm-dispatch

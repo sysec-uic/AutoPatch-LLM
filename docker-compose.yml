@@ -41,6 +41,18 @@ services:
       - ./assets/input_codebase:/app/input_codebase:ro
       - ./src/fuzzing-service/seed_input:/app/seed_input:ro
     working_dir: /app
+  autopatch-patch-evaluation-service:
+    networks:
+      - autopatch-llm_autopatch-docker-network
+    build: ./src/patch-evaluation-service
+    container_name: autopatch-patch-evaluation-service
+    environment:
+      - PATCH_EVAL_SVC_CONFIG=/app/config/config.json
+    volumes:
+      - ./src/patch-evaluation-service/config:/app/config:ro
+      - ./src/patch-evaluation-service/log:/app/log:rw
+      - ./src/patch-evaluation-service/data:/app/data:rw
+    working_dir: /app
   mosquitto:
     image: eclipse-mosquitto:2.0.20
     hostname: mosquitto
