@@ -75,14 +75,6 @@ def patch_datetime(monkeypatch):
     monkeypatch.setattr("fuzzing_service.datetime", FixedDatetime)
 
 
-# @pytest.fixture(autouse=True)
-# def patch_main(monkeypatch):
-#     def dummymain():
-#         pass
-
-#     monkeypatch.setattr("fuzzing_service.main", dummymain)
-
-
 @pytest.fixture(autouse=True)
 def dummy_logger(monkeypatch):
     logger = DummyLogger()
