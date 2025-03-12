@@ -1,5 +1,5 @@
----
 # .github/workflows/test-coverage.yml
+---
 name: Test & Coverage
 run-name: Test & Coverage by @${{ github.actor }}
 
@@ -108,20 +108,20 @@ jobs:
           EOF
       - name: Verify Fuzzing Service Config JSON file
         run: |
-          cat fuzzing-service-config.json
+          cat ${{ github.workspace }}/fuzzing-service-config.json
       - name: Verify Patch Evaluation Service Config JSON file
         run: |
-          cat patch-evaluation-service-config.json
+          cat ${{ github.workspace }}/patch-evaluation-service-config.json
       - name: Run tests with coverage
         env:
           FUZZ_SVC_CONFIG: ${{ github.workspace}}/fuzzing-service-config.json
           PATCH_EVAL_SVC_CONFIG: ${{ github.workspace}}/patch-evaluation-service-config.json
         run: |
           task test-with-coverage
-      - name: Clean up temporary test config file
+      - name: Clean up temporary test config files
         run: |
-          rm fuzzing-service-config.json
-          rm patch-evaluation-service-config.json
+          rm ${{ github.workspace }}/fuzzing-service-config.json
+          rm ${{ github.workspace }}/patch-evaluation-service-config.json
       - name: Publish coverage report
         uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
         with:

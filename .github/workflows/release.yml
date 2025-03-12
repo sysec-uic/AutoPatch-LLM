@@ -53,7 +53,7 @@ jobs:
         run: |
           cat <<EOF > config.json
           {
-              "version": "0.2.0",
+              "version": "CItestonlyversion",
               "appname": "autopatch.fuzzing-service",
               "logging_config" : "${{ github.workspace }}/src/fuzzing-service/config/logging-config.json",
               "concurrency_threshold": 10,
@@ -77,13 +77,22 @@ jobs:
               "iconv_tool_timeout": 120
           }
           EOF
-      - name: Verify JSON file
-        run: cat config.json
+      - name: Verify Fuzzing Service Config JSON file
+        run: |
+          cat ${{ github.workspace }}/fuzzing-service-config.json
+      - name: Verify Patch Evaluation Service Config JSON file
+        run: |
+          cat ${{ github.workspace }}/patch-evaluation-service-config.json
       - name: Run Tests
         env:
-          FUZZ_SVC_CONFIG: ${{ github.workspace}}/config.json
+          FUZZ_SVC_CONFIG: ${{ github.workspace}}/fuzzing-service-config.json
+          PATCH_EVAL_SVC_CONFIG: ${{ github.workspace}}/patch-evaluation-service-config.json
         run: |
           task test
+      - name: Clean up temporary test config files
+        run: |
+          rm ${{ github.workspace }}/fuzzing-service-config.json
+          rm ${{ github.workspace }}/patch-evaluation-service-config.json
       - name: Automatic Tagged Release
         uses: marvinpinto/action-automatic-releases@919008cf3f741b179569b7a6fb4d8860689ab7f0 # v1.2.1
         with:
@@ -91,6 +100,9 @@ jobs:
           prerelease: false
           draft: true
           files: |
-            **/*.whl
-            **/autopatchdatatypes-*.tar.gz
-            **/autopatchpubsub-*.tar.gz
+            ${{ github.workspace }}/src/autopatchdatatypes/dist/autopatchdatatypes-**-py3-none-any.whl
+            ${{ github.workspace }}/src/autopatchdatatypes/dist/autopatchdatatypes-**.tar.gz
+            ${{ github.workspace }}/src/autopatchshared/dist/autopatchshared-**-py3-none-any.whl
+            ${{ github.workspace }}/src/autopatchshared/dist/autopatchshared-**.tar.gz
+            ${{ github.workspace }}/src/autopatchpubsub/dist/autopatchshared-**-py3-none-any.whl
+            ${{ github.workspace }}/src/autopatchpubsub/dist/autopatchshared-**.tar.gz
