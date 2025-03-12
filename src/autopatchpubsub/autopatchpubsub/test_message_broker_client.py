@@ -1,11 +1,9 @@
 import logging
-import uuid
 from unittest import mock
 
 import paho.mqtt.client as mqtt_client
 import paho.mqtt.enums as mqtt_enums
 import pytest
-
 from autopatchpubsub import MessageBrokerClient
 
 
