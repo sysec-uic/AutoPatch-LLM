@@ -124,5 +124,5 @@ jobs:
             ${{ github.workspace }}/src/autopatchdatatypes/dist/autopatchdatatypes-**.tar.gz
             ${{ github.workspace }}/src/autopatchshared/dist/autopatchshared-**-py3-none-any.whl
             ${{ github.workspace }}/src/autopatchshared/dist/autopatchshared-**.tar.gz
-            ${{ github.workspace }}/src/autopatchpubsub/dist/autopatchshared-**-py3-none-any.whl
-            ${{ github.workspace }}/src/autopatchpubsub/dist/autopatchshared-**.tar.gz
+            ${{ github.workspace }}/src/autopatchpubsub/dist/autopatchpubsub-**-py3-none-any.whl
+            ${{ github.workspace }}/src/autopatchpubsub/dist/autopatchpubsub-**.tar.gz
