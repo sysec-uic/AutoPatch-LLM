@@ -1,6 +1,7 @@
 FROM ubuntu:noble AS base
 
-ENV PYTHONUNBUFFERED=1
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
@@ -19,8 +20,11 @@ RUN groupadd -r appuser && \
     useradd -r -g appuser appuser
 
 COPY requirements.txt .
-COPY autopatchdatatypes-0.2.3-py3-none-any.whl .
+
 COPY autopatchshared-0.3.0-py3-none-any.whl .
+COPY autopatchdatatypes-0.3.0-py3-none-any.whl .
+COPY autopatchpubsub-0.3.0-py3-none-any.whl .
+
 RUN pip install --break-system-packages --user --no-cache-dir -r requirements.txt
 
 COPY fuzzing_service.py /app/fuzzing_service.py
