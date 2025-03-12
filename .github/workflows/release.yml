@@ -49,9 +49,9 @@ jobs:
       - name: Install test module
         run: |
           task install-package-dependencies
-      - name: Create JSON config file
+      - name: Create fuzzing component JSON config file
         run: |
-          cat <<EOF > config.json
+          cat <<EOF > fuzzing-service-config.json
           {
               "version": "CItestonlyversion",
               "appname": "autopatch.fuzzing-service",
@@ -75,6 +75,26 @@ jobs:
               "afl_tool_compiled_binary_executables_output_path": "${{ github.workspace }}/bin/executables_afl",
               "afl_compiler_tool_full_path": "${{ github.workspace }}/bin/afl-2.52b/afl-gcc",
               "iconv_tool_timeout": 120
+          }
+          EOF
+      - name: Create patch evaluation component JSON config file
+        run: |
+          cat <<EOF > patch-evaluation-service-config.json
+          {
+              "version": "CItestonlyversion",
+              "appname": "autopatch.patch-evaluation-service",
+              "logging_config" : "${{ github.workspace }}/src/patch-evaluation-service/logging-config.json",
+              "crashes_events":"${{ github.workspace }}/src/patch-evaluation-service/crash_events",
+              "patch_eval_results":"${{ github.workspace }}/src/patch-evaluation-service/data",
+              "patched_codes_path":"${{ github.workspace }}/src/patch-evaluation-service/patched_codes",
+              "executables_path":"${{ github.workspace }}/src/patch-evaluation-service/bin/executables",
+              "compiler_warning_flags":"-Wall -Wextra -Wformat -Wshift-overflow -Wcast-align -Wstrict-overflow -fstack-protector-strong",
+              "temp_crashes_path":"${{ github.workspace }}src/patch-evaluation-service/temp_crashes_files",
+              "compile_timeout":10,
+              "run_timeout":10,
+              "message_broker_host": "mosquitto",
+              "message_broker_port": 1883,
+              "autopatch_crash_detail_input_topic": "autopatch/crash_detail"
           }
           EOF
       - name: Verify Fuzzing Service Config JSON file
