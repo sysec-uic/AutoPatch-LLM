@@ -1,5 +1,8 @@
 version: '3'
 
+env:
+  ARGS: --break-system-packages # Use this If you are installing packages using the Taskfile Extension for VSCode UI and devcontainer
+
 tasks:
   build:
     desc: build autopatchpubsub
@@ -9,7 +12,7 @@ tasks:
   install:
     desc: install autopatchpubsub
     cmds:
-      - pip install dist/*.whl --break-system-packages
+      - pip install {{.CLI_ARGS}} $ARGS ./dist/*.whl
   uninstall:
     desc: uninstall autopatchpubsub
     cmds:
