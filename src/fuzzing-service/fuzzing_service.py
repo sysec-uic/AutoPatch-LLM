@@ -12,8 +12,8 @@ from datetime import datetime, timezone
 from typing import Final, List
 
 from autopatchdatatypes import CrashDetail
-from autopatchshared import init_logging
 from autopatchpubsub import MessageBrokerClient
+from autopatchshared import init_logging
 from cloudevents.http import CloudEvent
 
 # this is the name of the environment variable that will be used point to the configuration map file to load

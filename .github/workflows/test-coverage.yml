@@ -5,12 +5,6 @@ run-name: Test & Coverage by @${{ github.actor }}
 
 on:
   workflow_dispatch:  
-<<<<<<< HEAD
-  push:
-    branches:
-      - bugfix/pre-release-wheels
-=======
->>>>>>> 8aef501 (feature(MessageBrokerClient): extract MessageBrokerClient into standalone class and wheel, update mqtt echo component for devtooling)
   pull_request:
     branches:
       - main
