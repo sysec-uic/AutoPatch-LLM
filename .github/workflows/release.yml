@@ -77,15 +77,19 @@ jobs:
               "iconv_tool_timeout": 120
           }
           EOF
-      - name: Verify JSON file
-        run: cat config.json
+      - name: Verify Fuzzing Service Config JSON file
+        run: |
+          cat ${{ github.workspace }}/fuzzing-service-config.json
+      - name: Verify Patch Evaluation Service Config JSON file
+        run: |
+          cat ${{ github.workspace }}/patch-evaluation-service-config.json
       - name: Run Tests
         env:
           FUZZ_SVC_CONFIG: ${{ github.workspace}}/fuzzing-service-config.json
           PATCH_EVAL_SVC_CONFIG: ${{ github.workspace}}/patch-evaluation-service-config.json
         run: |
           task test
-      - name: Clean up temporary test config file
+      - name: Clean up temporary test config files
         run: |
           rm ${{ github.workspace }}/fuzzing-service-config.json
           rm ${{ github.workspace }}/patch-evaluation-service-config.json
