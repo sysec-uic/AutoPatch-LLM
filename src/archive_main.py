@@ -1,3 +1,10 @@
+# this file is currently being replaced using the strangler pattern and is not in active use
+# with the following components:
+# autopatchdatatypes
+# fuzzing-service
+# llm-dispatch
+# patch-evaluation-service
+
 import os
 import subprocess
 

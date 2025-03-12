@@ -1,0 +1,21 @@
+version: '3'
+
+env:
+  ARGS: --break-system-packages # Use this If you are installing packages using the Taskfile Extension for VSCode UI and devcontainer
+
+tasks:
+  build:
+    desc: Build AutoPatch Shared
+    cmds:
+      - echo "Building AutoPatch Shared"
+      - python -m build
+  install:
+    desc: Install AutoPatch Shared
+    cmds:
+      - echo "Installing AutoPatch Shared"
+      - pip install {{.CLI_ARGS}} $ARGS ./dist/*.whl
+  uninstall:
+    desc: Uninstall AutoPatch Shared
+    cmds:
+      - echo "Uninstalling AutoPatch Shared"
+      - pip uninstall -y autopatchshared

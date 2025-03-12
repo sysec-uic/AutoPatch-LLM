@@ -7,15 +7,13 @@ import os
 import signal
 import subprocess
 import sys
-import time
-import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Final, List
 
-import paho.mqtt.client as mqtt_client
-import paho.mqtt.enums as mqtt_enums
 from autopatchdatatypes import CrashDetail
+from autopatchpubsub import MessageBrokerClient
+from autopatchshared import init_logging
 from cloudevents.http import CloudEvent
 
 # this is the name of the environment variable that will be used point to the configuration map file to load
@@ -52,55 +50,6 @@ class Config:
     message_broker_ca_certs: str
     message_broker_certfile: str
     message_broker_keyfile: str
-
-
-def init_logging(logging_config: str, appname: str) -> logging.Logger:
-    """
-    Initializes logging from a JSON configuration file.
-
-    If the JSON file cannot be loaded or the configuration is invalid,
-    a basic logging configuration is used as a fallback.
-
-    Parameters:
-        logging_config (str): Path to the JSON file with logging configuration.
-        appname (str): Name of the application logger.
-
-    Returns:
-        logging.Logger: Configured logger instance.
-    """
-    try:
-        # Check if the configuration file exists
-        if not os.path.exists(logging_config):
-            raise FileNotFoundError(
-                f"Logging configuration file '{logging_config}' not found."
-            )
-
-        # Load the JSON configuration from the file
-        with open(logging_config, "r") as config_file:
-            config_dict = json.load(config_file)
-
-        # Apply the logging configuration
-        logging.config.dictConfig(config_dict)
-
-    except FileNotFoundError as fnf_error:
-        print(fnf_error)
-        print("Falling back to basic logging configuration.")
-        logging.basicConfig(level=logging.INFO)
-
-    except json.JSONDecodeError as json_error:
-        print(f"Error decoding JSON from {logging_config}: {json_error}")
-        print("Falling back to basic logging configuration.")
-        logging.basicConfig(level=logging.INFO)
-
-    except Exception as e:
-        print(f"Unexpected error while loading logging configuration: {e}")
-        print("Falling back to basic logging configuration.")
-        logging.basicConfig(level=logging.INFO)
-
-    # Get and return the logger for the specified application name
-    logger = logging.getLogger(appname)
-    logger.info("Logger initialized successfully.")
-    return logger
 
 
 def load_config() -> dict:
@@ -392,84 +341,6 @@ async def MapCrashDetailsAsCloudEvents(
     return results
 
 
-class MessageBrokerClient:
-    def __init__(self):
-        _client = self.connect_message_broker()
-        self.client = _client
-        self.client.enable_logger(logger)
-        self.FIRST_RECONNECT_DELAY = 1
-        self.RECONNECT_RATE = 2
-        self.MAX_RECONNECT_COUNT = 12
-        self.MAX_RECONNECT_DELAY = 60
-
-    def connect_message_broker(self) -> mqtt_client.Client:
-        def on_connect(client, userdata, flags, rc):
-            if rc == 0:
-                logger.info("Connected to MQTT Broker!")
-            else:
-                logger.error("Failed to connect to MQTT Broker!")
-                logger.debug(f"Failed to connect, return code {rc}\n")
-
-        def on_disconnect(self, client, userdata, rc):
-            logger.info(f"Disconnected with result code: {rc}")
-            reconnect_count, reconnect_delay = 0, self.FIRST_RECONNECT_DELAY
-            while reconnect_count < self.MAX_RECONNECT_COUNT:
-                logger.info(f"Reconnecting in {reconnect_delay} seconds...")
-                time.sleep(reconnect_delay)
-
-                try:
-                    client.reconnect()
-                    logger.info("Reconnected successfully!")
-                    return
-                except Exception as err:
-                    logging.error(f"{err}. Reconnect failed. Retrying...")
-
-                reconnect_delay *= self.RECONNECT_RATE
-                reconnect_delay = min(reconnect_delay, self.MAX_RECONNECT_DELAY)
-                reconnect_count += 1
-            logger.info(
-                f"Reconnect failed after {reconnect_count} attempts. Exiting..."
-            )
-
-        def on_publish(client, userdata, mid):
-            logger.info(f"Message {mid} published")
-
-        def generate_uuid():
-            return str(uuid.uuid4())
-
-        # Generate a Client ID with the publish prefix.
-        client_id = f"publish-{generate_uuid()}"
-        client = mqtt_client.Client(
-            client_id=client_id,
-            callback_api_version=mqtt_enums.CallbackAPIVersion.VERSION2,
-        )
-        # client.username_pw_set(username, password)
-        # client.tls_set(
-        #     ca_certs=config["message_broker_ca_certs"], certfile=config["message_broker_certfile"], keyfile=config["message_broker_keyfile"]
-        # )
-        client.on_connect = on_connect
-        client.on_disconnect = on_disconnect
-        client.on_publish = on_publish
-        logger.info(
-            "Connecting to MQTT Broker on {}:{}".format(
-                config["message_broker_host"], config["message_broker_port"]
-            )
-        )
-        client.connect(config["message_broker_host"], config["message_broker_port"])
-        return client
-
-    def publish(self, topic: str, message: str) -> None:
-        """
-        Publish a message to the specified topic.
-        """
-        # at least once delivery, publish is non-blocking by default
-        result: mqtt_client.MQTTMessageInfo = self.client.publish(topic, message, qos=1)
-        logger.info(f"Published message to topic {topic}")
-        if result.rc != mqtt_enums.MQTTErrorCode.MQTT_ERR_SUCCESS:
-            logger.error(f"Failed to send message to topic {topic}")
-            return
-
-
 async def produce_output(crash_details: List[CrashDetail]) -> None:
 
     async def produce_event(event: CloudEvent) -> None:
@@ -480,7 +351,9 @@ async def produce_output(crash_details: List[CrashDetail]) -> None:
     crash_details_cloud_events: List[CloudEvent] = await MapCrashDetailsAsCloudEvents(
         crash_details
     )
-    message_broker_producer: Final[MessageBrokerClient] = MessageBrokerClient()
+    message_broker_producer: Final[MessageBrokerClient] = MessageBrokerClient(
+        config["message_broker_host"], config["message_broker_port"], logger
+    )
 
     logger.info(f"Producing {len(crash_details_cloud_events)} CloudEvents.")
     if len(crash_details_cloud_events) > config["concurrency_threshold"]:

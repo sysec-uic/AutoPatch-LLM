@@ -1,4 +1,4 @@
-# **AutoPatch: Automated Memory Safety CVE Patching Using a Competitive Ensemble of LLMs with Fuzzing, Address Sanitization, and Code Property Graphs** <!-- omit in toc -->
+# **AutoPatch: LLM Based Automated Memory Safety Bug (CVE) Patching with Fuzzing, Address Sanitization, and Code Property Graphs** <!-- omit in toc -->
 
 - [CI Status](#ci-status)
 - [Project MetaData](#project-metadata)

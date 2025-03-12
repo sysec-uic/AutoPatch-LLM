@@ -1,19 +1,15 @@
----
 # .github/workflows/test-coverage.yml
+---
 name: Test & Coverage
 run-name: Test & Coverage by @${{ github.actor }}
 
 on:
   workflow_dispatch:  
-  push:
-    branches:
-      - 'feature/CI-test-coverage'
   pull_request:
     branches:
       - main
     paths:
       - 'src/**'
-      - 'tests/**'
 
 permissions:
   contents: write
@@ -21,6 +17,7 @@ permissions:
   pull-requests: write
 env:
   PYTHON_VERSION: '3.12.3'
+  AUTOPATCH_VERSION: '0.3.0'
 
 jobs:
   test:
@@ -41,6 +38,12 @@ jobs:
             assets/input_codebase
             pyproject.toml
             Taskfile.yml
+      - name: Remove any dev test config files
+        run: |
+          stat ${{ github.workspace }}/src/fuzzing-service/tests/pytest.ini
+          stat ${{ github.workspace }}/src/fuzzing-service/tests/devcontainer-test-config.json
+          rm ${{ github.workspace }}/src/fuzzing-service/tests/pytest.ini
+          rm ${{ github.workspace }}/src/fuzzing-service/tests/devcontainer-test-config.json
       - name: Set up Python
         uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
         with:
@@ -55,11 +58,11 @@ jobs:
       - name: Install Test Harness dependencies
         run: |
           pip install pytest==8.3.4 pytest-cov==6.0.0 pytest-asyncio==0.25.3
-      - name: Create JSON config file
+      - name: Create fuzzing component JSON config file
         run: |
-          cat <<EOF > config.json
+          cat <<EOF > fuzzing-service-config.json
           {
-              "version": "0.2.0",
+              "version": "${{ env.AUTOPATCH_VERSION }}",
               "appname": "autopatch.fuzzing-service",
               "logging_config" : "${{ github.workspace }}/src/fuzzing-service/config/logging-config.json",
               "concurrency_threshold": 10,
@@ -83,13 +86,42 @@ jobs:
               "iconv_tool_timeout": 120
           }
           EOF
-      - name: Verify JSON file
-        run: cat config.json
+      - name: Create patch evaluation component JSON config file
+        run: |
+          cat <<EOF > patch-evaluation-service-config.json
+          {
+              "version": "${{ env.AUTOPATCH_VERSION }}",
+              "appname": "autopatch.patch-evaluation-service",
+              "logging_config" : "${{ github.workspace }}/src/patch-evaluation-service/logging-config.json",
+              "crashes_events":"${{ github.workspace }}/src/patch-evaluation-service/crash_events",
+              "patch_eval_results":"${{ github.workspace }}/src/patch-evaluation-service/data",
+              "patched_codes_path":"${{ github.workspace }}/src/patch-evaluation-service/patched_codes",
+              "executables_path":"${{ github.workspace }}/src/patch-evaluation-service/bin/executables",
+              "compiler_warning_flags":"-Wall -Wextra -Wformat -Wshift-overflow -Wcast-align -Wstrict-overflow -fstack-protector-strong",
+              "temp_crashes_path":"${{ github.workspace }}src/patch-evaluation-service/temp_crashes_files",
+              "compile_timeout":10,
+              "run_timeout":10,
+              "message_broker_host": "mosquitto",
+              "message_broker_port": 1883,
+              "autopatch_crash_detail_input_topic": "autopatch/crash_detail"
+          }
+          EOF
+      - name: Verify Fuzzing Service Config JSON file
+        run: |
+          cat ${{ github.workspace }}/fuzzing-service-config.json
+      - name: Verify Patch Evaluation Service Config JSON file
+        run: |
+          cat ${{ github.workspace }}/patch-evaluation-service-config.json
       - name: Run tests with coverage
         env:
-          FUZZ_SVC_CONFIG: ${{ github.workspace}}/config.json
+          FUZZ_SVC_CONFIG: ${{ github.workspace}}/fuzzing-service-config.json
+          PATCH_EVAL_SVC_CONFIG: ${{ github.workspace}}/patch-evaluation-service-config.json
         run: |
           task test-with-coverage
+      - name: Clean up temporary test config files
+        run: |
+          rm ${{ github.workspace }}/fuzzing-service-config.json
+          rm ${{ github.workspace }}/patch-evaluation-service-config.json
       - name: Publish coverage report
         uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
         with:

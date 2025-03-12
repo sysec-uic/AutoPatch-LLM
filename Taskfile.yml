@@ -13,19 +13,30 @@ includes:
    autopatchdatatypes:
       taskfile: ./src/autopatchdatatypes/Taskfile.yml
       dir: ./src/autopatchdatatypes
+   patch-evaluation-service:
+      taskfile: ./src/patch-evaluation-service/Taskfile.yml
+      dir: ./src/patch-evaluation-service
    autopatchpubsub:
       taskfile: ./src/autopatchpubsub/Taskfile.yml
       dir: ./src/autopatchpubsub
+   autopatchshared:
+      taskfile: ./src/autopatchshared/Taskfile.yml
+      dir: ./src/autopatchshared
 
 tasks:
+   create-docker-network:
+      desc: Create docker network
+      cmds:
+        - python3 assets/create-docker-network.py
+   run:
+      desc: Run AutoPatch-LLM
+        - docker compose up
    install-devtools:
       desc: Install devtools
       cmds:
+        - task: create-docker-network
         - task: autopatch:install-devtools
         - task: install-package-dependencies
-      # - task: fuzzing-service:install-devtools
-      # - task: llm-dispatch:install-devtools
-      # - task: autopatchdatatypes:install-devtools
    test-with-coverage:
       desc: Run tests with coverage
       cmds:
@@ -39,22 +50,39 @@ tasks:
    lint:
       desc: Run linter
       cmds:
-        - "echo 'Running linter...'"
-        - "echo Not Yet Implemented"
-        # - task: fuzzing-service:lint
+      - "echo 'Running linter...'"
+      - "echo Not Yet Implemented"
    build-install-datatypes:
       desc: Build and install datatypes package
       cmds:
         - "echo 'Building datatypes...'"
         - task: autopatchdatatypes:build
         - task: autopatchdatatypes:install
+        - cp ./src/autopatchdatatypes/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet
+        - cp ./src/autopatchdatatypes/dist/*.whl ./src/patch-evaluation-service # no private pacakge feeds yet
+   build-install-facades:
+      desc: Build and install
+      cmds:
+        - "echo 'Building message broker facade...'"
+        - task: autopatchpubsub:build
+        - task: autopatchpubsub:install
+        - cp ./src/autopatchpubsub/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet
+        - cp ./src/autopatchpubsub/dist/*.whl ./src/patch-evaluation-service # no private pacakge feeds yet
+   build-install-shared:
+      desc: Build and install shared modules package
+      cmds:
+        - "echo 'Building shared modules...'"
+        - task: autopatchshared:build
+        - task: autopatchshared:install
+        - cp ./src/autopatchshared/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet
+        - cp ./src/autopatchshared/dist/*.whl ./src/patch-evaluation-service # no private pacakge feeds yet
    install-package-dependencies:
       desc: Install package dependencies
       cmds:
         - "echo 'Installing package dependencies...'"
         - task: build-install-datatypes
-        - task: autopatchpubsub:install
-        - cp ./src/autopatchdatatypes/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet
+        - task: build-install-shared
+        - task: build-install-facades
         - task: fuzzing-service:install
         # - task llm-dispatch:install
         # - task patch-request-generator-component:install
@@ -62,4 +90,3 @@ tasks:
         # - task report-generaation:install
         # - task patch-evaluation-service:install
         # - task prompt-evaluation-service:install
-

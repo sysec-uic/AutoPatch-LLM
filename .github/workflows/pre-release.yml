@@ -1,3 +1,4 @@
+# .github/workflows/pre-release.yml
 ---
 name: "pre-release"
 run-name: "Pre Release by @${{ github.actor }}"
@@ -48,11 +49,11 @@ jobs:
       - name: Install test module
         run: |
           task install-package-dependencies
-      - name: Create JSON config file
+      - name: Create fuzzing component JSON config file
         run: |
-          cat <<EOF > config.json
+          cat <<EOF > fuzzing-service-config.json
           {
-              "version": "0.2.0",
+              "version": "CItestonlyversion",
               "appname": "autopatch.fuzzing-service",
               "logging_config" : "${{ github.workspace }}/src/fuzzing-service/config/logging-config.json",
               "concurrency_threshold": 10,
@@ -76,13 +77,42 @@ jobs:
               "iconv_tool_timeout": 120
           }
           EOF
-      - name: Verify JSON file
-        run: cat config.json
+      - name: Create patch evaluation component JSON config file
+        run: |
+          cat <<EOF > patch-evaluation-service-config.json
+          {
+              "version": "CItestonlyversion",
+              "appname": "autopatch.patch-evaluation-service",
+              "logging_config" : "${{ github.workspace }}/src/patch-evaluation-service/logging-config.json",
+              "crashes_events":"${{ github.workspace }}/src/patch-evaluation-service/crash_events",
+              "patch_eval_results":"${{ github.workspace }}/src/patch-evaluation-service/data",
+              "patched_codes_path":"${{ github.workspace }}/src/patch-evaluation-service/patched_codes",
+              "executables_path":"${{ github.workspace }}/src/patch-evaluation-service/bin/executables",
+              "compiler_warning_flags":"-Wall -Wextra -Wformat -Wshift-overflow -Wcast-align -Wstrict-overflow -fstack-protector-strong",
+              "temp_crashes_path":"${{ github.workspace }}src/patch-evaluation-service/temp_crashes_files",
+              "compile_timeout":10,
+              "run_timeout":10,
+              "message_broker_host": "mosquitto",
+              "message_broker_port": 1883,
+              "autopatch_crash_detail_input_topic": "autopatch/crash_detail"
+          }
+          EOF
+      - name: Verify Fuzzing Service Config JSON file
+        run: |
+          cat ${{ github.workspace }}/fuzzing-service-config.json
+      - name: Verify Patch Evaluation Service Config JSON file
+        run: |
+          cat ${{ github.workspace }}/patch-evaluation-service-config.json
       - name: Run Tests
         env:
-          FUZZ_SVC_CONFIG: ${{ github.workspace}}/config.json
+          FUZZ_SVC_CONFIG: ${{ github.workspace}}/fuzzing-service-config.json
+          PATCH_EVAL_SVC_CONFIG: ${{ github.workspace}}/patch-evaluation-service-config.json
         run: |
           task test
+      - name: Clean up temporary test config file
+        run: |
+          rm ${{ github.workspace }}/fuzzing-service-config.json
+          rm ${{ github.workspace }}/patch-evaluation-service-config.json
       - name: Automatic Releases
         uses: marvinpinto/action-automatic-releases@919008cf3f741b179569b7a6fb4d8860689ab7f0 # v1.2.1
         with:
@@ -91,5 +121,9 @@ jobs:
           prerelease: true
           title: "Development Build"
           files: |
-            **/*.whl
-            **/autopatchdatatypes-*.tar.gz
+            ${{ github.workspace }}/src/autopatchdatatypes/dist/autopatchdatatypes-**-py3-none-any.whl
+            ${{ github.workspace }}/src/autopatchdatatypes/dist/autopatchdatatypes-**.tar.gz
+            ${{ github.workspace }}/src/autopatchshared/dist/autopatchshared-**-py3-none-any.whl
+            ${{ github.workspace }}/src/autopatchshared/dist/autopatchshared-**.tar.gz
+            ${{ github.workspace }}/src/autopatchpubsub/dist/autopatchpubsub-**-py3-none-any.whl
+            ${{ github.workspace }}/src/autopatchpubsub/dist/autopatchpubsub-**.tar.gz

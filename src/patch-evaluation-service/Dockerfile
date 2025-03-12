@@ -20,15 +20,12 @@ RUN groupadd -r appuser && \
     useradd -r -g appuser appuser
 
 COPY requirements.txt .
-
-COPY autopatchshared-0.3.0-py3-none-any.whl .
 COPY autopatchdatatypes-0.3.0-py3-none-any.whl .
-COPY autopatchpubsub-0.3.0-py3-none-any.whl .
-
+COPY autopatchshared-0.3.0-py3-none-any.whl .
 RUN pip install --break-system-packages --user --no-cache-dir -r requirements.txt
 
-COPY fuzzing_service.py /app/fuzzing_service.py
+COPY patch_evaluation_service.py /app/patch_evaluation_service.py
 
 RUN chown -R appuser:appuser /app
 
-CMD ["python3", "fuzzing_service.py"]
+CMD ["python3", "patch_evaluation_service.py"]
