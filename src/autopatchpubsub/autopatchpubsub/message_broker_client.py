@@ -22,6 +22,12 @@ class MessageBrokerClient:
         self.MAX_RECONNECT_DELAY = 60
         self.classname = self.__class__.__name__
 
+    def __str__(self):
+        return f"{self.__class__.__name__}(host={self.message_broker_host}, port={self.message_broker_port})"
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(message_broker_host={self.message_broker_host!r}, message_broker_port={self.message_broker_port!r})"
+
     def connect_message_broker(self) -> mqtt_client.Client:
         # def on_message(client, userdata, message):
         #     self.logger.info("MessageBrokerClient - Message received: {message}")
