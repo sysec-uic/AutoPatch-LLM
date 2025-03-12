@@ -1,4 +1,5 @@
 # .github/workflows/super-linter.yml
+---
 name: Lint
 run-name: Lint by @${{ github.actor }}
 

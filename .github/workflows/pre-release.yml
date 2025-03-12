@@ -1,3 +1,4 @@
+# .github/workflows/pre-release.yml
 ---
 name: "pre-release"
 run-name: "Pre Release by @${{ github.actor }}"
@@ -6,14 +7,12 @@ on:
   push:
     branches:
       - "main"
-      - "bugfix/pre-release-wheels"
 
 permissions:
   contents: write
 
 env:
   PYTHON_VERSION: "3.12.3"
-  AUTOPATCH_VERSION: "0.3.0"
 
 jobs:
   pre-release:
@@ -82,7 +81,7 @@ jobs:
         run: |
           cat <<EOF > patch-evaluation-service-config.json
           {
-              "version": "${{ env.AUTOPATCH_VERSION }}",
+              "version": "CItestonlyversion",
               "appname": "autopatch.patch-evaluation-service",
               "logging_config" : "${{ github.workspace }}/src/patch-evaluation-service/logging-config.json",
               "crashes_events":"${{ github.workspace }}/src/patch-evaluation-service/crash_events",
@@ -110,6 +109,10 @@ jobs:
           PATCH_EVAL_SVC_CONFIG: ${{ github.workspace}}/patch-evaluation-service-config.json
         run: |
           task test
+      - name: Clean up temporary test config file
+        run: |
+          rm ${{ github.workspace }}/fuzzing-service-config.json
+          rm ${{ github.workspace }}/patch-evaluation-service-config.json
       - name: Automatic Releases
         uses: marvinpinto/action-automatic-releases@919008cf3f741b179569b7a6fb4d8860689ab7f0 # v1.2.1
         with:
@@ -118,7 +121,9 @@ jobs:
           prerelease: true
           title: "Development Build"
           files: |
-            ${{ github.workspace }}/src/autopatchdatatypes/dist/autopatchdatatypes-${{ env.AUTOPATCH_VERSION }}-py3-none-any.whl
-            ${{ github.workspace }}/src/autopatchdatatypes/dist/autopatchdatatypes-${{ env.AUTOPATCH_VERSION }}.tar.gz
-            ${{ github.workspace }}/src/autopatchshared/dist/autopatchshared-${{ env.AUTOPATCH_VERSION }}-py3-none-any.whl
-            ${{ github.workspace }}/src/autopatchshared/dist/autopatchshared-${{ env.AUTOPATCH_VERSION }}.tar.gz
+            ${{ github.workspace }}/src/autopatchdatatypes/dist/autopatchdatatypes-**-py3-none-any.whl
+            ${{ github.workspace }}/src/autopatchdatatypes/dist/autopatchdatatypes-**.tar.gz
+            ${{ github.workspace }}/src/autopatchshared/dist/autopatchshared-**-py3-none-any.whl
+            ${{ github.workspace }}/src/autopatchshared/dist/autopatchshared-**.tar.gz
+            ${{ github.workspace }}/src/autopatchpubsub/dist/autopatchshared-**-py3-none-any.whl
+            ${{ github.workspace }}/src/autopatchpubsub/dist/autopatchshared-**.tar.gz
