@@ -1,9 +1,9 @@
 import json
 import logging
-import pytest
 from typing import Final
-from autopatchshared import load_config_as_json
 
+import pytest
+from autopatchshared import load_config_as_json
 
 CONST_DUMMY_SVC_CONFIG: Final[str] = "CONST_DUMMY_SVC_CONFIG"
 
