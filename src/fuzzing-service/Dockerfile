@@ -27,6 +27,7 @@ COPY autopatchpubsub-0.3.1-py3-none-any.whl .
 
 RUN pip install --break-system-packages --user --no-cache-dir -r requirements.txt
 
+COPY fuzz_svc_config.py /app/fuzz_svc_config.py
 COPY fuzzing_service.py /app/fuzzing_service.py
 
 RUN chown -R appuser:appuser /app
