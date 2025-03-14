@@ -15,7 +15,6 @@ from autopatchshared import init_logging, load_config_as_json
 from cloudevents.http import CloudEvent
 from fuzz_svc_config import FuzzSvcConfig
 
-
 # this is the name of the environment variable that will be used point to the configuration map file to load
 CONST_FUZZ_SVC_CONFIG: Final[str] = "FUZZ_SVC_CONFIG"
 config: FuzzSvcConfig
