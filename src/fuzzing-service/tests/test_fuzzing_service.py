@@ -6,12 +6,11 @@ from datetime import datetime as real_datetime
 from types import SimpleNamespace
 from unittest import mock
 
+import fuzzing_service as fuzzing_service
 import paho.mqtt.client as mqtt_client
 import pytest
 from autopatchdatatypes import CrashDetail
-
 from fuzz_svc_config import FuzzSvcConfig
-import fuzzing_service as fuzzing_service
 
 # Import the function to test from the updated module.
 from fuzzing_service import (
