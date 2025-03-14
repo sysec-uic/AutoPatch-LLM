@@ -46,7 +46,7 @@ class MessageBrokerClient:
             client, userdata, disconnect_flags, reason_code, properties
         ) -> None:
             self.logger.info(
-                f"MessageBrokerClient - Disconnected with result code: {reason_code}"
+                f"{self.__class__.__name__} - Disconnected with result code: {reason_code}"
             )
             reconnect_count, reconnect_delay = 0, self.FIRST_RECONNECT_DELAY
             while reconnect_count < self.MAX_RECONNECT_COUNT:
@@ -88,10 +88,6 @@ class MessageBrokerClient:
             client_id=client_id,
             callback_api_version=mqtt_enums.CallbackAPIVersion.VERSION2,
         )
-        # client.username_pw_set(username, password)
-        # client.tls_set(
-        #     ca_certs=config["message_broker_ca_certs"], certfile=config["message_broker_certfile"], keyfile=config["message_broker_keyfile"]
-        # )
         client.on_connect = on_connect
         client.on_disconnect = on_disconnect
         client.on_publish = on_publish

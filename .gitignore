@@ -4,6 +4,9 @@ venv/
 .task/
 bin/
 
+*.whl
+*.tar.gz
+
 # pytest reports, if you really need historical test reports, archive them from CI instead of comitting them
 pytest.xml
 

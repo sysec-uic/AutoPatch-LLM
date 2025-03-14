@@ -1,93 +1,27 @@
 import asyncio
 import base64
-import json
 import logging
 import logging.config
 import os
 import signal
 import subprocess
 import sys
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Final, List
 
 from autopatchdatatypes import CrashDetail
 from autopatchpubsub import MessageBrokerClient
-from autopatchshared import init_logging
+from autopatchshared import init_logging, load_config_as_json
 from cloudevents.http import CloudEvent
+from fuzz_svc_config import FuzzSvcConfig
+
 
 # this is the name of the environment variable that will be used point to the configuration map file to load
 CONST_FUZZ_SVC_CONFIG: Final[str] = "FUZZ_SVC_CONFIG"
+config: FuzzSvcConfig
 
-config = dict()
+# before configuration is loaded, use the default logger
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class Config:
-    version: str
-    appname: str
-    logging_config: str
-    concurrency_threshold: int
-    message_broker_host: str
-    message_broker_port: int
-    message_broker_protocol: str
-    fuzz_svc_output_topic: str
-    fuzz_svc_input_codebase_path: str
-    fuzz_svc_output_path: str
-    compiler_warning_flags: str
-    compiler_feature_flags: str
-    fuzzer_tool_name: str
-    fuzzer_tool_timeout_seconds: int
-    fuzzer_tool_version: str
-    afl_tool_full_path: str
-    afl_tool_seed_input_path: str
-    afl_tool_output_path: str
-    afl_tool_child_process_memory_limit_mb: int
-    afl_tool_compiled_binary_executables_output_path: str
-    afl_compiler_tool_full_path: str
-    iconv_tool_timeout: int
-    message_broker_ca_certs: str
-    message_broker_certfile: str
-    message_broker_keyfile: str
-
-
-def load_config() -> dict:
-    """
-    Load the configuration from a JSON file.  Does not support loading config from a YAML file.
-    """
-    # Read the environment variable
-    config_path = os.environ.get(CONST_FUZZ_SVC_CONFIG)
-    if not config_path:
-        logger.error(
-            "Error: The environment variable 'FUZZ_SVC_CONFIG' is not set or is empty."
-        )
-        sys.exit(1)
-
-    try:
-        # Open the file with UTF-8 encoding
-        with open(config_path, "r", encoding="utf-8") as f:
-            config = json.load(f)
-    except FileNotFoundError:
-        logger.error(f"Error: The config file at '{config_path}' was not found.")
-        sys.exit(1)
-    except UnicodeDecodeError as e:
-        logger.error(
-            f"Error: The config file at '{config_path}' is not a valid UTF-8 text file: {e}"
-        )
-        sys.exit(1)
-    except json.JSONDecodeError as e:
-        logger.error(
-            f"Error: The config file at '{config_path}' contains invalid JSON: {e}"
-        )
-        sys.exit(1)
-    except Exception as e:
-        logger.error(
-            f"Error: An unexpected error occurred while loading the config file: {e}"
-        )
-        sys.exit(1)
-
-    return config
 
 
 async def MapCrashDetailAsCloudEvent(crash_detail: CrashDetail) -> CloudEvent:
@@ -109,7 +43,7 @@ async def MapCrashDetailAsCloudEvent(crash_detail: CrashDetail) -> CloudEvent:
         ]
     ):
         logger.error("Invalid crash_detail object or one of its values is None.")
-        logger.debug("CrashDetail: %s", crash_detail)
+        logger.debug(f"CrashDetail: {crash_detail}")
         raise ValueError("Invalid crash_detail object or one of its values is None.")
 
     attributes = {
@@ -161,8 +95,8 @@ def compile_program_run_fuzzer(
         fuzzer_compatible_executables_output_directory_path, program_name + ".afl"
     )
     # Compile using AFL's compiler
-    warn_flags = config["compiler_warning_flags"]
-    feature_flags = config["compiler_feature_flags"]
+    warn_flags = config.compiler_warning_flags
+    feature_flags = config.compiler_feature_flags
     compile_command = f"{fuzzer_compiler_full_path} {warn_flags} {feature_flags} {src_path} -o {executable_name}"
     logger.debug(f"Compile command: {compile_command}")
     try:
@@ -188,7 +122,7 @@ def compile_program_run_fuzzer(
 
     # Prepare the fuzzing command
     fuzz_command = (
-        f"{fuzzer_full_path} -m {config['afl_tool_child_process_memory_limit_mb']} -i {fuzzer_seed_input_path} -o {fuzzer_output_path}/{program_name} "
+        f"{fuzzer_full_path} -m {config.afl_tool_child_process_memory_limit_mb} -i {fuzzer_seed_input_path} -o {fuzzer_output_path}/{program_name} "
         f"-t {fuzzer_timeout} {executable_name}"
     )
 
@@ -330,7 +264,7 @@ def write_crashes_csv(crash_details: List[CrashDetail], csv_path: str) -> None:
 async def MapCrashDetailsAsCloudEvents(
     crash_details: List[CrashDetail],
 ) -> List[CloudEvent]:
-    if len(crash_details) > config["concurrency_threshold"]:
+    if len(crash_details) > config.concurrency_threshold:
         # Run in parallel
         tasks = [MapCrashDetailAsCloudEvent(detail) for detail in crash_details]
         results = await asyncio.gather(*tasks)
@@ -344,19 +278,19 @@ async def MapCrashDetailsAsCloudEvents(
 async def produce_output(crash_details: List[CrashDetail]) -> None:
 
     async def produce_event(event: CloudEvent) -> None:
-        logger.debug(f"Producing on Topic: {config['fuzz_svc_output_topic']}")
+        logger.debug(f"Producing on Topic: {config.fuzz_svc_output_topic}")
         logger.debug(f"Producing CloudEvent: {event}")
-        message_broker_producer.publish(config["fuzz_svc_output_topic"], str(event))
+        message_broker_client.publish(config.fuzz_svc_output_topic, str(event))
 
     crash_details_cloud_events: List[CloudEvent] = await MapCrashDetailsAsCloudEvents(
         crash_details
     )
-    message_broker_producer: Final[MessageBrokerClient] = MessageBrokerClient(
-        config["message_broker_host"], config["message_broker_port"], logger
+    message_broker_client: Final[MessageBrokerClient] = MessageBrokerClient(
+        config.message_broker_host, config.message_broker_port, logger
     )
 
     logger.info(f"Producing {len(crash_details_cloud_events)} CloudEvents.")
-    if len(crash_details_cloud_events) > config["concurrency_threshold"]:
+    if len(crash_details_cloud_events) > config.concurrency_threshold:
         # Run in parallel using asyncio.gather
         tasks = [produce_event(event) for event in crash_details_cloud_events]
         await asyncio.gather(*tasks)
@@ -365,33 +299,45 @@ async def produce_output(crash_details: List[CrashDetail]) -> None:
         for event in crash_details_cloud_events:
             await produce_event(event)
 
-    csv_path: Final[str] = os.path.join(config["fuzz_svc_output_path"], "crashes.csv")
+    csv_path: Final[str] = os.path.join(config.fuzz_svc_output_path, "crashes.csv")
     write_crashes_csv(crash_details, csv_path)
+
+
+def load_config(json_config_full_path: str) -> FuzzSvcConfig:
+    config = load_config_as_json(json_config_full_path, logger)
+    return FuzzSvcConfig(**config)
 
 
 async def main():
     global config, logger
 
-    config = load_config()
-    logger = init_logging(config["logging_config"], config["appname"])
+    config_full_path = os.environ.get(CONST_FUZZ_SVC_CONFIG)
+    if not config_full_path:
+        logger.error(
+            f"Error: The environment variable {CONST_FUZZ_SVC_CONFIG} is not set or is empty."
+        )
+        sys.exit(1)
+
+    config = load_config(config_full_path)
+    logger = init_logging(config.logging_config, config.appname)
 
     FUZZ_SVC_START_TIMESTAMP: Final[str] = get_current_timestamp()
 
-    _fuzz_svc_input_codebase_path: Final[str] = config["fuzz_svc_input_codebase_path"]
-    _fuzzer_tool_timeout_seconds: Final[int] = config["fuzzer_tool_timeout_seconds"]
-    _afl_tool_full_path: Final[str] = config["afl_tool_full_path"]
-    _afl_tool_seed_input_path: Final[str] = config["afl_tool_seed_input_path"]
-    _afl_tool_compiled_binary_executables_output_path: Final[str] = config[
-        "afl_tool_compiled_binary_executables_output_path"
-    ]
-    _afl_tool_output_path: Final[str] = os.path.join(
-        config["afl_tool_output_path"], FUZZ_SVC_START_TIMESTAMP
+    _fuzz_svc_input_codebase_path: Final[str] = config.fuzz_svc_input_codebase_path
+    _fuzzer_tool_timeout_seconds: Final[int] = config.fuzzer_tool_timeout_seconds
+    _afl_tool_full_path: Final[str] = config.afl_tool_full_path
+    _afl_tool_seed_input_path: Final[str] = config.afl_tool_seed_input_path
+    _afl_tool_compiled_binary_executables_output_path: Final[str] = (
+        config.afl_tool_compiled_binary_executables_output_path
     )
-    _afl_compiler_tool_full_path: Final[str] = config["afl_compiler_tool_full_path"]
+    _afl_tool_output_path: Final[str] = os.path.join(
+        config.afl_tool_output_path, FUZZ_SVC_START_TIMESTAMP
+    )
+    _afl_compiler_tool_full_path: Final[str] = config.afl_compiler_tool_full_path
 
-    logger.info("AppVersion: " + config["version"])
-    logger.info("Fuzzer tool name: " + config["fuzzer_tool_name"])
-    logger.info("Fuzzer tool version: " + config["fuzzer_tool_version"])
+    logger.info("AppVersion: " + config.version)
+    logger.info("Fuzzer tool name: " + config.fuzzer_tool_name)
+    logger.info("Fuzzer tool version: " + config.fuzzer_tool_version)
 
     logger.info("Creating AFL output directory: " + _afl_tool_output_path)
     os.makedirs(_afl_tool_output_path, exist_ok=True)
@@ -435,7 +381,7 @@ async def main():
         crash_details = extract_crashes(
             _afl_tool_output_path,
             executable_name,
-            config["iconv_tool_timeout"],
+            config.iconv_tool_timeout,
             isInputFromFile,
         )
 
@@ -454,5 +400,6 @@ async def main():
     logger.info("Processing complete, exiting.")
 
 
-# Run the event loop
-asyncio.run(main())
+if __name__ == "__main__":
+    # Run the event loop
+    asyncio.run(main())

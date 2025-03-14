@@ -17,7 +17,6 @@ permissions:
   pull-requests: write
 env:
   PYTHON_VERSION: '3.12.3'
-  AUTOPATCH_VERSION: '0.3.0'
 
 jobs:
   test:
@@ -38,12 +37,6 @@ jobs:
             assets/input_codebase
             pyproject.toml
             Taskfile.yml
-      - name: Remove any dev test config files
-        run: |
-          stat ${{ github.workspace }}/src/fuzzing-service/tests/pytest.ini
-          stat ${{ github.workspace }}/src/fuzzing-service/tests/devcontainer-test-config.json
-          rm ${{ github.workspace }}/src/fuzzing-service/tests/pytest.ini
-          rm ${{ github.workspace }}/src/fuzzing-service/tests/devcontainer-test-config.json
       - name: Set up Python
         uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
         with:
@@ -62,7 +55,7 @@ jobs:
         run: |
           cat <<EOF > fuzzing-service-config.json
           {
-              "version": "${{ env.AUTOPATCH_VERSION }}",
+              "version": "CITestonlyversion",
               "appname": "autopatch.fuzzing-service",
               "logging_config" : "${{ github.workspace }}/src/fuzzing-service/config/logging-config.json",
               "concurrency_threshold": 10,
@@ -90,7 +83,7 @@ jobs:
         run: |
           cat <<EOF > patch-evaluation-service-config.json
           {
-              "version": "${{ env.AUTOPATCH_VERSION }}",
+              "version": "CITestonlyversion",
               "appname": "autopatch.patch-evaluation-service",
               "logging_config" : "${{ github.workspace }}/src/patch-evaluation-service/logging-config.json",
               "crashes_events":"${{ github.workspace }}/src/patch-evaluation-service/crash_events",
