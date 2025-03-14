@@ -1,5 +1,5 @@
 {
-    "version": "0.3.0-alpha",
+    "version": "0.3.1-alpha",
     "appname": "autopatch.fuzzing-service",
     "logging_config" : "/workspace/AutoPatch-LLM/src/fuzzing-service/config/dev-logging-config.json",
     "concurrency_threshold": 10,
@@ -20,8 +20,5 @@
     "afl_tool_child_process_memory_limit_mb": 6000,
     "afl_tool_compiled_binary_executables_output_path": "/workspace/AutoPatch-LLM/src/fuzzing-service/bin",
     "afl_compiler_tool_full_path": "/workspace/AutoPatch-LLM/bin/afl-2.52b/afl-gcc",
-    "iconv_tool_timeout": 120,
-    "message_broker_ca_certs": "./server-ca.crt",
-    "message_broker_certfile": "./client.crt",
-    "message_broker_keyfile": "./client.key"
+    "iconv_tool_timeout": 120
 }

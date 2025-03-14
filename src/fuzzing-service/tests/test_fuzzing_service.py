@@ -1,5 +1,5 @@
 import base64
-import json
+import logging
 import os
 import subprocess
 from datetime import datetime as real_datetime
@@ -10,18 +10,45 @@ import fuzzing_service as fuzzing_service
 import paho.mqtt.client as mqtt_client
 import pytest
 from autopatchdatatypes import CrashDetail
+from fuzz_svc_config import FuzzSvcConfig
 
 # Import the function to test from the updated module.
 from fuzzing_service import (
-    CONST_FUZZ_SVC_CONFIG,
     MapCrashDetailAsCloudEvent,
     MapCrashDetailsAsCloudEvents,
     compile_program_run_fuzzer,
     extract_crashes,
-    load_config,
     produce_output,
     write_crashes_csv,
 )
+
+
+def dummy_FuzzSvcConfig() -> FuzzSvcConfig:
+    dummy_config = {
+        "version": "0.3.1",
+        "appname": "autopatch.fuzzing-service",
+        "logging_config": "config/logging-config.json",
+        "concurrency_threshold": 10,
+        "message_broker_host": "mosquitto",
+        "message_broker_port": 1883,
+        "message_broker_protocol": "mqtt",
+        "fuzz_svc_output_topic": "autopatch/crash_detail",
+        "fuzz_svc_input_codebase_path": "/workspace/AutoPatch-LLM/assets/input_codebase",
+        "fuzz_svc_output_path": "data/fuzz_svc_output",
+        "compiler_warning_flags": "-Wall -Wextra -Wformat -Wshift-overflow -Wcast-align -Wstrict-overflow",
+        "compiler_feature_flags": "-m32 -fno-stack-protector -O1 -fsanitize=address",
+        "fuzzer_tool_name": "afl",
+        "fuzzer_tool_timeout_seconds": 120,
+        "fuzzer_tool_version": "2.52b",
+        "afl_tool_full_path": "bin/afl-2.52b/afl-fuzz",
+        "afl_tool_seed_input_path": "seed_input",
+        "afl_tool_output_path": "data/afl_tool_output",
+        "afl_tool_child_process_memory_limit_mb": 6000,
+        "afl_tool_compiled_binary_executables_output_path": "bin",
+        "afl_compiler_tool_full_path": "/workspace/AutoPatch-LLM/bin/afl-2.52b/afl-gcc",
+        "iconv_tool_timeout": 120,
+    }
+    return FuzzSvcConfig(**dummy_config)
 
 
 # A fixed datetime class to always return the same timestamp.
@@ -40,6 +67,7 @@ class FixedDatetime:
 class DummyLogger:
     def __init__(self):
         self.messages = []
+        self.level = logging.DEBUG  # Add the level attribute
 
     def info(self, msg):
         self.messages.append(msg)
@@ -50,7 +78,7 @@ class DummyLogger:
     def error(self, msg):
         self.messages.append(msg)
 
-    def log(self, msg, *args, **kwargs):
+    def log(self, level, msg, *args, **kwargs):
         self.messages.append(msg)
 
 
@@ -113,6 +141,7 @@ async def test_MapCrashDetailAsCloudEvent():
 
 @pytest.mark.asyncio
 async def test_MapCrashDetailsAsCloudEvents():
+    fuzzing_service.config = dummy_FuzzSvcConfig()
     """Test that a list of CrashDetail objects are mapped to CloudEvents asynchronously."""
     crash_details = [
         CrashDetail("test_exe1", base64.b64encode(b"crash1").decode("utf-8"), True),
@@ -126,6 +155,7 @@ async def test_MapCrashDetailsAsCloudEvents():
 
 @pytest.mark.asyncio
 async def test_produce_output(dummy_logger):
+    fuzzing_service.config = dummy_FuzzSvcConfig()
     """Test producing output asynchronously, ensuring logger output is correct."""
     crash_details = [
         CrashDetail("test_exe", base64.b64encode(b"crash_data").decode("utf-8"), True)
@@ -146,74 +176,16 @@ async def test_produce_output_with_multiple_events(dummy_logger):
 
 
 # --------------
-# Tests for load_config
-# --------------
-
-
-def test_load_config_valid(monkeypatch, tmp_path):
-    # Create a temporary config file.
-    config_data = {"logging_config": "dummy_logging.json", "appname": "dummy_app"}
-    config_file = tmp_path / "config.json"
-    config_file.write_text(json.dumps(config_data), encoding="utf-8")
-    # Set the environment variable.
-    monkeypatch.setenv(CONST_FUZZ_SVC_CONFIG, str(config_file))
-    # Call load_config and verify the output.
-    loaded_config = load_config()
-    assert loaded_config == config_data
-
-
-def test_load_config_no_env(monkeypatch):
-    # Ensure the environment variable is not set.
-    monkeypatch.delenv(CONST_FUZZ_SVC_CONFIG, raising=False)
-    with pytest.raises(SystemExit):
-        load_config()
-
-
-def test_load_config_file_not_found(monkeypatch):
-    # Set the env var to a non-existent file.
-    monkeypatch.setenv(CONST_FUZZ_SVC_CONFIG, "nonexistent_config.json")
-    # Monkey-patch open to raise FileNotFoundError.
-    monkeypatch.setattr(
-        "builtins.open", lambda f, **kw: (_ for _ in ()).throw(FileNotFoundError)
-    )
-    with pytest.raises(SystemExit):
-        load_config()
-
-
-def test_load_config_invalid_utf8(monkeypatch):
-    # Set env var to a dummy file.
-    monkeypatch.setenv(CONST_FUZZ_SVC_CONFIG, "dummy_config.json")
-
-    # Monkey-patch open to raise UnicodeDecodeError.
-    def fake_open(*args, **kwargs):
-        raise UnicodeDecodeError("codec", b"", 0, 1, "reason")
-
-    monkeypatch.setattr("builtins.open", fake_open)
-    with pytest.raises(SystemExit):
-        load_config()
-
-
-def test_load_config_invalid_json(monkeypatch, tmp_path):
-    # Create a temporary config file with invalid JSON.
-    config_file = tmp_path / "config.json"
-    config_file.write_text("invalid json", encoding="utf-8")
-    monkeypatch.setenv(CONST_FUZZ_SVC_CONFIG, str(config_file))
-    with pytest.raises(SystemExit):
-        load_config()
-
-
-# --------------
 # Tests for compile_program_run_fuzzer
 # --------------
 
 
 def test_run_fuzzer_compile_failure(monkeypatch):
     # Set up config.
-    fuzzing_service.config = {
-        "compiler_warning_flags": "-w",
-        "compiler_feature_flags": "-f",
-        "afl_tool_child_process_memory_limit_mb": 128,
-    }
+    fuzzing_service.config.compiler_warning_flags = "-w"
+    fuzzing_service.config.compiler_feature_flags = "-f"
+    fuzzing_service.config.afl_tool_child_process_memory_limit_mb = 128
+
     executable_name = "failprog"
     dummy_args = (
         "/dummy",
@@ -239,11 +211,9 @@ def test_run_fuzzer_compile_failure(monkeypatch):
 
 def test_run_fuzzer_popen_failure(monkeypatch):
     # Set up config.
-    fuzzing_service.config = {
-        "compiler_warning_flags": "-w",
-        "compiler_feature_flags": "-f",
-        "afl_tool_child_process_memory_limit_mb": 128,
-    }
+    fuzzing_service.config.compiler_warning_flags = "-w"
+    fuzzing_service.config.compiler_feature_flags = "-f"
+    fuzzing_service.config.afl_tool_child_process_memory_limit_mb = 128
     executable_name = "failprog"
     dummy_args = (
         "/dummy",
