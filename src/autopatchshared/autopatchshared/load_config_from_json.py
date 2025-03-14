@@ -1,6 +1,6 @@
-import sys
-import logging
 import json
+import logging
+import sys
 
 
 def load_config_as_json(config_full_path: str, logger: logging.Logger) -> dict:
