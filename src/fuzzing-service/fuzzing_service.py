@@ -277,9 +277,14 @@ async def MapCrashDetailsAsCloudEvents(
 async def produce_output(crash_details: List[CrashDetail]) -> None:
 
     async def produce_event(event: CloudEvent) -> None:
-        logger.debug(f"Producing on Topic: {config.fuzz_svc_output_topic}")
+        # flake8 flags the following as F821 because it doesn't recognize the global variable
+        logger.debug(
+            f"Producing on Topic: {config.fuzz_svc_output_topic}"  # noqa: F821
+        )
         logger.debug(f"Producing CloudEvent: {event}")
-        message_broker_client.publish(config.fuzz_svc_output_topic, str(event))
+        message_broker_client.publish(
+            config.fuzz_svc_output_topic, str(event)  # noqa: F821
+        )
 
     crash_details_cloud_events: List[CloudEvent] = await MapCrashDetailsAsCloudEvents(
         crash_details
