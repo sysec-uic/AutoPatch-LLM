@@ -20,11 +20,14 @@ RUN groupadd -r appuser && \
     useradd -r -g appuser appuser
 
 COPY requirements.txt .
-COPY autopatchdatatypes-0.3.0-py3-none-any.whl .
-COPY autopatchshared-0.3.0-py3-none-any.whl .
+
+COPY autopatchdatatypes-0.3.2-py3-none-any.whl .
+COPY autopatchshared-0.3.2-py3-none-any.whl .
+
 RUN pip install --break-system-packages --user --no-cache-dir -r requirements.txt
 
 COPY patch_evaluation_service.py /app/patch_evaluation_service.py
+COPY patch_eval_config.py /app/patch_eval_config.py
 
 RUN chown -R appuser:appuser /app
 
