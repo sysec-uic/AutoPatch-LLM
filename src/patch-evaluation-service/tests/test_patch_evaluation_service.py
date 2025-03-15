@@ -1,22 +1,18 @@
 import base64
-import json
 import os
 import subprocess
 from datetime import datetime as real_datetime
 from types import SimpleNamespace
-from unittest.mock import mock_open
 
 import patch_evaluation_service as patch_evaluation_service
 import pytest
 from autopatchdatatypes import CrashDetail
+from patch_eval_config import PatchEvalConfig
 
 # Import the function to test from the module.
 from patch_evaluation_service import (
-    CONST_PATCH_EVAL_SVC_CONFIG,
     compile_file,
     create_temp_crash_file,
-    init_logging,
-    load_config,
     log_results,
     run_file,
     write_crashes_csv,
@@ -60,129 +56,9 @@ def dummy_logger(monkeypatch):
 
 # --- Tests ---
 
-# --------------
-# Tests for init_logging
-# --------------
-
-
-def test_init_logging_file_not_found(monkeypatch, capsys):
-    # Force os.path.exists to always return False
-    monkeypatch.setattr(os.path, "exists", lambda path: False)
-    # Call init_logging with a dummy path.
-    logger = init_logging("dummy_logging.json", "test_app")
-    captured = capsys.readouterr().out
-    assert "not found" in captured
-    assert "Falling back to basic logging configuration." in captured
-    # Even in fallback, a logger with the given name is returned.
-    assert logger.name == "test_app"
-
-
-def test_init_logging_invalid_json(monkeypatch, capsys):
-    # Simulate that the logging config file exists.
-    monkeypatch.setattr(os.path, "exists", lambda path: True)
-    # Provide invalid JSON content.
-    m = mock_open(read_data="not valid json")
-    monkeypatch.setattr("builtins.open", m)
-    logger = init_logging("dummy_logging.json", "test_app")
-    captured = capsys.readouterr().out
-    assert "Error decoding JSON" in captured or "Unexpected error" in captured
-    assert "Falling back to basic logging configuration." in captured
-    assert logger.name == "test_app"
-
-
-def test_init_logging_valid(monkeypatch, capsys):
-    # Provide a valid logging configuration.
-    valid_config = {
-        "version": 1,
-        "formatters": {"default": {"format": "%(levelname)s:%(message)s"}},
-        "handlers": {
-            "console": {
-                "class": "logging.StreamHandler",
-                "formatter": "default",
-                "stream": "ext://sys.stdout",
-            }
-        },
-        "loggers": {
-            "test_app": {
-                "handlers": ["console"],
-                "level": "DEBUG",
-                "propagate": False,
-            }
-        },
-    }
-    config_str = json.dumps(valid_config)
-    # Simulate file exists.
-    monkeypatch.setattr(os.path, "exists", lambda path: True)
-    m = mock_open(read_data=config_str)
-    monkeypatch.setattr("builtins.open", m)
-    logger = init_logging("dummy_logging.json", "test_app")
-    # The logger should be configured and have logged the initialization.
-    captured = capsys.readouterr().out
-    assert "Logger initialized successfully." in captured
-    assert logger.name == "test_app"
-
 
 # --------------
-# Tests for load_config
-# --------------
-
-
-def test_load_config_valid(monkeypatch, tmp_path):
-    # Create a temporary config file.
-    config_data = {"logging_config": "dummy_logging.json", "appname": "dummy_app"}
-    config_file = tmp_path / "config.json"
-    config_file.write_text(json.dumps(config_data), encoding="utf-8")
-    # Set the environment variable.
-    monkeypatch.setenv(CONST_PATCH_EVAL_SVC_CONFIG, str(config_file))
-    # Call load_config and verify the output.
-    loaded_config = load_config()
-    assert loaded_config == config_data
-
-
-def test_load_config_no_env(monkeypatch):
-    # Ensure the environment variable is not set.
-    monkeypatch.delenv(CONST_PATCH_EVAL_SVC_CONFIG, raising=False)
-    with pytest.raises(SystemExit):
-        load_config()
-
-
-# the error in this one i think is to do with my settings
-def test_load_config_file_not_found(monkeypatch):
-    # Set the env var to a non-existent file.
-    monkeypatch.setenv(CONST_PATCH_EVAL_SVC_CONFIG, "nonexistent_config.json")
-    # Monkey-patch open to raise FileNotFoundError.
-    monkeypatch.setattr(
-        "builtins.open", lambda f, **kw: (_ for _ in ()).throw(FileNotFoundError)
-    )
-    with pytest.raises(SystemExit):
-        load_config()
-
-
-# this error also probably because of something im doing wrong
-def test_load_config_invalid_utf8(monkeypatch):
-    # Set env var to a dummy file.
-    monkeypatch.setenv(CONST_PATCH_EVAL_SVC_CONFIG, "dummy_config.json")
-
-    # Monkey-patch open to raise UnicodeDecodeError.
-    def fake_open(*args, **kwargs):
-        raise UnicodeDecodeError("codec", b"", 0, 1, "reason")
-
-    monkeypatch.setattr("builtins.open", fake_open)
-    with pytest.raises(SystemExit):
-        load_config()
-
-
-def test_load_config_invalid_json(monkeypatch, tmp_path):
-    # Create a temporary config file with invalid JSON.
-    config_file = tmp_path / "config.json"
-    config_file.write_text("invalid json", encoding="utf-8")
-    monkeypatch.setenv(CONST_PATCH_EVAL_SVC_CONFIG, str(config_file))
-    with pytest.raises(SystemExit):
-        load_config()
-
-
-# --------------
-# Tests for load_config
+# Tests for write_crashes_csv
 # --------------
 
 
@@ -490,16 +366,33 @@ def dummy_popen_success(*args, **kwargs):
     return DummyProcess()
 
 
+def dummy_PatchEvalConfig() -> PatchEvalConfig:
+    dummy_config = {
+        "version": "0.3.2-alpha",
+        "appname": "autopatch.patch-evaluation-service",
+        "logging_config": "/workspace/AutoPatch-LLM/src/patch-evaluation-service/config/logging-config.json",
+        "crashes_events": "/workspace/AutoPatch-LLM/src/patch-evaluation-service/crash_events",
+        "patch_eval_results": "/workspace/AutoPatch-LLM/src/patch-evaluation-service/data",
+        "patched_codes_path": "/workspace/AutoPatch-LLM/src/patch-evaluation-service/patched_codes",
+        "executables_path": "/workspace/AutoPatch-LLM/src/patch-evaluation-service/bin/executables",
+        "temp_crashes_path": "/workspace/AutoPatch-LLM/src/patch-evaluation-service/temp_crashes_files",
+        "compiler_warning_flags": "-Wall -Wextra -Wformat -Wshift-overflow -Wcast-align -Wstrict-overflow -fstack-protector-strong",
+        "compile_timeout": 10,
+        "run_timeout": 10,
+        "message_broker_host": "mosquitto",
+        "message_broker_port": 1883,
+        "autopatch_crash_detail_input_topic": "autopatch/crash_detail",
+    }
+    return PatchEvalConfig(**dummy_config)
+
+
 def test_compile_file_success(monkeypatch):
     exec_dir_path = "/dummy/executables"
     source_code_path = "test.c"
     file_name = "test.c"
     executable_name = "test"
 
-    patch_evaluation_service.config = {
-        "compiler_warning_flags": "-Wall -Wextra -Wformat -Wshift-overflow -Wcast-align -Wstrict-overflow -fstack-protector-strong",
-        "compile_timeout": 10,
-    }
+    patch_evaluation_service.config = dummy_PatchEvalConfig()
 
     # Patch subprocess.run to simulate successful compile.
     monkeypatch.setattr(subprocess, "run", dummy_run_success)
@@ -524,10 +417,7 @@ def test_compile_file_failure(monkeypatch):
     source_code_path = "test.c"
     file_name = "test.c"
 
-    patch_evaluation_service.config = {
-        "compiler_warning_flags": "-Wall -Wextra -Wformat -Wshift-overflow -Wcast-align -Wstrict-overflow -fstack-protector-strong",
-        "compile_timeout": 10,
-    }
+    patch_evaluation_service.config = dummy_PatchEvalConfig()
 
     # Simulate compile failure.
     def fake_run_fail(*args, **kwargs):
@@ -551,9 +441,8 @@ def test_run_file_success_stdin(monkeypatch):
     crash_encoded = base64.b64encode(crash_string.encode("utf-8")).decode("utf-8")
     crash_detail = CrashDetail(executable_name, crash_encoded, False)
 
-    patch_evaluation_service.config = {
-        "run_timeout": 10,
-    }
+    patch_evaluation_service.config = dummy_PatchEvalConfig()
+    patch_evaluation_service.config.run_timeout = 10
 
     # Patch subprocess.run to simulate successful compile.
     monkeypatch.setattr(subprocess, "run", dummy_run_success)
@@ -572,9 +461,7 @@ def test_run_file_failure_stdin(monkeypatch):
     crash_encoded = base64.b64encode(crash_string.encode("utf-8")).decode("utf-8")
     crash_detail = CrashDetail(executable_name, crash_encoded, False)
 
-    patch_evaluation_service.config = {
-        "run_timeout": 10,
-    }
+    patch_evaluation_service.config = dummy_PatchEvalConfig()
 
     # Simulate compile failure.
     def fake_run_fail(*args, **kwargs):
@@ -594,9 +481,7 @@ def test_run_file_success_file_input(monkeypatch):
     crash_encoded = base64.b64encode(crash_string.encode("utf-8")).decode("utf-8")
     crash_detail = CrashDetail(executable_name, crash_encoded, True)
 
-    patch_evaluation_service.config = {
-        "run_timeout": 10,
-    }
+    patch_evaluation_service.config = dummy_PatchEvalConfig()
 
     # Patch subprocess.run to simulate successful compile.
     monkeypatch.setattr(subprocess, "run", dummy_run_success)
@@ -615,9 +500,7 @@ def test_run_file_failure_file_input(monkeypatch):
     crash_encoded = base64.b64encode(crash_string.encode("utf-8")).decode("utf-8")
     crash_detail = CrashDetail(executable_name, crash_encoded, True)
 
-    patch_evaluation_service.config = {
-        "run_timeout": 10,
-    }
+    patch_evaluation_service.config = dummy_PatchEvalConfig()
 
     # Simulate compile failure.
     def fake_run_fail(*args, **kwargs):

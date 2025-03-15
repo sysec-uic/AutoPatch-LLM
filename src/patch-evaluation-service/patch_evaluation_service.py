@@ -5,66 +5,20 @@ import logging.config
 import os
 import subprocess
 import sys
-from dataclasses import dataclass
 from datetime import datetime
 from typing import Final
 
 from autopatchdatatypes import CrashDetail
 from autopatchshared import init_logging
+from autopatchshared import load_config_as_json
+from patch_eval_config import PatchEvalConfig
 
 # this is the name of the environment variable that will be used point to the configuration map file to load
 CONST_PATCH_EVAL_SVC_CONFIG: Final[str] = "PATCH_EVAL_SVC_CONFIG"
+config: PatchEvalConfig
 
-config = dict()
+# before configuration is loaded, use the default logger
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class Config:
-    version: str
-    appname: str
-    logging_config: str
-    message_broker_host: str
-    message_broker_port: int = 1833
-
-
-def load_config() -> dict:
-    """
-    Load the configuration from a JSON file.  Does not support loading config from a YAML file.
-    """
-    # Read the environment variable
-    config_path = os.environ.get(CONST_PATCH_EVAL_SVC_CONFIG)
-
-    if not config_path:
-        logger.error(
-            "Error: The environment variable 'CONST_PATCH_EVAL_SVC_CONFIG' is not set or is empty."
-        )
-        sys.exit(1)
-
-    try:
-        # Open the file with UTF-8 encoding
-        with open(config_path, "r", encoding="utf-8") as f:
-            config = json.load(f)
-    except FileNotFoundError:
-        logger.error(f"Error: The config file at '{config_path}' was not found.")
-        sys.exit(1)
-    except UnicodeDecodeError as e:
-        logger.error(
-            f"Error: The config file at '{config_path}' is not a valid UTF-8 text file: {e}"
-        )
-        sys.exit(1)
-    except json.JSONDecodeError as e:
-        logger.error(
-            f"Error: The config file at '{config_path}' contains invalid JSON: {e}"
-        )
-        sys.exit(1)
-    except Exception as e:
-        logger.error(
-            f"Error: An unexpected error occurred while loading the config file: {e}"
-        )
-        sys.exit(1)
-
-    return config
 
 
 def create_temp_crash_file(crash_detail: CrashDetail, temp_dir_path: str) -> str:
@@ -104,7 +58,7 @@ def run_file(
             stderr=subprocess.PIPE,
             stdout=subprocess.PIPE,
             universal_newlines=True,
-            timeout=config["run_timeout"],
+            timeout=config.run_timeout,
             shell=True,
         )
         # return 0 on complete success
@@ -136,7 +90,7 @@ def compile_file(file_path: str, file_name: str, executable_path: str) -> str:
     Compiles the file at file_path into a binary executable in the executable_path directory.
     """
     # form the command
-    warnings = config["compiler_warning_flags"]
+    warnings = config.compiler_warning_flags
     executable_name = file_name.split(".")[0]
     command = (
         f"gcc {file_path} {warnings} -O1 -g -o {executable_path}/{executable_name}"
@@ -149,7 +103,7 @@ def compile_file(file_path: str, file_name: str, executable_path: str) -> str:
             stderr=subprocess.PIPE,
             stdout=subprocess.PIPE,
             universal_newlines=True,
-            timeout=config["compile_timeout"],
+            timeout=config.compile_timeout,
             shell=True,
         )
         logger.debug(f"Compiled with command {command}")
@@ -306,31 +260,49 @@ def create_crash_detail_objects_for_testing(
     return crash_details
 
 
+def load_config(
+    patch_eval_svc_config_full_path: str, logger: logging.Logger
+) -> PatchEvalConfig:
+    """
+    Load the configuration for the patch evaluation service.
+    """
+    _config = load_config_as_json(patch_eval_svc_config_full_path, logger)
+    return PatchEvalConfig(**_config)
+
+
 def main():
     global config, logger
 
+    config_file = os.environ.get(CONST_PATCH_EVAL_SVC_CONFIG)
+    if config_file is None:
+        logger.error(
+            f"Environment variable {CONST_PATCH_EVAL_SVC_CONFIG} is not set. Exiting."
+        )
+        sys.exit(1)
+
+    _config: PatchEvalConfig = load_config(CONST_PATCH_EVAL_SVC_CONFIG, logger)
+    config = _config
     # initialize the logger
-    config = load_config()
-    logger = init_logging(config["logging_config"], config["appname"])
+    logger = init_logging(config.logging_config, config.appname)
 
     # get the paths of the patched codes, crash events (to be deprecated), and the temp crashes directory from the config
-    _patched_codes_path: Final[str] = config["patched_codes_path"]
-    _crashes_events_path: Final[str] = config["crashes_events"]
-    _temp_crashes_path: Final[str] = config["temp_crashes_path"]
+    _patched_codes_path: Final[str] = config.patched_codes_path
+    _crashes_events_path: Final[str] = config.crashes_events
+    _temp_crashes_path: Final[str] = config.temp_crashes_path
 
     # get the current timestamp
     EVAL_SVC_START_TIMESTAMP: Final[str] = datetime.now().isoformat(timespec="seconds")
 
     # create the timestamped directories
     _patch_eval_results_path: Final[str] = os.path.join(
-        config["patch_eval_results"], EVAL_SVC_START_TIMESTAMP
+        config.patch_eval_results, EVAL_SVC_START_TIMESTAMP
     )
     _executables_path: Final[str] = os.path.join(
-        config["executables_path"], EVAL_SVC_START_TIMESTAMP
+        config.executables_path, EVAL_SVC_START_TIMESTAMP
     )
 
     # log some info, make the directories if they DNE
-    logger.info("AppVersion: " + config["version"])
+    logger.info("AppVersion: " + config.version)
     logger.info("Creating results directory: " + _patch_eval_results_path)
     os.makedirs(_patch_eval_results_path, exist_ok=True)
     logger.info("Creating executables directory: " + _executables_path)
