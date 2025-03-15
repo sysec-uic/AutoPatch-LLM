@@ -1,6 +1,10 @@
 version: '3'
 
 tasks:
+  install:
+    desc: install autopatch-patch-evaluation-service
+    cmds:
+      - pip install -r requirements.txt --break-system-packages
   run:
     desc: run autopatch-patch-evaluation-service
     dotenv: [".env"]

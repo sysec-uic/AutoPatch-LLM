@@ -10,7 +10,9 @@ class PatchEvalConfig:
     patch_eval_results: str
     patched_codes_path: str
     executables_path: str
+    compiler_tool_full_path: str
     compiler_warning_flags: str
+    compiler_feature_flags: str
     temp_crashes_path: str
     compile_timeout: int
     run_timeout: int

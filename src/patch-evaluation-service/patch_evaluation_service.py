@@ -1,3 +1,5 @@
+import asyncio
+import tempfile
 import base64
 import json
 import logging
@@ -5,17 +7,14 @@ import logging.config
 import os
 import subprocess
 import sys
-from datetime import datetime
 from typing import Final
 
 from autopatchdatatypes import CrashDetail
-from autopatchshared import init_logging
-from autopatchshared import load_config_as_json
+from autopatchshared import init_logging, load_config_as_json, get_current_timestamp
 from patch_eval_config import PatchEvalConfig
 
 # this is the name of the environment variable that will be used point to the configuration map file to load
 CONST_PATCH_EVAL_SVC_CONFIG: Final[str] = "PATCH_EVAL_SVC_CONFIG"
-config: PatchEvalConfig
 
 # before configuration is loaded, use the default logger
 logger = logging.getLogger(__name__)
@@ -33,18 +32,66 @@ def create_temp_crash_file(crash_detail: CrashDetail, temp_dir_path: str) -> str
     return crash_path
 
 
+def run_c_program(executable_path, input_data, file_input=False):
+    """
+    Invokes a C program located at `executable_path` with the provided input.
+
+    Parameters:
+        executable_path (str): The path to the C executable.
+        input_data (str): The input data to be provided to the executable.
+        file_input (bool): If True, writes the input_data to a temporary file and passes
+                           the file path as an argument to the executable. If False,
+                           the input_data is sent directly to the program's STDIN.
+
+    Returns:
+        tuple: A triplet (exit_code, stdout, stderr) where exit_code is an integer
+               representing the program's exit status.
+    """
+    if file_input:
+        # Write input_data to a temporary file.
+        with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmp_file:
+            tmp_file.write(input_data)
+            tmp_file.flush()
+            tmp_filename = tmp_file.name
+
+        try:
+            # Run the executable with the temporary file as an argument.
+            result = subprocess.run(
+                [executable_path, tmp_filename],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,  # Ensures the output is returned as strings.
+            )
+        finally:
+            # Clean up the temporary file.
+            os.remove(tmp_filename)
+    else:
+        # Run the executable with input_data piped into STDIN.
+        result = subprocess.run(
+            [executable_path],
+            input=input_data,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,  # Ensure input and outputs are handled as strings.
+        )
+
+    return result.returncode, result.stdout, result.stderr
+
+
 def run_file(
     executable_path: str,
     executable_name: str,
     crash_detail: CrashDetail,
     temp_crash_file: str = None,
+    timeout: int = 10,
 ) -> int:
     """
     Run the binary at executable_path with the input given by CrashDetail, either through stdin or via a file.
     """
 
     # get the crash detail and form the command
-    crash = base64.b64decode(crash_detail.base64_message)
+    crash_bytes = base64.b64decode(crash_detail.base64_message)
+    crash = crash_bytes.decode("utf-8", errors="replace")
     if crash_detail.is_input_from_file:
         command = f"{executable_path} {temp_crash_file}"
     else:
@@ -58,7 +105,7 @@ def run_file(
             stderr=subprocess.PIPE,
             stdout=subprocess.PIPE,
             universal_newlines=True,
-            timeout=config.run_timeout,
+            timeout=timeout,
             shell=True,
         )
         # return 0 on complete success
@@ -67,7 +114,6 @@ def run_file(
         logger.debug(
             f"File {executable_name} ran with input {crash} without any terminating errors."
         )
-        return 0
     # if the program terminated with a signal != 0
     except subprocess.CalledProcessError as e:
         logger.debug(f"Command run: {command}")
@@ -83,18 +129,25 @@ def run_file(
         logger.debug(f"Command run: {command}")
         logger.error(f"An exception occurred during runtime: {e}")
         return -1
+    return 0
 
 
-def compile_file(file_path: str, file_name: str, executable_path: str) -> str:
+def compile_file(
+    file_path: str,
+    file_name: str,
+    executable_path: str,
+    compiler_tool_full_patch: str,
+    compiler_warning_flags: str,
+    compiler_feature_flags: str,
+    compiler_timeout: int,
+) -> str:
     """
     Compiles the file at file_path into a binary executable in the executable_path directory.
     """
     # form the command
-    warnings = config.compiler_warning_flags
     executable_name = file_name.split(".")[0]
-    command = (
-        f"gcc {file_path} {warnings} -O1 -g -o {executable_path}/{executable_name}"
-    )
+    executable_full_path = os.path.join(executable_path, executable_name)
+    command = f"{compiler_tool_full_patch} {file_path} {compiler_warning_flags} {compiler_feature_flags} {executable_full_path}"
 
     # run the command
     try:
@@ -103,7 +156,7 @@ def compile_file(file_path: str, file_name: str, executable_path: str) -> str:
             stderr=subprocess.PIPE,
             stdout=subprocess.PIPE,
             universal_newlines=True,
-            timeout=config.compile_timeout,
+            timeout=compiler_timeout,
             shell=True,
         )
         logger.debug(f"Compiled with command {command}")
@@ -114,8 +167,8 @@ def compile_file(file_path: str, file_name: str, executable_path: str) -> str:
         logger.error(f"stderr of the compile: {result.stderr}")
     finally:
         # log the command and return either the path to the executable or an empty string on failure
-        if os.path.exists(f"{executable_path}/{executable_name}"):
-            logger.info(f"Executable {executable_path}/{executable_name} exists.")
+        if os.path.exists(executable_full_path):
+            logger.info(f"Executable {executable_full_path} exists.")
             return f"{executable_name}"
         else:
             logger.error(f"Failed to compile {file_path}")
@@ -144,7 +197,7 @@ def write_crashes_csv(
             f.write("timestamp,crash_detail,return_code,inputFromFile\n")
 
         logger.info(f"  - {crash_detail}")
-        timestamp = datetime.now().isoformat(timespec="seconds")
+        timestamp = get_current_timestamp()
 
         line = f"{timestamp},{crash_detail.base64_message},{return_code},{crash_detail.is_input_from_file}\n"
         f.write(line)
@@ -229,35 +282,27 @@ def log_results(results: dict, results_path: str) -> None:
             logger.info(f"Success of evaluation: {total_success_rate}%.")
 
 
-def create_crash_detail_objects_for_testing(
-    crashes_events_path: str,
-) -> list[CrashDetail]:
+async def map_cloud_event_as_crash_detail(
+    crash_detail_cloud_event_str: str,
+) -> CrashDetail:
     """
-    This function creates a list of CrashDetail objects from a local directory of json files representing crashes.
-    To be deprecated with init of mqtt.
+    Maps a CloudEvent JSON string to a CrashDetail object.
+
+    Parameters:
+        cloud_event (str): The CloudEvent JSON string.
+
+    Returns:
+        CrashDetail: The mapped crash detail.
     """
-    crash_details = list()
-    for crash_file in os.listdir(crashes_events_path):
-        crash_path = os.path.join(crashes_events_path, crash_file)
-        with open(crash_path, "r") as _crash:
-            crash = json.load(_crash)
-            executable_name = crash["executable_name"]
-            if crash["inputFromFile"] == "False":
-                inputFromFile = False
-            else:
-                inputFromFile = True
+    cloud_event: dict = json.loads(crash_detail_cloud_event_str)
 
-            crash_detail_string = bytes.fromhex(crash["crash_detail"]).decode(
-                "utf-8", errors="ignore"
-            )
-            encoded_bytes = base64.b64encode(
-                crash_detail_string.encode("utf-8")
-            ).decode("utf-8")
+    data = cloud_event.get("data", {})
 
-            crash_detail = CrashDetail(executable_name, encoded_bytes, inputFromFile)
-            logger.debug(f"Created crash detail {crash_detail}")
-            crash_details.append(crash_detail)
-    return crash_details
+    return CrashDetail(
+        executable_name=data.get("executable_name", ""),
+        base64_message=data.get("crash_detail_base64", ""),
+        is_input_from_file=data.get("is_input_from_file", False),
+    )
 
 
 def load_config(
@@ -270,18 +315,17 @@ def load_config(
     return PatchEvalConfig(**_config)
 
 
-def main():
-    global config, logger
+async def main():
+    global logger
 
-    config_file = os.environ.get(CONST_PATCH_EVAL_SVC_CONFIG)
-    if config_file is None:
+    config_file_full_path = os.environ.get(CONST_PATCH_EVAL_SVC_CONFIG)
+    if config_file_full_path is None:
         logger.error(
             f"Environment variable {CONST_PATCH_EVAL_SVC_CONFIG} is not set. Exiting."
         )
         sys.exit(1)
 
-    _config: PatchEvalConfig = load_config(CONST_PATCH_EVAL_SVC_CONFIG, logger)
-    config = _config
+    config: Final[PatchEvalConfig] = load_config(config_file_full_path, logger)
     # initialize the logger
     logger = init_logging(config.logging_config, config.appname)
 
@@ -291,7 +335,7 @@ def main():
     _temp_crashes_path: Final[str] = config.temp_crashes_path
 
     # get the current timestamp
-    EVAL_SVC_START_TIMESTAMP: Final[str] = datetime.now().isoformat(timespec="seconds")
+    EVAL_SVC_START_TIMESTAMP: Final[str] = get_current_timestamp()
 
     # create the timestamped directories
     _patch_eval_results_path: Final[str] = os.path.join(
@@ -308,7 +352,7 @@ def main():
     logger.info("Creating executables directory: " + _executables_path)
     os.makedirs(_executables_path, exist_ok=True)
     logger.info("Creating temporary crash files directory: " + _temp_crashes_path)
-    os.makedirs(_temp_crashes_path, exist_ok=True)
+    os.makedirs(_temp_crashes_path, exist_ok=True)  # TODO mount this as a volume
 
     # list of files successfully compiled and a dict for the results of each
     executables = list()
@@ -318,7 +362,15 @@ def main():
         file_path = os.path.join(_patched_codes_path, file_name)
         # compile the file
         logger.info(f"Compiling: {file_path}")
-        executable_name = compile_file(file_path, file_name, _executables_path)
+        executable_name = compile_file(
+            file_path,
+            file_name,
+            _executables_path,
+            config.compiler_tool_full_path,
+            config.compiler_warning_flags,
+            config.compiler_feature_flags,
+            config.compile_timeout,
+        )
         # if the compilation was successful, then add the executable path to the list of executables to run
         if executable_name != "":
             executables.append(executable_name)
@@ -326,11 +378,13 @@ def main():
             results[executable_name]["total_crashes"] = 0
             results[executable_name]["patched_crashes"] = 0
 
-    # discussion point
-    logger.info(
-        "Converting .json events into CrashDetail objects (development phase only)."
-    )
-    crash_details = create_crash_detail_objects_for_testing(_crashes_events_path)
+    crash_details = list()
+    for file_name in os.listdir(_crashes_events_path):
+        file_path = os.path.join(_crashes_events_path, file_name)
+        with open(file_path, "r") as f:
+            cloud_event_str = f.read()
+            crash_detail = await map_cloud_event_as_crash_detail(cloud_event_str)
+            crash_details.append(crash_detail)
 
     # iterate through each crash (to be deprecated)
     for crash_detail in crash_details:
@@ -356,6 +410,7 @@ def main():
             executable_name,
             crash_detail,
             temp_crash_file,
+            config.run_timeout,
         )
 
         # log the crash information to that executables dedicated csv file
@@ -378,5 +433,22 @@ def main():
     return 0
 
 
-if __name__ == "__main__":
-    main()
+# Run the event loop
+asyncio.run(main())
+
+# crash_input = '!";%x@0275P4XàWAFD§\x05��\x05�éçELSx%nPP�)UR!)UT6^=A FSP *A*¨P&&=!o+vR=%jaldj ASDFPCéIQXX;:!�=$10935%s%s%u90275P4XàWAFD§\x05��\x05�éçELS°;%\x04\x00x%n%c%cP°KFMAPDK*£P"���������������������($&=!o+vkmoc,a�|fkdp.*A*´P"¨P&&=!o+vR=%jaldj ASDFPCéIQXX&=!o+vR=%!"($&=!($#)'
+# executable_path = '/workspace/AutoPatch-LLM/src/patch-evaluation-service/bin/executables/2025-03-15T21:57:39Z/complex3'
+
+# # STDIN mode
+# exit_code, stdout, stderr = run_c_program(executable_path, crash_input, file_input=False)
+# print("STDIN mode output:")
+# print("Exit code:", exit_code)
+# print("STDOUT:\n", stdout)
+# print("STDERR:\n", stderr)
+
+# # File input mode
+# exit_code, stdout, stderr = run_c_program(executable_path, crash_input, file_input=True)
+# print("\nFile input mode output:")
+# print("Exit code:", exit_code)
+# print("STDOUT:\n", stdout)
+# print("STDERR:\n", stderr)

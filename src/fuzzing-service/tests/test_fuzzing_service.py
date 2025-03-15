@@ -14,8 +14,8 @@ from fuzz_svc_config import FuzzSvcConfig
 
 # Import the function to test from the updated module.
 from fuzzing_service import (
-    MapCrashDetailAsCloudEvent,
-    MapCrashDetailsAsCloudEvents,
+    map_crash_detail_as_cloudevent,
+    map_crashdetails_as_cloudevents,
     compile_program_run_fuzzer,
     extract_crashes,
     produce_output,
@@ -127,7 +127,7 @@ async def test_MapCrashDetailAsCloudEvent():
     crash_detail = CrashDetail(
         "test_exe", base64.b64encode(b"crash_data").decode("utf-8"), True
     )
-    event = await MapCrashDetailAsCloudEvent(crash_detail)
+    event = await map_crash_detail_as_cloudevent(crash_detail)
     assert event is not None
     assert event["type"] == "autopatch.crashdetail"
     assert event["source"] == "autopatch.fuzzing-service"
@@ -147,7 +147,7 @@ async def test_MapCrashDetailsAsCloudEvents():
         CrashDetail("test_exe1", base64.b64encode(b"crash1").decode("utf-8"), True),
         CrashDetail("test_exe2", base64.b64encode(b"crash2").decode("utf-8"), False),
     ]
-    events = await MapCrashDetailsAsCloudEvents(crash_details)
+    events = await map_crashdetails_as_cloudevents(crash_details)
     assert len(events) == 2
     assert events[0]["subject"] == "test_exe1"
     assert events[1]["subject"] == "test_exe2"

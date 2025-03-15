@@ -6,12 +6,12 @@ import os
 import signal
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Final, List
 
 from autopatchdatatypes import CrashDetail
 from autopatchpubsub import MessageBrokerClient
-from autopatchshared import init_logging, load_config_as_json
+from autopatchshared import init_logging, load_config_as_json, get_current_timestamp
 from cloudevents.http import CloudEvent
 from fuzz_svc_config import FuzzSvcConfig
 
@@ -23,7 +23,7 @@ config: FuzzSvcConfig
 logger = logging.getLogger(__name__)
 
 
-async def MapCrashDetailAsCloudEvent(crash_detail: CrashDetail) -> CloudEvent:
+async def map_crash_detail_as_cloudevent(crash_detail: CrashDetail) -> CloudEvent:
     """
     Maps a CrashDetail instance to a CloudEvent Occurence.
 
@@ -60,15 +60,6 @@ async def MapCrashDetailAsCloudEvent(crash_detail: CrashDetail) -> CloudEvent:
 
     event = CloudEvent(attributes, data)
     return event
-
-
-def get_current_timestamp() -> str:
-    """
-    Get the current timestamp in ISO 8601 format.
-    """
-    return (
-        datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
-    )
 
 
 def compile_program_run_fuzzer(
@@ -260,16 +251,18 @@ def write_crashes_csv(crash_details: List[CrashDetail], csv_path: str) -> None:
             )
 
 
-async def MapCrashDetailsAsCloudEvents(
+async def map_crashdetails_as_cloudevents(
     crash_details: List[CrashDetail],
 ) -> List[CloudEvent]:
     if len(crash_details) > config.concurrency_threshold:
         # Run in parallel
-        tasks = [MapCrashDetailAsCloudEvent(detail) for detail in crash_details]
+        tasks = [map_crash_detail_as_cloudevent(detail) for detail in crash_details]
         results = await asyncio.gather(*tasks)
     else:
         # Run sequentially
-        results = [await MapCrashDetailAsCloudEvent(detail) for detail in crash_details]
+        results = [
+            await map_crash_detail_as_cloudevent(detail) for detail in crash_details
+        ]
 
     return results
 
@@ -286,8 +279,8 @@ async def produce_output(crash_details: List[CrashDetail]) -> None:
             config.fuzz_svc_output_topic, str(event)  # noqa: F821
         )
 
-    crash_details_cloud_events: List[CloudEvent] = await MapCrashDetailsAsCloudEvents(
-        crash_details
+    crash_details_cloud_events: List[CloudEvent] = (
+        await map_crashdetails_as_cloudevents(crash_details)
     )
     message_broker_client: Final[MessageBrokerClient] = MessageBrokerClient(
         config.message_broker_host, config.message_broker_port, logger
