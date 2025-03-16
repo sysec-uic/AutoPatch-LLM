@@ -1,2 +1,2 @@
-autopatchdatatypes-0.3.2-py3-none-any.whl
-autopatchshared-0.3.2-py3-none-any.whl
+autopatchdatatypes-0.4.0-py3-none-any.whl
+autopatchshared-0.4.0-py3-none-any.whl
