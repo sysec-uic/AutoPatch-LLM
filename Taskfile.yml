@@ -56,6 +56,8 @@ tasks:
       desc: Build and install datatypes package
       cmds:
         - "echo 'Building datatypes...'"
+        - task: autopatchdatatypes:clean
+        - task: autopatchdatatypes:uninstall
         - task: autopatchdatatypes:build
         - task: autopatchdatatypes:install
         - cp ./src/autopatchdatatypes/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet
@@ -64,6 +66,8 @@ tasks:
       desc: Build and install
       cmds:
         - "echo 'Building message broker facade...'"
+        - task: autopatchpubsub:clean
+        - task: autopatchpubsub:uninstall
         - task: autopatchpubsub:build
         - task: autopatchpubsub:install
         - cp ./src/autopatchpubsub/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet
@@ -72,6 +76,8 @@ tasks:
       desc: Build and install shared modules package
       cmds:
         - "echo 'Building shared modules...'"
+        - task: autopatchshared:clean
+        - task: autopatchshared:uninstall
         - task: autopatchshared:build
         - task: autopatchshared:install
         - cp ./src/autopatchshared/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet

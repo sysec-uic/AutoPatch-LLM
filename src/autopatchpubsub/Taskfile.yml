@@ -16,7 +16,7 @@ tasks:
   uninstall:
     desc: uninstall autopatchpubsub
     cmds:
-      - pip uninstall autopatchpubsub-*-py3-none-any.whl --break-system-packages
+      - pip uninstall -y autopatchpubsub-*-py3-none-any.whl --break-system-packages
   clean:
     desc: Clean AutoPatch pubsub
     cmds:

@@ -12,6 +12,7 @@ RUN apt-get update && \
         python3-pip=24.0+dfsg-1ubuntu1.1 \
         gcc=4:13.2.0-7ubuntu1 \
         gcc-multilib=4:13.2.0-7ubuntu1 \
+        afl++ \
         libc6-dev-i386=2.39-0ubuntu8.4 && \
     rm -rf /var/lib/apt/lists/*
 
