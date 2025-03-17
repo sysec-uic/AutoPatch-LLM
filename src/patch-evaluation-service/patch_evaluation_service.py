@@ -1,4 +1,8 @@
 import asyncio
+import threading
+import time
+import threading
+import asyncio
 import tempfile
 import base64
 import json
@@ -7,7 +11,7 @@ import logging.config
 import os
 import subprocess
 import sys
-from typing import Final
+from typing import Final, List, Tuple, Dict
 
 from autopatchdatatypes import CrashDetail
 from autopatchpubsub import MessageBrokerClient
@@ -19,6 +23,10 @@ CONST_PATCH_EVAL_SVC_CONFIG: Final[str] = "PATCH_EVAL_SVC_CONFIG"
 
 # before configuration is loaded, use the default logger
 logger = logging.getLogger(__name__)
+
+# Global variables for the async queue and event loop.
+async_queue = asyncio.Queue()
+event_loop: asyncio.AbstractEventLoop  # This will be set in main().
 
 
 def create_temp_crash_file(crash_detail: CrashDetail, temp_dir_path: str) -> str:
@@ -320,12 +328,77 @@ def load_config(
 
 def on_consume_crash_detail(cloud_event_str: str) -> None:
     """
-    Callback function to process a consumed crash detail event.
+    This is synchronous function that’s called from non‑async code.
+    It uses the globally stored event_loop to schedule a call to
+    async_queue.put_nowait in a thread‑safe manner.
     """
+    print(f"in on_consume_crash_detail received {cloud_event_str}")
     logger.info(f"in on_consume_crash_detail received {cloud_event_str}")
+    # Schedule adding the event to the async queue.
+    # Use call_soon_threadsafe so that this function can be safely called
+    # from threads outside the event loop.
+    global event_loop
+    event_loop.call_soon_threadsafe(async_queue.put_nowait, cloud_event_str)
+
+
+def prep_executables_for_evaluation(
+    executables_full_path: str,
+    patched_codes_directory_path: str,
+    compiler_tool_full_path: str,
+    compiler_warning_flags: str,
+    compiler_feature_flags: str,
+    compile_timeout: int,
+) -> Tuple[list[str], Dict[str, Dict[str, int]]]:
+    # list of files successfully compiled and a dict for the results of each
+    executables = list()
+    results = dict()
+    # iterate through the patched codes directory
+    for file_name in os.listdir(patched_codes_directory_path):
+        file_path = os.path.join(patched_codes_directory_path, file_name)
+        # compile the file
+        logger.info(f"Compiling: {file_path}")
+        executable_name = compile_file(
+            file_path,
+            file_name,
+            executables_full_path,
+            compiler_tool_full_path,
+            compiler_warning_flags,
+            compiler_feature_flags,
+            compile_timeout,
+        )
+        # if the compilation was successful, then add the executable path to the list of executables to run
+        if executable_name != "":
+            executables.append(executable_name)
+            results[executable_name] = dict()
+            results[executable_name]["total_crashes"] = 0
+            results[executable_name]["patched_crashes"] = 0
+    return (executables, results)
+
+
+async def process_item(item):
+    """Asynchronously process an item."""
+    print(f"Processing item: {item}")
+    logger.info(f"Processing item: {item}")
+    # Simulate asynchronous work (e.g., I/O).
+    await asyncio.sleep(1)
+
+
+async def consumer():
+    """Continuously consume items from the async queue."""
+    """
+        this consumer coroutine waits for items from the asyncio.Queue
+        and processes each with process_item(). This runs continuously in the event loop.
+    """
+    while True:
+        item = await async_queue.get()
+        try:
+            await process_item(item)
+        finally:
+            async_queue.task_done()
 
 
 async def main():
+    global event_loop
     global logger
 
     # initialize the configmap
@@ -335,29 +408,47 @@ async def main():
             f"Environment variable {CONST_PATCH_EVAL_SVC_CONFIG} is not set. Exiting."
         )
         sys.exit(1)
-
     config: Final[PatchEvalConfig] = load_config(config_file_full_path, logger)
-    # initialize the logger
+
+    # initialize the logger using injected configuration
     logger = init_logging(config.logging_config, config.appname)
 
+    # initialize the message broker client
     message_broker_client: MessageBrokerClient = MessageBrokerClient(
         config.message_broker_host,
         config.message_broker_port,
         logger,
     )
+
+    event_loop = asyncio.get_running_loop()
+
+    # Start the consumer coroutine as a background task.
+    consumer_task = asyncio.create_task(consumer())
+
+    # subscribe to topic
     message_broker_client.consume(
         config.autopatch_crash_detail_input_topic, on_consume_crash_detail
     )
 
-    while True:
-        sleep_time = 10
-        logger.info(f"Sleeping for {sleep_time} seconds...")
-        await asyncio.sleep(sleep_time)
+    # # For demonstration, simulate incoming events using a background thread.
+    # def producer():
+    #     count = 0
+    #     while True:
+    #         on_consume_crash_detail(f"Event {count}")
+    #         count += 1
+    #         time.sleep(0.5)
 
-    # # get the current timestamp
+    # # Start the producer thread as a daemon.
+    # producer_thread = threading.Thread(target=producer, daemon=True)
+    # producer_thread.start()
+
+    # Keep the program running indefinitely, waiting for more events.
+    await asyncio.Future()  # This future will never complete.
+
+    # # get the current ISO timestamp
     # EVAL_SVC_START_TIMESTAMP: Final[str] = get_current_timestamp()
 
-    # # create the timestamped directories
+    # # create timestamped directories
     # _patch_eval_results_path: Final[str] = os.path.join(
     #     config.patch_eval_results, EVAL_SVC_START_TIMESTAMP
     # )
@@ -375,28 +466,16 @@ async def main():
     # os.makedirs(config.temp_crashes_path, exist_ok=True)  # TODO mount this as a volume
 
     # # list of files successfully compiled and a dict for the results of each
-    # executables = list()
-    # results = dict()
-    # # iterate through the patched codes directory
-    # for file_name in os.listdir(config.patched_codes_path):
-    #     file_path = os.path.join(config.patched_codes_path, file_name)
-    #     # compile the file
-    #     logger.info(f"Compiling: {file_path}")
-    #     executable_name = compile_file(
-    #         file_path,
-    #         file_name,
-    #         _executables_path,
-    #         config.compiler_tool_full_path,
-    #         config.compiler_warning_flags,
-    #         config.compiler_feature_flags,
-    #         config.compile_timeout,
-    #     )
-    #     # if the compilation was successful, then add the executable path to the list of executables to run
-    #     if executable_name != "":
-    #         executables.append(executable_name)
-    #         results[executable_name] = dict()
-    #         results[executable_name]["total_crashes"] = 0
-    #         results[executable_name]["patched_crashes"] = 0
+    # executables: List[str]
+    # results: Dict[str, Dict[str, int]]
+    # executables, results = prep_executables_for_evaluation(
+    #     _executables_path,
+    #     config.patched_codes_path,
+    #     config.compiler_tool_full_path,
+    #     config.compiler_warning_flags,
+    #     config.compiler_feature_flags,
+    #     config.compile_timeout,
+    # )
 
     # crash_details = list()
     # for file_name in os.listdir(config.crashes_events):
