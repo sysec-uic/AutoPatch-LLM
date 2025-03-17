@@ -10,6 +10,7 @@ import sys
 from typing import Final
 
 from autopatchdatatypes import CrashDetail
+from autopatchpubsub import MessageBrokerClient
 from autopatchshared import init_logging, load_config_as_json, get_current_timestamp
 from patch_eval_config import PatchEvalConfig
 
@@ -78,6 +79,7 @@ def run_c_program(executable_path, input_data, file_input=False):
     return result.returncode, result.stdout, result.stderr
 
 
+# TODO to be replaced with def run_c_program
 def run_file(
     executable_path: str,
     executable_name: str,
@@ -203,6 +205,7 @@ def write_crashes_csv(
         f.write(line)
 
 
+# TODO add MQTT publish and async
 def log_crash_information(
     results_path: str, executable_name: str, crash_detail: CrashDetail, return_code: int
 ) -> None:
@@ -315,9 +318,17 @@ def load_config(
     return PatchEvalConfig(**_config)
 
 
+def on_consume_crash_detail(cloud_event_str: str) -> None:
+    """
+    Callback function to process a consumed crash detail event.
+    """
+    logger.info(f"in on_consume_crash_detail received {cloud_event_str}")
+
+
 async def main():
     global logger
 
+    # initialize the configmap
     config_file_full_path = os.environ.get(CONST_PATCH_EVAL_SVC_CONFIG)
     if config_file_full_path is None:
         logger.error(
@@ -329,126 +340,120 @@ async def main():
     # initialize the logger
     logger = init_logging(config.logging_config, config.appname)
 
-    # get the paths of the patched codes, crash events (to be deprecated), and the temp crashes directory from the config
-    _patched_codes_path: Final[str] = config.patched_codes_path
-    _crashes_events_path: Final[str] = config.crashes_events
-    _temp_crashes_path: Final[str] = config.temp_crashes_path
-
-    # get the current timestamp
-    EVAL_SVC_START_TIMESTAMP: Final[str] = get_current_timestamp()
-
-    # create the timestamped directories
-    _patch_eval_results_path: Final[str] = os.path.join(
-        config.patch_eval_results, EVAL_SVC_START_TIMESTAMP
+    message_broker_client: MessageBrokerClient = MessageBrokerClient(
+        config.message_broker_host,
+        config.message_broker_port,
+        logger,
     )
-    _executables_path: Final[str] = os.path.join(
-        config.executables_path, EVAL_SVC_START_TIMESTAMP
+    message_broker_client.consume(
+        config.autopatch_crash_detail_input_topic, on_consume_crash_detail
     )
 
-    # log some info, make the directories if they DNE
-    logger.info("AppVersion: " + config.version)
-    logger.info("Creating results directory: " + _patch_eval_results_path)
-    os.makedirs(_patch_eval_results_path, exist_ok=True)
-    logger.info("Creating executables directory: " + _executables_path)
-    os.makedirs(_executables_path, exist_ok=True)
-    logger.info("Creating temporary crash files directory: " + _temp_crashes_path)
-    os.makedirs(_temp_crashes_path, exist_ok=True)  # TODO mount this as a volume
+    while True:
+        sleep_time = 10
+        logger.info(f"Sleeping for {sleep_time} seconds...")
+        await asyncio.sleep(sleep_time)
 
-    # list of files successfully compiled and a dict for the results of each
-    executables = list()
-    results = dict()
-    # iterate through the patched codes directory
-    for file_name in os.listdir(_patched_codes_path):
-        file_path = os.path.join(_patched_codes_path, file_name)
-        # compile the file
-        logger.info(f"Compiling: {file_path}")
-        executable_name = compile_file(
-            file_path,
-            file_name,
-            _executables_path,
-            config.compiler_tool_full_path,
-            config.compiler_warning_flags,
-            config.compiler_feature_flags,
-            config.compile_timeout,
-        )
-        # if the compilation was successful, then add the executable path to the list of executables to run
-        if executable_name != "":
-            executables.append(executable_name)
-            results[executable_name] = dict()
-            results[executable_name]["total_crashes"] = 0
-            results[executable_name]["patched_crashes"] = 0
+    # # get the current timestamp
+    # EVAL_SVC_START_TIMESTAMP: Final[str] = get_current_timestamp()
 
-    crash_details = list()
-    for file_name in os.listdir(_crashes_events_path):
-        file_path = os.path.join(_crashes_events_path, file_name)
-        with open(file_path, "r") as f:
-            cloud_event_str = f.read()
-            crash_detail = await map_cloud_event_as_crash_detail(cloud_event_str)
-            crash_details.append(crash_detail)
+    # # create the timestamped directories
+    # _patch_eval_results_path: Final[str] = os.path.join(
+    #     config.patch_eval_results, EVAL_SVC_START_TIMESTAMP
+    # )
+    # _executables_path: Final[str] = os.path.join(
+    #     config.executables_path, EVAL_SVC_START_TIMESTAMP
+    # )
 
-    # iterate through each crash (to be deprecated)
-    for crash_detail in crash_details:
-        logger.info(f"Processing crash {crash_detail}")
-        executable_name = crash_detail.executable_name
-        # if the crash executable is not in our executables base, then skip it
-        if executable_name not in executables:
-            logger.info(
-                f"Skipping this crash because {executable_name} not in list of compiled executables."
-            )
-            continue
+    # # log some info, make the directories if they DNE
+    # logger.info("AppVersion: " + config.version)
+    # logger.info("Creating results directory: " + _patch_eval_results_path)
+    # os.makedirs(_patch_eval_results_path, exist_ok=True)
+    # logger.info("Creating executables directory: " + _executables_path)
+    # os.makedirs(_executables_path, exist_ok=True)
+    # logger.info("Creating temporary crash files directory: " + config.temp_crashes_path)
+    # os.makedirs(config.temp_crashes_path, exist_ok=True)  # TODO mount this as a volume
 
-        # determine if we need to create a temporary crash file, make it if needed
-        temp_crash_file = None
-        inputFromFile = crash_detail.is_input_from_file
-        if inputFromFile:
-            temp_crash_file = create_temp_crash_file(crash_detail, _temp_crashes_path)
+    # # list of files successfully compiled and a dict for the results of each
+    # executables = list()
+    # results = dict()
+    # # iterate through the patched codes directory
+    # for file_name in os.listdir(config.patched_codes_path):
+    #     file_path = os.path.join(config.patched_codes_path, file_name)
+    #     # compile the file
+    #     logger.info(f"Compiling: {file_path}")
+    #     executable_name = compile_file(
+    #         file_path,
+    #         file_name,
+    #         _executables_path,
+    #         config.compiler_tool_full_path,
+    #         config.compiler_warning_flags,
+    #         config.compiler_feature_flags,
+    #         config.compile_timeout,
+    #     )
+    #     # if the compilation was successful, then add the executable path to the list of executables to run
+    #     if executable_name != "":
+    #         executables.append(executable_name)
+    #         results[executable_name] = dict()
+    #         results[executable_name]["total_crashes"] = 0
+    #         results[executable_name]["patched_crashes"] = 0
 
-        # run the file
-        executable_path = os.path.join(_executables_path, executable_name)
-        return_code = run_file(
-            executable_path,
-            executable_name,
-            crash_detail,
-            temp_crash_file,
-            config.run_timeout,
-        )
+    # crash_details = list()
+    # for file_name in os.listdir(config.crashes_events):
+    #     file_path = os.path.join(config.crashes_events, file_name)
+    #     with open(file_path, "r") as f:
+    #         cloud_event_str = f.read()
+    #         crash_detail = await map_cloud_event_as_crash_detail(cloud_event_str)
+    #         crash_details.append(crash_detail)
 
-        # log the crash information to that executables dedicated csv file
-        logger.info(f"Result of running file {executable_name}: {return_code}.")
-        logger.info(f"Updating the results csv for {executable_name}")
-        log_crash_information(
-            _patch_eval_results_path,
-            executable_name,
-            crash_detail,
-            return_code,
-        )
+    # # iterate through each crash (to be deprecated)
+    # for crash_detail in crash_details:
+    #     logger.info(f"Processing crash {crash_detail}")
+    #     executable_name = crash_detail.executable_name
+    #     # if the crash executable is not in our executables base, then skip it
+    #     if executable_name not in executables:
+    #         logger.info(
+    #             f"Skipping this crash because {executable_name} not in list of compiled executables."
+    #         )
+    #         continue
 
-        # update the results dict for that executable with the result of the run
-        results[executable_name]["total_crashes"] += 1
-        if return_code == 0 or return_code == 1:
-            results[executable_name]["patched_crashes"] += 1
-    # log the batched results
-    log_results(results, _patch_eval_results_path)
+    #     # determine if we need to create a temporary crash file, make it if needed
+    #     temp_crash_file = None
+    #     inputFromFile = crash_detail.is_input_from_file
+    #     if inputFromFile:
+    #         temp_crash_file = create_temp_crash_file(
+    #             crash_detail, config.temp_crashes_path
+    #         )
 
-    return 0
+    #     # run the file
+    #     executable_path = os.path.join(_executables_path, executable_name)
+    #     return_code = run_file(
+    #         executable_path,
+    #         executable_name,
+    #         crash_detail,
+    #         temp_crash_file,
+    #         config.run_timeout,
+    #     )
+
+    #     # log the crash information to that executables dedicated csv file
+    #     logger.info(f"Result of running file {executable_name}: {return_code}.")
+    #     logger.info(f"Updating the results csv for {executable_name}")
+    #     log_crash_information(
+    #         _patch_eval_results_path,
+    #         executable_name,
+    #         crash_detail,
+    #         return_code,
+    #     )
+
+    #     # update the results dict for that executable with the result of the run
+    #     results[executable_name]["total_crashes"] += 1
+    #     if return_code == 0 or return_code == 1:
+    #         results[executable_name]["patched_crashes"] += 1
+    # # log the batched results
+    # log_results(results, _patch_eval_results_path)
+
+    # return 0
 
 
 # Run the event loop
 asyncio.run(main())
-
-# crash_input = '!";%x@0275P4XàWAFD§\x05��\x05�éçELSx%nPP�)UR!)UT6^=A FSP *A*¨P&&=!o+vR=%jaldj ASDFPCéIQXX;:!�=$10935%s%s%u90275P4XàWAFD§\x05��\x05�éçELS°;%\x04\x00x%n%c%cP°KFMAPDK*£P"���������������������($&=!o+vkmoc,a�|fkdp.*A*´P"¨P&&=!o+vR=%jaldj ASDFPCéIQXX&=!o+vR=%!"($&=!($#)'
-# executable_path = '/workspace/AutoPatch-LLM/src/patch-evaluation-service/bin/executables/2025-03-15T21:57:39Z/complex3'
-
-# # STDIN mode
-# exit_code, stdout, stderr = run_c_program(executable_path, crash_input, file_input=False)
-# print("STDIN mode output:")
-# print("Exit code:", exit_code)
-# print("STDOUT:\n", stdout)
-# print("STDERR:\n", stderr)
-
-# # File input mode
-# exit_code, stdout, stderr = run_c_program(executable_path, crash_input, file_input=True)
-# print("\nFile input mode output:")
-# print("Exit code:", exit_code)
-# print("STDOUT:\n", stdout)
-# print("STDERR:\n", stderr)
