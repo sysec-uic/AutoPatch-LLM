@@ -22,7 +22,7 @@ tasks:
   uninstall:
     desc: uninstall datatypes
     cmds:
-      - pip uninstall autopatchdatatypes-*-py3-none-any.whl --break-system-packages
+      - pip uninstall -y autopatchdatatypes-*-py3-none-any.whl --break-system-packages
   clean:
     desc: Clean AutoPatch datatypes
     cmds:
