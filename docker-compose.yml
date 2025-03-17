@@ -3,23 +3,7 @@
 # this file is intended for interactive development only
 
 services:
-  # autopatch:
-  #   networks:
-  #     - autopatch-docker-network-test
-  #   build: ./src
-  #   container_name: autopatch
-  #   env_file:
-  #     - ./src/.env
-  #   volumes:
-  #     - ./afl-2.52b:/app/afl-2.52b
-  #     - ./src/bugLog:/app/src/bugLog
-  #     - ./assets/input_codebase:/app/src/codebase
-  #     - ./src/executables:/app/src/executables
-  #     - ./src/executables_afl:/app/src/executables_afl
-  #     - ./src/input:/app/src/input
-  #     - ./src/patched_codes:/app/src/patched_codes
-  #   working_dir: /app
-  autopatchpubsub:
+  autopatchpubsub: # simple echo server for development only
     networks:
       - autopatch-llm_autopatch-docker-network
     build: ./src/autopatchpubsub

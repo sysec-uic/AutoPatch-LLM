@@ -1,5 +1,5 @@
 {
-    "version": "0.4.0-alpha",
+    "version": "0.4.1-alpha",
     "appname": "autopatch.patch-evaluation-service",
     "logging_config" : "/app/config/logging-config.json",
     "crashes_events":"/app/crash_events",

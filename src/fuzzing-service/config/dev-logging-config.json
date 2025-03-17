@@ -11,7 +11,7 @@
         "class": "logging.FileHandler",
         "level": "DEBUG",
         "formatter": "standard",
-        "filename": "app.log"
+        "filename": "/workspace/AutoPatch-LLM/src/fuzzing-service/log/autopatch.fuzzing-service.debug.log"
       },
       "console_err_handler": {
         "class": "logging.StreamHandler",
