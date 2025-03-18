@@ -17,8 +17,8 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Create a system group and user named "appuser"
-RUN groupadd -r appuser && \
-    useradd -r -g appuser appuser
+# RUN groupadd -r appuser && \
+#     useradd -r -g appuser appuser
 
 COPY requirements.txt .
 
@@ -26,11 +26,15 @@ COPY autopatchshared-0.4.1-py3-none-any.whl .
 COPY autopatchdatatypes-0.4.1-py3-none-any.whl .
 COPY autopatchpubsub-0.4.1-py3-none-any.whl .
 
-RUN pip install --break-system-packages --user --no-cache-dir -r requirements.txt
+RUN pip install --break-system-packages --no-cache-dir -r requirements.txt
+# this is for layered builds
+# RUN pip install --break-system-packages --user --no-cache-dir -r requirements.txt
 
 COPY fuzz_svc_config.py /app/fuzz_svc_config.py
 COPY fuzzing_service.py /app/fuzzing_service.py
 
-RUN chown -R appuser:appuser /app
+# RUN chown -R appuser:appuser /app
+
+# USER appuser
 
 CMD ["python3", "fuzzing_service.py"]
