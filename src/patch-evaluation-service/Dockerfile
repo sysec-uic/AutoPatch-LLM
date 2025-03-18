@@ -25,11 +25,15 @@ COPY autopatchdatatypes-0.4.1-py3-none-any.whl .
 COPY autopatchshared-0.4.1-py3-none-any.whl .
 COPY autopatchpubsub-0.4.1-py3-none-any.whl .
 
-RUN pip install --break-system-packages --user --no-cache-dir -r requirements.txt
+# this is for layered builds
+# RUN pip install --break-system-packages --user --no-cache-dir -r requirements.txt
+RUN pip install --break-system-packages --no-cache-dir -r requirements.txt
 
 COPY patch_evaluation_service.py /app/patch_evaluation_service.py
 COPY patch_eval_config.py /app/patch_eval_config.py
 
-RUN chown -R appuser:appuser /app
+# RUN chown -R appuser:appuser /app
+
+# USER appuser
 
 CMD ["python3", "patch_evaluation_service.py"]

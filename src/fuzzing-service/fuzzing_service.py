@@ -176,7 +176,9 @@ def extract_crashes(
     Examine the fuzzer output directory for crash inputs.
     Returns a list of crash file paths (if isInputFromFile is True) or raw byte contents.
     """
-    crash_dir = os.path.join(f"{fuzzer_output_path}", f"{executable_name}", "crashes")
+
+    # add 'default' to the path to match the AFL++ output directory structure
+    crash_dir = os.path.join(f"{fuzzer_output_path}", f"{executable_name}", "default", "crashes")
     crashes = []
     try:
         for crash_file in os.listdir(crash_dir):

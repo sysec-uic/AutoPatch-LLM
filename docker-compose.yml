@@ -14,8 +14,11 @@ services:
       - autopatch-llm_autopatch-docker-network
     build: ./src/fuzzing-service
     container_name: autopatch-fuzzing-service
+    user: "${UID:-1000}:${GID:-1000}"
     environment:
       - FUZZ_SVC_CONFIG=/app/config/config.json
+      - UID=${UID:-1000}
+      - GID=${GID:-1000}
     volumes:
       - ./src/fuzzing-service/config:/app/config:ro
       - ./src/fuzzing-service/log:/app/log:rw

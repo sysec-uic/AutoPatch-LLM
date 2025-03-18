@@ -12,7 +12,7 @@
     "compiler_warning_flags": "-Wall -Wextra -Wformat -Wshift-overflow -Wcast-align -Wstrict-overflow",
     "compiler_feature_flags": "-m32 -fno-stack-protector -O1 -fsanitize=address",
     "fuzzer_tool_name": "afl++",
-    "fuzzer_tool_timeout_seconds": 120,
+    "fuzzer_tool_timeout_seconds": 240,
     "fuzzer_tool_version": "afl-fuzz++4.09c",
     "afl_tool_full_path": "/usr/bin/afl-fuzz",
     "afl_tool_seed_input_path": "/app/seed_input",
