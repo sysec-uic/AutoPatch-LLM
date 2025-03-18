@@ -82,8 +82,6 @@
 	"initializeCommand": ["python3", "assets/create-docker-network.py"],
 	"runArgs": [
 		"--network", "autopatch-llm_autopatch-docker-network"
-		// uncomment to add your own env vars
-		// "--env-file", ".devcontainer/devcontainer.env"
 	],
 	"postCreateCommand": "task autopatch:install-devtools",
 	"postStartCommand": "fastfetch && black --version && coverage --version && echo -n 'isort version: ' && isort --version-number",
