@@ -1,0 +1,16 @@
+[project]
+name = 'code-property-graph-generator'
+version = '0.1.0'
+requires-python = '>=3.12.3'
+readme = 'README.md'
+authors = [
+    { name = 'Nico Gibson', email = 'ngibs01@jaguar.tamu.edu' },
+    { name = 'Matthew Trevino', email = 'mtrev049@jaguar.tamu.edu' }
+]
+
+[build-system]
+requires = ['setuptools >= 61.0']
+build-backend = 'setuptools.build_meta'
+
+[tool.isort]
+profile = 'black'
