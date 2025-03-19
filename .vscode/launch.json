@@ -12,14 +12,6 @@
             "console": "integratedTerminal",
         },
         {
-            "name": "Python Debugger: AutoPatch Main",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/src/main.py",
-            "console": "integratedTerminal",
-            "envFile": "${workspaceFolder}/src/.env",
-        },
-        {
             "name": "Python Debugger: AutoPatch Fuzzing Service",
             "type": "debugpy",
             "request": "launch",
@@ -33,7 +25,7 @@
             "request": "launch",
             "program": "/workspace/AutoPatch-LLM/src/patch-evaluation-service/patch_evaluation_service.py",
             "console": "integratedTerminal",
-            "envFile": "/workspace/AutoPatch-LLM/src/patch-evaluation-service/.env",
+            "envFile": "/workspace/AutoPatch-LLM/src/patch-evaluation-service/.env"
         }
     ]
 }

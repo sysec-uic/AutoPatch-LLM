@@ -1,3 +1,9 @@
+import asyncio
+import threading
+import time
+import threading
+import asyncio
+import tempfile
 import base64
 import json
 import logging
@@ -5,66 +11,22 @@ import logging.config
 import os
 import subprocess
 import sys
-from dataclasses import dataclass
-from datetime import datetime
-from typing import Final
+from typing import Final, List, Tuple, Dict
 
 from autopatchdatatypes import CrashDetail
-from autopatchshared import init_logging
+from autopatchpubsub import MessageBrokerClient
+from autopatchshared import init_logging, load_config_as_json, get_current_timestamp
+from patch_eval_config import PatchEvalConfig
 
 # this is the name of the environment variable that will be used point to the configuration map file to load
 CONST_PATCH_EVAL_SVC_CONFIG: Final[str] = "PATCH_EVAL_SVC_CONFIG"
 
-config = dict()
+# before configuration is loaded, use the default logger
 logger = logging.getLogger(__name__)
 
-
-@dataclass
-class Config:
-    version: str
-    appname: str
-    logging_config: str
-    message_broker_host: str
-    message_broker_port: int = 1833
-
-
-def load_config() -> dict:
-    """
-    Load the configuration from a JSON file.  Does not support loading config from a YAML file.
-    """
-    # Read the environment variable
-    config_path = os.environ.get(CONST_PATCH_EVAL_SVC_CONFIG)
-
-    if not config_path:
-        logger.error(
-            "Error: The environment variable 'CONST_PATCH_EVAL_SVC_CONFIG' is not set or is empty."
-        )
-        sys.exit(1)
-
-    try:
-        # Open the file with UTF-8 encoding
-        with open(config_path, "r", encoding="utf-8") as f:
-            config = json.load(f)
-    except FileNotFoundError:
-        logger.error(f"Error: The config file at '{config_path}' was not found.")
-        sys.exit(1)
-    except UnicodeDecodeError as e:
-        logger.error(
-            f"Error: The config file at '{config_path}' is not a valid UTF-8 text file: {e}"
-        )
-        sys.exit(1)
-    except json.JSONDecodeError as e:
-        logger.error(
-            f"Error: The config file at '{config_path}' contains invalid JSON: {e}"
-        )
-        sys.exit(1)
-    except Exception as e:
-        logger.error(
-            f"Error: An unexpected error occurred while loading the config file: {e}"
-        )
-        sys.exit(1)
-
-    return config
+# Global variables for the async queue and event loop.
+async_queue = asyncio.Queue()
+event_loop: asyncio.AbstractEventLoop  # This will be set in main().
 
 
 def create_temp_crash_file(crash_detail: CrashDetail, temp_dir_path: str) -> str:
@@ -79,18 +41,67 @@ def create_temp_crash_file(crash_detail: CrashDetail, temp_dir_path: str) -> str
     return crash_path
 
 
+def run_c_program(executable_path, input_data, file_input=False):
+    """
+    Invokes a C program located at `executable_path` with the provided input.
+
+    Parameters:
+        executable_path (str): The path to the C executable.
+        input_data (str): The input data to be provided to the executable.
+        file_input (bool): If True, writes the input_data to a temporary file and passes
+                           the file path as an argument to the executable. If False,
+                           the input_data is sent directly to the program's STDIN.
+
+    Returns:
+        tuple: A triplet (exit_code, stdout, stderr) where exit_code is an integer
+               representing the program's exit status.
+    """
+    if file_input:
+        # Write input_data to a temporary file.
+        with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmp_file:
+            tmp_file.write(input_data)
+            tmp_file.flush()
+            tmp_filename = tmp_file.name
+
+        try:
+            # Run the executable with the temporary file as an argument.
+            result = subprocess.run(
+                [executable_path, tmp_filename],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,  # Ensures the output is returned as strings.
+            )
+        finally:
+            # Clean up the temporary file.
+            os.remove(tmp_filename)
+    else:
+        # Run the executable with input_data piped into STDIN.
+        result = subprocess.run(
+            [executable_path],
+            input=input_data,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,  # Ensure input and outputs are handled as strings.
+        )
+
+    return result.returncode, result.stdout, result.stderr
+
+
+# TODO to be replaced with def run_c_program
 def run_file(
     executable_path: str,
     executable_name: str,
     crash_detail: CrashDetail,
     temp_crash_file: str = None,
+    timeout: int = 10,
 ) -> int:
     """
     Run the binary at executable_path with the input given by CrashDetail, either through stdin or via a file.
     """
 
     # get the crash detail and form the command
-    crash = base64.b64decode(crash_detail.base64_message)
+    crash_bytes = base64.b64decode(crash_detail.base64_message)
+    crash = crash_bytes.decode("utf-8", errors="replace")
     if crash_detail.is_input_from_file:
         command = f"{executable_path} {temp_crash_file}"
     else:
@@ -104,7 +115,7 @@ def run_file(
             stderr=subprocess.PIPE,
             stdout=subprocess.PIPE,
             universal_newlines=True,
-            timeout=config["run_timeout"],
+            timeout=timeout,
             shell=True,
         )
         # return 0 on complete success
@@ -113,7 +124,6 @@ def run_file(
         logger.debug(
             f"File {executable_name} ran with input {crash} without any terminating errors."
         )
-        return 0
     # if the program terminated with a signal != 0
     except subprocess.CalledProcessError as e:
         logger.debug(f"Command run: {command}")
@@ -129,18 +139,25 @@ def run_file(
         logger.debug(f"Command run: {command}")
         logger.error(f"An exception occurred during runtime: {e}")
         return -1
+    return 0
 
 
-def compile_file(file_path: str, file_name: str, executable_path: str) -> str:
+def compile_file(
+    file_path: str,
+    file_name: str,
+    executable_path: str,
+    compiler_tool_full_patch: str,
+    compiler_warning_flags: str,
+    compiler_feature_flags: str,
+    compiler_timeout: int,
+) -> str:
     """
     Compiles the file at file_path into a binary executable in the executable_path directory.
     """
     # form the command
-    warnings = config["compiler_warning_flags"]
     executable_name = file_name.split(".")[0]
-    command = (
-        f"gcc {file_path} {warnings} -O1 -g -o {executable_path}/{executable_name}"
-    )
+    executable_full_path = os.path.join(executable_path, executable_name)
+    command = f"{compiler_tool_full_patch} {file_path} {compiler_warning_flags} {compiler_feature_flags} {executable_full_path}"
 
     # run the command
     try:
@@ -149,7 +166,7 @@ def compile_file(file_path: str, file_name: str, executable_path: str) -> str:
             stderr=subprocess.PIPE,
             stdout=subprocess.PIPE,
             universal_newlines=True,
-            timeout=config["compile_timeout"],
+            timeout=compiler_timeout,
             shell=True,
         )
         logger.debug(f"Compiled with command {command}")
@@ -160,8 +177,8 @@ def compile_file(file_path: str, file_name: str, executable_path: str) -> str:
         logger.error(f"stderr of the compile: {result.stderr}")
     finally:
         # log the command and return either the path to the executable or an empty string on failure
-        if os.path.exists(f"{executable_path}/{executable_name}"):
-            logger.info(f"Executable {executable_path}/{executable_name} exists.")
+        if os.path.exists(executable_full_path):
+            logger.info(f"Executable {executable_full_path} exists.")
             return f"{executable_name}"
         else:
             logger.error(f"Failed to compile {file_path}")
@@ -190,12 +207,13 @@ def write_crashes_csv(
             f.write("timestamp,crash_detail,return_code,inputFromFile\n")
 
         logger.info(f"  - {crash_detail}")
-        timestamp = datetime.now().isoformat(timespec="seconds")
+        timestamp = get_current_timestamp()
 
         line = f"{timestamp},{crash_detail.base64_message},{return_code},{crash_detail.is_input_from_file}\n"
         f.write(line)
 
 
+# TODO add MQTT publish and async
 def log_crash_information(
     results_path: str, executable_name: str, crash_detail: CrashDetail, return_code: int
 ) -> None:
@@ -275,136 +293,246 @@ def log_results(results: dict, results_path: str) -> None:
             logger.info(f"Success of evaluation: {total_success_rate}%.")
 
 
-def create_crash_detail_objects_for_testing(
-    crashes_events_path: str,
-) -> list[CrashDetail]:
+async def map_cloud_event_as_crash_detail(
+    crash_detail_cloud_event_str: str,
+) -> CrashDetail:
     """
-    This function creates a list of CrashDetail objects from a local directory of json files representing crashes.
-    To be deprecated with init of mqtt.
+    Maps a CloudEvent JSON string to a CrashDetail object.
+
+    Parameters:
+        cloud_event (str): The CloudEvent JSON string.
+
+    Returns:
+        CrashDetail: The mapped crash detail.
     """
-    crash_details = list()
-    for crash_file in os.listdir(crashes_events_path):
-        crash_path = os.path.join(crashes_events_path, crash_file)
-        with open(crash_path, "r") as _crash:
-            crash = json.load(_crash)
-            executable_name = crash["executable_name"]
-            if crash["inputFromFile"] == "False":
-                inputFromFile = False
-            else:
-                inputFromFile = True
+    cloud_event: dict = json.loads(crash_detail_cloud_event_str)
 
-            crash_detail_string = bytes.fromhex(crash["crash_detail"]).decode(
-                "utf-8", errors="ignore"
-            )
-            encoded_bytes = base64.b64encode(
-                crash_detail_string.encode("utf-8")
-            ).decode("utf-8")
+    data = cloud_event.get("data", {})
 
-            crash_detail = CrashDetail(executable_name, encoded_bytes, inputFromFile)
-            logger.debug(f"Created crash detail {crash_detail}")
-            crash_details.append(crash_detail)
-    return crash_details
-
-
-def main():
-    global config, logger
-
-    # initialize the logger
-    config = load_config()
-    logger = init_logging(config["logging_config"], config["appname"])
-
-    # get the paths of the patched codes, crash events (to be deprecated), and the temp crashes directory from the config
-    _patched_codes_path: Final[str] = config["patched_codes_path"]
-    _crashes_events_path: Final[str] = config["crashes_events"]
-    _temp_crashes_path: Final[str] = config["temp_crashes_path"]
-
-    # get the current timestamp
-    EVAL_SVC_START_TIMESTAMP: Final[str] = datetime.now().isoformat(timespec="seconds")
-
-    # create the timestamped directories
-    _patch_eval_results_path: Final[str] = os.path.join(
-        config["patch_eval_results"], EVAL_SVC_START_TIMESTAMP
-    )
-    _executables_path: Final[str] = os.path.join(
-        config["executables_path"], EVAL_SVC_START_TIMESTAMP
+    return CrashDetail(
+        executable_name=data.get("executable_name", ""),
+        base64_message=data.get("crash_detail_base64", ""),
+        is_input_from_file=data.get("is_input_from_file", False),
     )
 
-    # log some info, make the directories if they DNE
-    logger.info("AppVersion: " + config["version"])
-    logger.info("Creating results directory: " + _patch_eval_results_path)
-    os.makedirs(_patch_eval_results_path, exist_ok=True)
-    logger.info("Creating executables directory: " + _executables_path)
-    os.makedirs(_executables_path, exist_ok=True)
-    logger.info("Creating temporary crash files directory: " + _temp_crashes_path)
-    os.makedirs(_temp_crashes_path, exist_ok=True)
 
+def load_config(
+    patch_eval_svc_config_full_path: str, logger: logging.Logger
+) -> PatchEvalConfig:
+    """
+    Load the configuration for the patch evaluation service.
+    """
+    _config = load_config_as_json(patch_eval_svc_config_full_path, logger)
+    return PatchEvalConfig(**_config)
+
+
+def on_consume_crash_detail(cloud_event_str: str) -> None:
+    """
+    This is synchronous function that’s called from non‑async code.
+    It uses the globally stored event_loop to schedule a call to
+    async_queue.put_nowait in a thread‑safe manner.
+    """
+    print(f"in on_consume_crash_detail received {cloud_event_str}")
+    logger.info(f"in on_consume_crash_detail received {cloud_event_str}")
+    # Schedule adding the event to the async queue.
+    # Use call_soon_threadsafe so that this function can be safely called
+    # from threads outside the event loop.
+    global event_loop
+    event_loop.call_soon_threadsafe(async_queue.put_nowait, cloud_event_str)
+
+
+def prep_executables_for_evaluation(
+    executables_full_path: str,
+    patched_codes_directory_path: str,
+    compiler_tool_full_path: str,
+    compiler_warning_flags: str,
+    compiler_feature_flags: str,
+    compile_timeout: int,
+) -> Tuple[list[str], Dict[str, Dict[str, int]]]:
     # list of files successfully compiled and a dict for the results of each
     executables = list()
     results = dict()
     # iterate through the patched codes directory
-    for file_name in os.listdir(_patched_codes_path):
-        file_path = os.path.join(_patched_codes_path, file_name)
+    for file_name in os.listdir(patched_codes_directory_path):
+        file_path = os.path.join(patched_codes_directory_path, file_name)
         # compile the file
         logger.info(f"Compiling: {file_path}")
-        executable_name = compile_file(file_path, file_name, _executables_path)
+        executable_name = compile_file(
+            file_path,
+            file_name,
+            executables_full_path,
+            compiler_tool_full_path,
+            compiler_warning_flags,
+            compiler_feature_flags,
+            compile_timeout,
+        )
         # if the compilation was successful, then add the executable path to the list of executables to run
         if executable_name != "":
             executables.append(executable_name)
             results[executable_name] = dict()
             results[executable_name]["total_crashes"] = 0
             results[executable_name]["patched_crashes"] = 0
+    return (executables, results)
 
-    # discussion point
-    logger.info(
-        "Converting .json events into CrashDetail objects (development phase only)."
+
+async def process_item(item):
+    """Asynchronously process an item."""
+    print(f"Processing item: {item}")
+    logger.info(f"Processing item: {item}")
+    # Simulate asynchronous work (e.g., I/O).
+    await asyncio.sleep(1)
+
+
+async def consumer():
+    """Continuously consume items from the async queue."""
+    """
+        this consumer coroutine waits for items from the asyncio.Queue
+        and processes each with process_item(). This runs continuously in the event loop.
+    """
+    while True:
+        item = await async_queue.get()
+        try:
+            await process_item(item)
+        finally:
+            async_queue.task_done()
+
+
+async def main():
+    global event_loop
+    global logger
+
+    # initialize the configmap
+    config_file_full_path = os.environ.get(CONST_PATCH_EVAL_SVC_CONFIG)
+    if config_file_full_path is None:
+        logger.error(
+            f"Environment variable {CONST_PATCH_EVAL_SVC_CONFIG} is not set. Exiting."
+        )
+        sys.exit(1)
+    config: Final[PatchEvalConfig] = load_config(config_file_full_path, logger)
+
+    # initialize the logger using injected configuration
+    logger = init_logging(config.logging_config, config.appname)
+
+    # initialize the message broker client
+    message_broker_client: MessageBrokerClient = MessageBrokerClient(
+        config.message_broker_host,
+        config.message_broker_port,
+        logger,
     )
-    crash_details = create_crash_detail_objects_for_testing(_crashes_events_path)
 
-    # iterate through each crash (to be deprecated)
-    for crash_detail in crash_details:
-        logger.info(f"Processing crash {crash_detail}")
-        executable_name = crash_detail.executable_name
-        # if the crash executable is not in our executables base, then skip it
-        if executable_name not in executables:
-            logger.info(
-                f"Skipping this crash because {executable_name} not in list of compiled executables."
-            )
-            continue
+    event_loop = asyncio.get_running_loop()
 
-        # determine if we need to create a temporary crash file, make it if needed
-        temp_crash_file = None
-        inputFromFile = crash_detail.is_input_from_file
-        if inputFromFile:
-            temp_crash_file = create_temp_crash_file(crash_detail, _temp_crashes_path)
+    # Start the consumer coroutine as a background task.
+    consumer_task = asyncio.create_task(consumer())
 
-        # run the file
-        executable_path = os.path.join(_executables_path, executable_name)
-        return_code = run_file(
-            executable_path,
-            executable_name,
-            crash_detail,
-            temp_crash_file,
-        )
+    # subscribe to topic
+    message_broker_client.consume(
+        config.autopatch_crash_detail_input_topic, on_consume_crash_detail
+    )
 
-        # log the crash information to that executables dedicated csv file
-        logger.info(f"Result of running file {executable_name}: {return_code}.")
-        logger.info(f"Updating the results csv for {executable_name}")
-        log_crash_information(
-            _patch_eval_results_path,
-            executable_name,
-            crash_detail,
-            return_code,
-        )
+    # # For demonstration, simulate incoming events using a background thread.
+    # def producer():
+    #     count = 0
+    #     while True:
+    #         on_consume_crash_detail(f"Event {count}")
+    #         count += 1
+    #         time.sleep(0.5)
 
-        # update the results dict for that executable with the result of the run
-        results[executable_name]["total_crashes"] += 1
-        if return_code == 0 or return_code == 1:
-            results[executable_name]["patched_crashes"] += 1
-    # log the batched results
-    log_results(results, _patch_eval_results_path)
+    # # Start the producer thread as a daemon.
+    # producer_thread = threading.Thread(target=producer, daemon=True)
+    # producer_thread.start()
 
-    return 0
+    # Keep the program running indefinitely, waiting for more events.
+    await asyncio.Future()  # This future will never complete.
+
+    # # get the current ISO timestamp
+    # EVAL_SVC_START_TIMESTAMP: Final[str] = get_current_timestamp()
+
+    # # create timestamped directories
+    # _patch_eval_results_path: Final[str] = os.path.join(
+    #     config.patch_eval_results, EVAL_SVC_START_TIMESTAMP
+    # )
+    # _executables_path: Final[str] = os.path.join(
+    #     config.executables_path, EVAL_SVC_START_TIMESTAMP
+    # )
+
+    # # log some info, make the directories if they DNE
+    # logger.info("AppVersion: " + config.version)
+    # logger.info("Creating results directory: " + _patch_eval_results_path)
+    # os.makedirs(_patch_eval_results_path, exist_ok=True)
+    # logger.info("Creating executables directory: " + _executables_path)
+    # os.makedirs(_executables_path, exist_ok=True)
+    # logger.info("Creating temporary crash files directory: " + config.temp_crashes_path)
+    # os.makedirs(config.temp_crashes_path, exist_ok=True)  # TODO mount this as a volume
+
+    # # list of files successfully compiled and a dict for the results of each
+    # executables: List[str]
+    # results: Dict[str, Dict[str, int]]
+    # executables, results = prep_executables_for_evaluation(
+    #     _executables_path,
+    #     config.patched_codes_path,
+    #     config.compiler_tool_full_path,
+    #     config.compiler_warning_flags,
+    #     config.compiler_feature_flags,
+    #     config.compile_timeout,
+    # )
+
+    # crash_details = list()
+    # for file_name in os.listdir(config.crashes_events):
+    #     file_path = os.path.join(config.crashes_events, file_name)
+    #     with open(file_path, "r") as f:
+    #         cloud_event_str = f.read()
+    #         crash_detail = await map_cloud_event_as_crash_detail(cloud_event_str)
+    #         crash_details.append(crash_detail)
+
+    # # iterate through each crash (to be deprecated)
+    # for crash_detail in crash_details:
+    #     logger.info(f"Processing crash {crash_detail}")
+    #     executable_name = crash_detail.executable_name
+    #     # if the crash executable is not in our executables base, then skip it
+    #     if executable_name not in executables:
+    #         logger.info(
+    #             f"Skipping this crash because {executable_name} not in list of compiled executables."
+    #         )
+    #         continue
+
+    #     # determine if we need to create a temporary crash file, make it if needed
+    #     temp_crash_file = None
+    #     inputFromFile = crash_detail.is_input_from_file
+    #     if inputFromFile:
+    #         temp_crash_file = create_temp_crash_file(
+    #             crash_detail, config.temp_crashes_path
+    #         )
+
+    #     # run the file
+    #     executable_path = os.path.join(_executables_path, executable_name)
+    #     return_code = run_file(
+    #         executable_path,
+    #         executable_name,
+    #         crash_detail,
+    #         temp_crash_file,
+    #         config.run_timeout,
+    #     )
+
+    #     # log the crash information to that executables dedicated csv file
+    #     logger.info(f"Result of running file {executable_name}: {return_code}.")
+    #     logger.info(f"Updating the results csv for {executable_name}")
+    #     log_crash_information(
+    #         _patch_eval_results_path,
+    #         executable_name,
+    #         crash_detail,
+    #         return_code,
+    #     )
+
+    #     # update the results dict for that executable with the result of the run
+    #     results[executable_name]["total_crashes"] += 1
+    #     if return_code == 0 or return_code == 1:
+    #         results[executable_name]["patched_crashes"] += 1
+    # # log the batched results
+    # log_results(results, _patch_eval_results_path)
+
+    # return 0
 
 
-if __name__ == "__main__":
-    main()
+# Run the event loop
+asyncio.run(main())
