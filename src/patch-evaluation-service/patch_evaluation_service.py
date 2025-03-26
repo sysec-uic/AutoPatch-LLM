@@ -1,5 +1,5 @@
 import asyncio
-import threading
+import tempfile
 import asyncio
 import tempfile
 import base64
@@ -9,7 +9,7 @@ import logging.config
 import os
 import subprocess
 import sys
-from typing import Final, Tuple, Dict
+from typing import Final, List, Tuple, Dict
 
 from autopatchdatatypes import CrashDetail
 from autopatchpubsub import MessageBrokerClient
@@ -30,120 +30,76 @@ executables_to_process: set[str]
 config: PatchEvalConfig
 results: Dict[str, Dict[str, int]]
 
-
-def create_temp_crash_file(crash_detail: CrashDetail, temp_dir_path: str) -> str:
-    """
-    Creates a file with the crash_detail information for passing an executable a path via file.
-    """
-    os.makedirs(temp_dir_path, exist_ok=True)
-    crash_path = os.path.join(temp_dir_path, "crash")
-
-    with open(crash_path, "wb") as crash_file:
-        crash_file.write(base64.b64decode(crash_detail.base64_message))
-    return crash_path
+# Dictionary to store locks per CSV file
+file_locks: Dict[str, asyncio.Lock] = {}
 
 
-def run_c_program(executable_path, input_data, file_input=False):
-    """
-    Invokes a C program located at `executable_path` with the provided input.
-
-    Parameters:
-        executable_path (str): The path to the C executable.
-        input_data (str): The input data to be provided to the executable.
-        file_input (bool): If True, writes the input_data to a temporary file and passes
-                           the file path as an argument to the executable. If False,
-                           the input_data is sent directly to the program's STDIN.
-
-    Returns:
-        tuple: A triplet (exit_code, stdout, stderr) where exit_code is an integer
-               representing the program's exit status.
-    """
-    if file_input:
-        # Write input_data to a temporary file.
-        with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmp_file:
-            tmp_file.write(input_data)
-            tmp_file.flush()
-            tmp_filename = tmp_file.name
-
-        try:
-            # Run the executable with the temporary file as an argument.
-            result = subprocess.run(
-                [executable_path, tmp_filename],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,  # Ensures the output is returned as strings.
-            )
-        finally:
-            # Clean up the temporary file.
-            os.remove(tmp_filename)
-    else:
-        # Run the executable with input_data piped into STDIN.
-        result = subprocess.run(
-            [executable_path],
-            input=input_data,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,  # Ensure input and outputs are handled as strings.
-        )
-
-    return result.returncode, result.stdout, result.stderr
-
-
-# TODO to be replaced with def run_c_program
-def run_file(
+async def run_file_async(
     executable_path: str,
     executable_name: str,
     crash_detail: CrashDetail,
-    temp_crash_file: str,
+    temp_crash_file_full_path: str,
     timeout: int = 10,
 ) -> int:
     """
-    Run the binary at executable_path with the input given by CrashDetail, either through stdin or via a file.
-    """
+    Asynchronously run the binary at executable_path with input from CrashDetail.
 
-    # get the crash detail and form the command
+    As we do not modify the temp_crash_file, we can have multiple coroutines read from it concurrently.
+    """
     crash_bytes = base64.b64decode(crash_detail.base64_message)
     crash = crash_bytes.decode("utf-8", errors="replace")
+
     if crash_detail.is_input_from_file:
-        command = f"{executable_path} {temp_crash_file}"
+        cmd = [executable_path, temp_crash_file_full_path]
+        input_data = None
     else:
-        command = f"echo {crash} | {executable_path}"
+        cmd = ["bash", "-c", f"echo {crash} | {executable_path}"]
+        input_data = None
 
-    # run the command
     try:
-        result = subprocess.run(
-            [command],
-            check=True,
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            universal_newlines=True,
-            timeout=timeout,
-            shell=True,
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
-        # return 0 on complete success
-        logger.debug(f"Command run: {command}")
-        logger.debug(f"Command executed with result: {result}")
-        logger.debug(
-            f"File {executable_name} ran with input {crash} without any terminating errors."
-        )
-    # if the program terminated with a signal != 0
-    except subprocess.CalledProcessError as e:
-        logger.debug(f"Command run: {command}")
-        logger.info(
-            f"Run of {executable_name} terminated with return code {e.returncode}."
-        )
-        # if returncode == 1, then return it, otherwise subtract 128 to get the interrupting signal and return
-        if e.returncode == 1:
+
+        try:
+            stdout, stderr = await asyncio.wait_for(
+                proc.communicate(input=input_data), timeout=timeout
+            )
+            logger.debug(f"Command run: {' '.join(cmd)}")
+            logger.debug(f"stdout: {stdout.decode()}")
+            logger.debug(f"stderr: {stderr.decode()}")
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.communicate()
+            logger.error(f"Timeout after {timeout} seconds running {executable_name}")
+            return -1
+
+        if proc.returncode == 0:
+            logger.debug(
+                f"File {executable_name} ran with input {crash} without errors."
+            )
+            return 0
+        elif proc.returncode == 1:
+            logger.info(f"Run of {executable_name} terminated with return code 1.")
             return 1
-        return e.returncode - 128
-    # if an exception occurred in running the process, this is an error.
+        elif proc.returncode is None:
+            logger.error("Process did not return an exit code; treating as error.")
+            return -1
+        else:
+            signal_code = proc.returncode - 128
+            logger.info(
+                f"Run of {executable_name} terminated with signal {signal_code}."
+            )
+            return signal_code
+
     except Exception as e:
-        logger.debug(f"Command run: {command}")
-        logger.error(f"An exception occurred during runtime: {e}")
+        logger.error(f"Exception during runtime: {e}")
         return -1
-    return 0
 
 
+# TODO extract this into autopatchshared
 def compile_file(
     file_path: str,
     file_name: str,
@@ -215,17 +171,22 @@ def write_crashes_csv(
         f.write(line)
 
 
-# NEEDS executable name for correlation? at present the csv title is the executable name
-# TODO add MQTT publish and async
-def log_crash_information(
+# TODO add MQTT publish
+async def log_crash_information(
     results_path: str, executable_name: str, crash_detail: CrashDetail, return_code: int
 ) -> None:
     """
     invokes the call to log the crash information for the given executable
+    ensuring that only one coroutine writes to the CSV at a time
     """
+    logger.info(f"Updating the results csv for {crash_detail.executable_name}")
     csv_path: Final[str] = os.path.join(results_path, f"{executable_name}.csv")
 
-    write_crashes_csv(crash_detail, return_code, csv_path)
+    if csv_path not in file_locks:
+        file_locks[csv_path] = asyncio.Lock()
+
+    async with file_locks[csv_path]:
+        await asyncio.to_thread(write_crashes_csv, crash_detail, return_code, csv_path)
 
 
 # TODO This assumes the batch run is complete, update to run after each eval and not assume a batch is complete
@@ -297,7 +258,7 @@ def log_results(results: dict, results_path: str) -> None:
             logger.info(f"Success of evaluation: {total_success_rate}%.")
 
 
-def map_cloud_event_as_crash_detail(
+async def map_cloud_event_as_crash_detail(
     crash_detail_cloud_event_str: str,
 ) -> CrashDetail:
     """
@@ -383,11 +344,9 @@ def prep_executables_for_evaluation(
 async def process_item(item):
     """Asynchronously process an item."""
     logger.info(f"Processing item: {item}")
-    # Simulate asynchronous work (e.g., I/O).
-    crash_detail = map_cloud_event_as_crash_detail(item)
+    crash_detail = await map_cloud_event_as_crash_detail(item)
     await process_crash_detail(crash_detail)
     logger.info(f"Done Processing item")
-    # await asyncio.sleep(1)
 
 
 async def process_crash_detail(crash_detail: CrashDetail) -> None:
@@ -400,22 +359,20 @@ async def process_crash_detail(crash_detail: CrashDetail) -> None:
         )
         return
 
-    # determine if we need to create a temporary crash file, make it if needed
-    temp_crash_file: str = ""
     if crash_detail.is_input_from_file:
-        temp_crash_file = create_temp_crash_file(
-            crash_detail, config.temp_crashes_full_path
-        )
+        temp_crash_file = tempfile.NamedTemporaryFile()
+        logger.info("temp_crash_file name: " + temp_crash_file.name)
+        temp_crash_file.write(base64.b64decode(crash_detail.base64_message))
 
     # run the file
     executable_path = os.path.join(
         config.executables_full_path, crash_detail.executable_name
     )
-    return_code = run_file(
+    return_code = await run_file_async(
         executable_path,
         crash_detail.executable_name,
         crash_detail,
-        temp_crash_file,
+        temp_crash_file.name,
         config.run_timeout,
     )
 
@@ -423,8 +380,7 @@ async def process_crash_detail(crash_detail: CrashDetail) -> None:
     logger.info(
         f"Result of running file {crash_detail.executable_name}: {return_code}."
     )
-    logger.info(f"Updating the results csv for {crash_detail.executable_name}")
-    log_crash_information(
+    await log_crash_information(
         config.patch_eval_results_full_path,
         crash_detail.executable_name,
         crash_detail,
@@ -436,7 +392,9 @@ async def process_crash_detail(crash_detail: CrashDetail) -> None:
     if return_code == 0 or return_code == 1:
         results[crash_detail.executable_name]["patched_crashes"] += 1
     # log the batched results
-    log_results(results, config.patch_eval_results_full_path)
+    # log_results(results, config.patch_eval_results_full_path)
+    logger.info("Simulating logging the batched results")
+    logger.info("Results: " + str(results))
 
 
 async def crash_detail_consumer():
@@ -479,9 +437,6 @@ async def main():
     _timestamped_patch_eval_results_path: Final[str] = os.path.join(
         config.patch_eval_results_full_path, EVAL_SVC_START_TIMESTAMP
     )
-    # _timestamped_executables_full_path: Final[str] = os.path.join(
-    #     config.executables_full_path, EVAL_SVC_START_TIMESTAMP
-    # )
 
     # log some info, make the directories if they DNE
     logger.info("AppVersion: " + config.version)
