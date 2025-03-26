@@ -7,13 +7,13 @@ class PatchEvalConfig:
     appname: str
     logging_config: str
     crashes_events: str
-    patch_eval_results: str
+    patch_eval_results_full_path: str
     patched_codes_path: str
-    executables_path: str
+    executables_full_path: str
     compiler_tool_full_path: str
     compiler_warning_flags: str
     compiler_feature_flags: str
-    temp_crashes_path: str
+    temp_crashes_full_path: str
     compile_timeout: int
     run_timeout: int
     autopatch_crash_detail_input_topic: str

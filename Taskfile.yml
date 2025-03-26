@@ -1,9 +1,6 @@
 version: '3'
 
 includes:
-   autopatch:
-      taskfile: ./src/Taskfile.yml
-      dir: ./src
    fuzzing-service:
       taskfile: ./src/fuzzing-service/Taskfile.yml
       dir: ./src/fuzzing-service
@@ -32,10 +29,13 @@ tasks:
       desc: Run AutoPatch-LLM
         - docker compose up
    install-devtools:
-      desc: Install devtools
+      desc: Install AutoPatch devtools
+      env:
+      ARGS: --break-system-packages # Use this If you are installing packages using the Taskfile Extension for VSCode UI and devcontainer
       cmds:
         - task: create-docker-network
-        - task: autopatch:install-devtools
+        - echo "If you are running this manually and installing in a VM instead of a devcontainer, use a virtual environment and activate it first."
+        - pip install {{.CLI_ARGS}} $ARGS -r ./src/dev-requirements.txt
         - task: install-package-dependencies
    test-with-coverage:
       desc: Run tests with coverage

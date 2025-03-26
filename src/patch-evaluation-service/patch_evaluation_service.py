@@ -1,7 +1,5 @@
 import asyncio
 import threading
-import time
-import threading
 import asyncio
 import tempfile
 import base64
@@ -11,7 +9,7 @@ import logging.config
 import os
 import subprocess
 import sys
-from typing import Final, List, Tuple, Dict
+from typing import Final, Tuple, Dict
 
 from autopatchdatatypes import CrashDetail
 from autopatchpubsub import MessageBrokerClient
@@ -25,8 +23,12 @@ CONST_PATCH_EVAL_SVC_CONFIG: Final[str] = "PATCH_EVAL_SVC_CONFIG"
 logger = logging.getLogger(__name__)
 
 # Global variables for the async queue and event loop.
-async_queue = asyncio.Queue()
+async_crash_details_queue = asyncio.Queue()
 event_loop: asyncio.AbstractEventLoop  # This will be set in main().
+
+executables_to_process: set[str]
+config: PatchEvalConfig
+results: Dict[str, Dict[str, int]]
 
 
 def create_temp_crash_file(crash_detail: CrashDetail, temp_dir_path: str) -> str:
@@ -92,7 +94,7 @@ def run_file(
     executable_path: str,
     executable_name: str,
     crash_detail: CrashDetail,
-    temp_crash_file: str = None,
+    temp_crash_file: str,
     timeout: int = 10,
 ) -> int:
     """
@@ -179,7 +181,7 @@ def compile_file(
         # log the command and return either the path to the executable or an empty string on failure
         if os.path.exists(executable_full_path):
             logger.info(f"Executable {executable_full_path} exists.")
-            return f"{executable_name}"
+            return executable_name
         else:
             logger.error(f"Failed to compile {file_path}")
             return ""
@@ -213,6 +215,7 @@ def write_crashes_csv(
         f.write(line)
 
 
+# NEEDS executable name for correlation? at present the csv title is the executable name
 # TODO add MQTT publish and async
 def log_crash_information(
     results_path: str, executable_name: str, crash_detail: CrashDetail, return_code: int
@@ -225,6 +228,7 @@ def log_crash_information(
     write_crashes_csv(crash_detail, return_code, csv_path)
 
 
+# TODO This assumes the batch run is complete, update to run after each eval and not assume a batch is complete
 def log_results(results: dict, results_path: str) -> None:
     """
     logs the results of the entire run (all files tested) in a human-readable markdown file and a csv file describing
@@ -293,7 +297,7 @@ def log_results(results: dict, results_path: str) -> None:
             logger.info(f"Success of evaluation: {total_success_rate}%.")
 
 
-async def map_cloud_event_as_crash_detail(
+def map_cloud_event_as_crash_detail(
     crash_detail_cloud_event_str: str,
 ) -> CrashDetail:
     """
@@ -332,13 +336,14 @@ def on_consume_crash_detail(cloud_event_str: str) -> None:
     It uses the globally stored event_loop to schedule a call to
     async_queue.put_nowait in a thread‑safe manner.
     """
-    print(f"in on_consume_crash_detail received {cloud_event_str}")
     logger.info(f"in on_consume_crash_detail received {cloud_event_str}")
     # Schedule adding the event to the async queue.
     # Use call_soon_threadsafe so that this function can be safely called
     # from threads outside the event loop.
     global event_loop
-    event_loop.call_soon_threadsafe(async_queue.put_nowait, cloud_event_str)
+    event_loop.call_soon_threadsafe(
+        async_crash_details_queue.put_nowait, cloud_event_str
+    )
 
 
 def prep_executables_for_evaluation(
@@ -348,10 +353,10 @@ def prep_executables_for_evaluation(
     compiler_warning_flags: str,
     compiler_feature_flags: str,
     compile_timeout: int,
-) -> Tuple[list[str], Dict[str, Dict[str, int]]]:
+) -> Tuple[set[str], Dict[str, Dict[str, int]]]:
     # list of files successfully compiled and a dict for the results of each
-    executables = list()
-    results = dict()
+    executables = set()
+    results: Dict[str, Dict[str, int]] = dict()
     # iterate through the patched codes directory
     for file_name in os.listdir(patched_codes_directory_path):
         file_path = os.path.join(patched_codes_directory_path, file_name)
@@ -368,7 +373,7 @@ def prep_executables_for_evaluation(
         )
         # if the compilation was successful, then add the executable path to the list of executables to run
         if executable_name != "":
-            executables.append(executable_name)
+            executables.add(executable_name)
             results[executable_name] = dict()
             results[executable_name]["total_crashes"] = 0
             results[executable_name]["patched_crashes"] = 0
@@ -377,29 +382,83 @@ def prep_executables_for_evaluation(
 
 async def process_item(item):
     """Asynchronously process an item."""
-    print(f"Processing item: {item}")
     logger.info(f"Processing item: {item}")
     # Simulate asynchronous work (e.g., I/O).
-    await asyncio.sleep(1)
+    crash_detail = map_cloud_event_as_crash_detail(item)
+    await process_crash_detail(crash_detail)
+    logger.info(f"Done Processing item")
+    # await asyncio.sleep(1)
 
 
-async def consumer():
+async def process_crash_detail(crash_detail: CrashDetail) -> None:
+    logger.info(f"Processing crash {crash_detail}")
+    # TODO evaluate if we can remove this check
+    # if the crash executable is not in our executables base, then skip it
+    if crash_detail.executable_name not in executables_to_process:
+        logger.info(
+            f"{crash_detail.executable_name} not in set of compiled executables to process..skipping"
+        )
+        return
+
+    # determine if we need to create a temporary crash file, make it if needed
+    temp_crash_file: str = ""
+    if crash_detail.is_input_from_file:
+        temp_crash_file = create_temp_crash_file(
+            crash_detail, config.temp_crashes_full_path
+        )
+
+    # run the file
+    executable_path = os.path.join(
+        config.executables_full_path, crash_detail.executable_name
+    )
+    return_code = run_file(
+        executable_path,
+        crash_detail.executable_name,
+        crash_detail,
+        temp_crash_file,
+        config.run_timeout,
+    )
+
+    # log the crash information to that executables dedicated csv file
+    logger.info(
+        f"Result of running file {crash_detail.executable_name}: {return_code}."
+    )
+    logger.info(f"Updating the results csv for {crash_detail.executable_name}")
+    log_crash_information(
+        config.patch_eval_results_full_path,
+        crash_detail.executable_name,
+        crash_detail,
+        return_code,
+    )
+
+    # update the results dict for that executable with the result of the run
+    results[crash_detail.executable_name]["total_crashes"] += 1
+    if return_code == 0 or return_code == 1:
+        results[crash_detail.executable_name]["patched_crashes"] += 1
+    # log the batched results
+    log_results(results, config.patch_eval_results_full_path)
+
+
+async def crash_detail_consumer():
     """Continuously consume items from the async queue."""
     """
         this consumer coroutine waits for items from the asyncio.Queue
         and processes each with process_item(). This runs continuously in the event loop.
     """
     while True:
-        item = await async_queue.get()
+        item = await async_crash_details_queue.get()
         try:
             await process_item(item)
         finally:
-            async_queue.task_done()
+            async_crash_details_queue.task_done()
 
 
 async def main():
     global event_loop
     global logger
+    global executables_to_process
+    global config
+    global results
 
     # initialize the configmap
     config_file_full_path = os.environ.get(CONST_PATCH_EVAL_SVC_CONFIG)
@@ -408,10 +467,41 @@ async def main():
             f"Environment variable {CONST_PATCH_EVAL_SVC_CONFIG} is not set. Exiting."
         )
         sys.exit(1)
-    config: Final[PatchEvalConfig] = load_config(config_file_full_path, logger)
+    config = load_config(config_file_full_path, logger)
 
     # initialize the logger using injected configuration
     logger = init_logging(config.logging_config, config.appname)
+
+    # get the current ISO timestamp
+    EVAL_SVC_START_TIMESTAMP: Final[str] = get_current_timestamp()
+
+    # create timestamped directories
+    _timestamped_patch_eval_results_path: Final[str] = os.path.join(
+        config.patch_eval_results_full_path, EVAL_SVC_START_TIMESTAMP
+    )
+    # _timestamped_executables_full_path: Final[str] = os.path.join(
+    #     config.executables_full_path, EVAL_SVC_START_TIMESTAMP
+    # )
+
+    # log some info, make the directories if they DNE
+    logger.info("AppVersion: " + config.version)
+    os.makedirs(_timestamped_patch_eval_results_path, exist_ok=True)
+    logger.info("Creating executables directory: " + config.executables_full_path)
+    os.makedirs(config.executables_full_path, exist_ok=True)
+    logger.info(
+        "Creating temporary crash files directory: " + config.temp_crashes_full_path
+    )
+    os.makedirs(config.temp_crashes_full_path, exist_ok=True)
+
+    # list of files successfully compiled and a dict for the results of each
+    executables_to_process, results = prep_executables_for_evaluation(
+        config.executables_full_path,
+        config.patched_codes_path,
+        config.compiler_tool_full_path,
+        config.compiler_warning_flags,
+        config.compiler_feature_flags,
+        config.compile_timeout,
+    )
 
     # initialize the message broker client
     message_broker_client: MessageBrokerClient = MessageBrokerClient(
@@ -423,115 +513,15 @@ async def main():
     event_loop = asyncio.get_running_loop()
 
     # Start the consumer coroutine as a background task.
-    consumer_task = asyncio.create_task(consumer())
+    consumer_task = asyncio.create_task(crash_detail_consumer())
 
     # subscribe to topic
     message_broker_client.consume(
         config.autopatch_crash_detail_input_topic, on_consume_crash_detail
     )
 
-    # # For demonstration, simulate incoming events using a background thread.
-    # def producer():
-    #     count = 0
-    #     while True:
-    #         on_consume_crash_detail(f"Event {count}")
-    #         count += 1
-    #         time.sleep(0.5)
-
-    # # Start the producer thread as a daemon.
-    # producer_thread = threading.Thread(target=producer, daemon=True)
-    # producer_thread.start()
-
     # Keep the program running indefinitely, waiting for more events.
     await asyncio.Future()  # This future will never complete.
-
-    # # get the current ISO timestamp
-    # EVAL_SVC_START_TIMESTAMP: Final[str] = get_current_timestamp()
-
-    # # create timestamped directories
-    # _patch_eval_results_path: Final[str] = os.path.join(
-    #     config.patch_eval_results, EVAL_SVC_START_TIMESTAMP
-    # )
-    # _executables_path: Final[str] = os.path.join(
-    #     config.executables_path, EVAL_SVC_START_TIMESTAMP
-    # )
-
-    # # log some info, make the directories if they DNE
-    # logger.info("AppVersion: " + config.version)
-    # logger.info("Creating results directory: " + _patch_eval_results_path)
-    # os.makedirs(_patch_eval_results_path, exist_ok=True)
-    # logger.info("Creating executables directory: " + _executables_path)
-    # os.makedirs(_executables_path, exist_ok=True)
-    # logger.info("Creating temporary crash files directory: " + config.temp_crashes_path)
-    # os.makedirs(config.temp_crashes_path, exist_ok=True)  # TODO mount this as a volume
-
-    # # list of files successfully compiled and a dict for the results of each
-    # executables: List[str]
-    # results: Dict[str, Dict[str, int]]
-    # executables, results = prep_executables_for_evaluation(
-    #     _executables_path,
-    #     config.patched_codes_path,
-    #     config.compiler_tool_full_path,
-    #     config.compiler_warning_flags,
-    #     config.compiler_feature_flags,
-    #     config.compile_timeout,
-    # )
-
-    # crash_details = list()
-    # for file_name in os.listdir(config.crashes_events):
-    #     file_path = os.path.join(config.crashes_events, file_name)
-    #     with open(file_path, "r") as f:
-    #         cloud_event_str = f.read()
-    #         crash_detail = await map_cloud_event_as_crash_detail(cloud_event_str)
-    #         crash_details.append(crash_detail)
-
-    # # iterate through each crash (to be deprecated)
-    # for crash_detail in crash_details:
-    #     logger.info(f"Processing crash {crash_detail}")
-    #     executable_name = crash_detail.executable_name
-    #     # if the crash executable is not in our executables base, then skip it
-    #     if executable_name not in executables:
-    #         logger.info(
-    #             f"Skipping this crash because {executable_name} not in list of compiled executables."
-    #         )
-    #         continue
-
-    #     # determine if we need to create a temporary crash file, make it if needed
-    #     temp_crash_file = None
-    #     inputFromFile = crash_detail.is_input_from_file
-    #     if inputFromFile:
-    #         temp_crash_file = create_temp_crash_file(
-    #             crash_detail, config.temp_crashes_path
-    #         )
-
-    #     # run the file
-    #     executable_path = os.path.join(_executables_path, executable_name)
-    #     return_code = run_file(
-    #         executable_path,
-    #         executable_name,
-    #         crash_detail,
-    #         temp_crash_file,
-    #         config.run_timeout,
-    #     )
-
-    #     # log the crash information to that executables dedicated csv file
-    #     logger.info(f"Result of running file {executable_name}: {return_code}.")
-    #     logger.info(f"Updating the results csv for {executable_name}")
-    #     log_crash_information(
-    #         _patch_eval_results_path,
-    #         executable_name,
-    #         crash_detail,
-    #         return_code,
-    #     )
-
-    #     # update the results dict for that executable with the result of the run
-    #     results[executable_name]["total_crashes"] += 1
-    #     if return_code == 0 or return_code == 1:
-    #         results[executable_name]["patched_crashes"] += 1
-    # # log the batched results
-    # log_results(results, _patch_eval_results_path)
-
-    # return 0
 
 
 # Run the event loop
