@@ -3,12 +3,12 @@
 # this file is intended for interactive development only
 
 services:
-  # autopatchpubsub: # simple echo server for development only
-  #   networks:
-  #     - autopatch-llm_autopatch-docker-network
-  #   build: ./src/autopatchpubsub
-  #   container_name: autopatchpubsub
-  #   working_dir: /app
+  autopatchpubsub: # simple echo server for development only
+    networks:
+      - autopatch-llm_autopatch-docker-network
+    build: ./src/autopatchpubsub
+    container_name: autopatchpubsub
+    working_dir: /app
   autopatch-fuzzing-service:
     networks:
       - autopatch-llm_autopatch-docker-network
