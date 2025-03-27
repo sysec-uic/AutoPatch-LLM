@@ -12,6 +12,7 @@ from typing import Final, List
 from autopatchdatatypes import CrashDetail
 from autopatchpubsub import MessageBrokerClient
 from autopatchshared import init_logging, load_config_as_json, get_current_timestamp
+from cloudevents.conversion import to_json
 from cloudevents.http import CloudEvent
 from fuzz_svc_config import FuzzSvcConfig
 
@@ -178,7 +179,9 @@ def extract_crashes(
     """
 
     # add 'default' to the path to match the AFL++ output directory structure
-    crash_dir = os.path.join(f"{fuzzer_output_path}", f"{executable_name}", "default", "crashes")
+    crash_dir = os.path.join(
+        f"{fuzzer_output_path}", f"{executable_name}", "default", "crashes"
+    )
     crashes = []
     try:
         for crash_file in os.listdir(crash_dir):
@@ -278,7 +281,7 @@ async def produce_output(crash_details: List[CrashDetail]) -> None:
         )
         logger.debug(f"Producing CloudEvent: {event}")
         message_broker_client.publish(
-            config.fuzz_svc_output_topic, str(event)  # noqa: F821
+            config.fuzz_svc_output_topic, to_json(event).decode("utf-8")  # noqa: F821
         )
 
     crash_details_cloud_events: List[CloudEvent] = (
