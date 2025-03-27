@@ -368,11 +368,15 @@ async def process_crash_detail(crash_detail: CrashDetail) -> None:
     executable_path = os.path.join(
         config.executables_full_path, crash_detail.executable_name
     )
+    # TODO REFACTOR
+    temp_crash_file_name = (
+        "" if not crash_detail.is_input_from_file else temp_crash_file.name
+    )
     return_code = await run_file_async(
         executable_path,
         crash_detail.executable_name,
         crash_detail,
-        temp_crash_file.name,
+        temp_crash_file_name,
         config.run_timeout,
     )
 
