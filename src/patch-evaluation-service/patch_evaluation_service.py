@@ -9,7 +9,7 @@ import logging.config
 import os
 import subprocess
 import sys
-from typing import Final, List, Tuple, Dict
+from typing import Final, Tuple, Dict
 
 from autopatchdatatypes import CrashDetail
 from autopatchpubsub import MessageBrokerClient
@@ -270,7 +270,7 @@ async def map_cloud_event_as_crash_detail(
     Returns:
         CrashDetail: The mapped crash detail.
     """
-    cloud_event: dict = json.loads(crash_detail_cloud_event_str)
+    cloud_event: Dict = json.loads(crash_detail_cloud_event_str)
 
     data = cloud_event.get("data", {})
 
