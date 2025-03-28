@@ -138,11 +138,9 @@ def compile_program_run_fuzzer(
         if process.poll() is not None:
             logger.error("Fuzzer subprocess failed to start.")
         else:
-            logger.debug(f"Fuzzer process PID: {process.pid}")
             logger.info(
                 f"Fuzzer process started with PID: {process.pid}. Waiting for it to finish."
             )
-
             # Wait for process to complete or timeout
             stdout, stderr = process.communicate(timeout=fuzzer_timeout)
             logger.debug(f"Fuzzer command output: {stdout} {stderr}")
