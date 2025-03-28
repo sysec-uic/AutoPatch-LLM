@@ -6,6 +6,7 @@ import os
 import signal
 import subprocess
 import sys
+import time
 from datetime import datetime
 from typing import Final, List
 
@@ -131,11 +132,17 @@ def compile_program_run_fuzzer(
             shell=True,
             start_new_session=True,  # This creates a new process group
         )
+        time.sleep(0.5)  # Give the process a moment to start
 
         # Check if process started successfully
         if process.poll() is not None:
             logger.error("Fuzzer subprocess failed to start.")
         else:
+            logger.debug(f"Fuzzer process PID: {process.pid}")
+            logger.info(
+                f"Fuzzer process started with PID: {process.pid}. Waiting for it to finish."
+            )
+
             # Wait for process to complete or timeout
             stdout, stderr = process.communicate(timeout=fuzzer_timeout)
             logger.debug(f"Fuzzer command output: {stdout} {stderr}")
