@@ -1,7 +1,4 @@
 import asyncio
-import tempfile
-import asyncio
-import tempfile
 import base64
 import json
 import logging
@@ -9,11 +6,12 @@ import logging.config
 import os
 import subprocess
 import sys
-from typing import Final, Tuple, Dict
+import tempfile
+from typing import Dict, Final, Tuple
 
 from autopatchdatatypes import CrashDetail
 from autopatchpubsub import MessageBrokerClient
-from autopatchshared import init_logging, load_config_as_json, get_current_timestamp
+from autopatchshared import get_current_timestamp, init_logging, load_config_as_json
 from patch_eval_config import PatchEvalConfig
 
 # this is the name of the environment variable that will be used point to the configuration map file to load
