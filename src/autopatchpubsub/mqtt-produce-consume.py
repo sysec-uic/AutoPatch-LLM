@@ -13,12 +13,13 @@ def on_connect(client, userdata, flags, rc):
     count = 5
     topic = "autopatch/crash_detail"
 
+    message = '{ "attributes": { "type": "autopatch.crashdetail", "source": "autopatch.fuzzing-service", "subject": "complex3", "time": "2025-03-15T21:17:27Z", "specversion": "1.0", "id": "5e342659-a960-4c0f-8c6e-1df9e6911e50" }, "data": { "executable_name": "complex3", "crash_detail_base64": "aGVsbG8=", "is_input_from_file": true } }'
     for i in range(count):
-        message = '{ "attributes": { "type": "autopatch.crashdetail", "source": "autopatch.fuzzing-service", "subject": "complex3", "time": "2025-03-15T21:17:27Z", "specversion": "1.0", "id": "5e342659-a960-4c0f-8c6e-1df9e6911e50" }, "data": { "executable_name": "complex3", "crash_detail_base64": "aGVsbG8=", "is_input_from_file": true } }'
         client.publish(topic, message)
         sleep(1)
+
+    message = '{ "attributes": { "type": "autopatch.crashdetail", "source": "autopatch.fuzzing-service", "subject": "complex3", "time": "2025-03-15T21:17:27Z", "specversion": "1.0", "id": "5e342659-a960-4c0f-8c6e-1df9e6911e50" }, "data": { "executable_name": "complex3", "crash_detail_base64": "aGVsbG8=", "is_input_from_file": false } }'
     for i in range(count):
-        message = '{ "attributes": { "type": "autopatch.crashdetail", "source": "autopatch.fuzzing-service", "subject": "complex3", "time": "2025-03-15T21:17:27Z", "specversion": "1.0", "id": "5e342659-a960-4c0f-8c6e-1df9e6911e50" }, "data": { "executable_name": "complex3", "crash_detail_base64": "aGVsbG8=", "is_input_from_file": false } }'
         client.publish(topic, message)
         sleep(1)
 
