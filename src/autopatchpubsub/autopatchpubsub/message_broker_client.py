@@ -91,15 +91,6 @@ class MessageBrokerClient:
 
             self.trigger_event(message.payload.decode("utf-8"))
 
-            # # If a callback has been set, decode the message payload and pass it to the callback.
-            # if self.message_callback is not None:
-            #     try:
-            #         payload_str = message.payload.decode("utf-8")
-            #     except Exception as e:
-            #         self.logger.error(f"Error decoding message payload: {e}")
-            #         payload_str = str(message.payload)
-            #     self.message_callback(payload_str)
-
         def generate_uuid() -> str:
             return str(uuid.uuid4())
 
