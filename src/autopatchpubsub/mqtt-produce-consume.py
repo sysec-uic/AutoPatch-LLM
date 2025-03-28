@@ -14,7 +14,7 @@ def on_connect(client, userdata, flags, rc):
     count = 5
     topic = "autopatch/crash_detail"
 
-    message = 'hello devtool'
+    message = "hello devtool"
     for i in range(count):
         client.publish(topic, message)
         sleep(1)
