@@ -1,6 +1,7 @@
 # This file is a developement tool and example code only and can be used to test the MQTT broker.
 
 from time import sleep
+
 import paho.mqtt.client as mqtt
 
 
