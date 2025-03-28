@@ -106,16 +106,8 @@ jobs:
       #   run: |
       #     cat ${{ github.workspace }}/patch-evaluation-service-config.json
       - name: Run tests with coverage
-      #   env:
-      #     FUZZ_SVC_CONFIG: ${{ github.workspace}}/fuzzing-service-config.json
-        # PATCH_EVAL_SVC_CONFIG: ${{ github.workspace}}/patch-evaluation-service-config.json
         run: |
           task test-with-coverage
-
-# rm ${{ github.workspace }}/patch-evaluation-service-config.json
-      - name: Clean up temporary test config files
-        run: |
-          rm ${{ github.workspace }}/fuzzing-service-config.json
       - name: Publish coverage report
         uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
         with:
