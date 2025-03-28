@@ -55,7 +55,9 @@ sequenceDiagram
 
 ## Introduction  
 
-AutoPatch is a GenAI-assisted tool designed to automatically detect and patch bugs in C code. By combining **Google's Address Sanitizer (ASan)**, **American Fuzzy Lop (AFL)** and **OpenAI's GPT-4o mini**, AutoPatch simplifies the debugging process by identifying and resolving memory safety bugs such as Use After Free, Double Free, and Buffer Overlow.  Including runtime, syntactic, and semantic errors in buggy C programs.
+AutoPatch is a GenAI-assisted tool designed to automatically detect and patch bugs in C code.
+By combining **Google's Address Sanitizer (ASan)**, **American Fuzzy Lop (AFL)** and **OpenAI's GPT-4o mini**, AutoPatch simplifies the debugging process by identifying and resolving memory safety bugs such as Use After Free, Double Free, and Buffer Overlow.
+Including runtime, syntactic, and semantic errors in buggy C programs.
 
 ### Features  
 
