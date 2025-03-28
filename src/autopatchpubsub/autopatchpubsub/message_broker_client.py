@@ -1,7 +1,7 @@
 import logging
 import time
 import uuid
-from typing import Callable, Final
+from typing import Final
 
 import paho.mqtt.client as mqtt_client
 import paho.mqtt.enums as mqtt_enums
