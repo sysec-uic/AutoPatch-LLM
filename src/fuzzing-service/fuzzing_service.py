@@ -12,7 +12,7 @@ from typing import Final, List
 
 from autopatchdatatypes import CrashDetail
 from autopatchpubsub import MessageBrokerClient
-from autopatchshared import init_logging, load_config_as_json, get_current_timestamp
+from autopatchshared import get_current_timestamp, init_logging, load_config_as_json
 from cloudevents.conversion import to_json
 from cloudevents.http import CloudEvent
 from fuzz_svc_config import FuzzSvcConfig
