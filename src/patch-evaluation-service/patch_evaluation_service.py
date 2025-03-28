@@ -43,60 +43,64 @@ async def run_file_async(
 ) -> int:
     """
     Asynchronously run the binary at executable_path with input from CrashDetail.
-
-    As we do not modify the temp_crash_file, we can have multiple coroutines read from it concurrently.
     """
     crash_bytes = base64.b64decode(crash_detail.base64_message)
     crash = crash_bytes.decode("utf-8", errors="replace")
-
-    if crash_detail.is_input_from_file:
-        cmd = [executable_path, temp_crash_file_full_path]
-        input_data = None
-    else:
-        cmd = ["bash", "-c", f"echo {crash} | {executable_path}"]
-        input_data = None
+    proc = None  # Initialize proc for cleanup in case of timeout
 
     try:
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-
-        try:
-            stdout, stderr = await asyncio.wait_for(
-                proc.communicate(input=input_data), timeout=timeout
+        if crash_detail.is_input_from_file:
+            proc = await asyncio.create_subprocess_exec(
+                executable_path,
+                temp_crash_file_full_path,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
             )
-            logger.debug(f"Command run: {' '.join(cmd)}")
-            logger.debug(f"stdout: {stdout.decode()}")
-            logger.debug(f"stderr: {stderr.decode()}")
-        except asyncio.TimeoutError:
+            stdout, stderr = await asyncio.wait_for(
+                proc.communicate(),
+                timeout=timeout,
+            )
+        else:
+            proc = await asyncio.create_subprocess_exec(
+                executable_path,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await asyncio.wait_for(
+                proc.communicate(input=crash_bytes),
+                timeout=timeout,
+            )
+
+        logger.debug(f"stdout: {stdout.decode()}")
+        logger.debug(f"stderr: {stderr.decode()}")
+        logger.info(f"stdout: {stdout.decode()}")
+        logger.info(f"stderr: {stderr.decode()}")
+
+    except asyncio.TimeoutError:
+        if proc:
             proc.kill()
             await proc.communicate()
-            logger.error(f"Timeout after {timeout} seconds running {executable_name}")
-            return -1
-
-        if proc.returncode == 0:
-            logger.debug(
-                f"File {executable_name} ran with input {crash} without errors."
-            )
-            return 0
-        elif proc.returncode == 1:
-            logger.info(f"Run of {executable_name} terminated with return code 1.")
-            return 1
-        elif proc.returncode is None:
-            logger.error("Process did not return an exit code; treating as error.")
-            return -1
-        else:
-            signal_code = proc.returncode - 128
-            logger.info(
-                f"Run of {executable_name} terminated with signal {signal_code}."
-            )
-            return signal_code
+        logger.error(f"Timeout after {timeout} seconds running {executable_name}")
+        return -1
 
     except Exception as e:
         logger.error(f"Exception during runtime: {e}")
         return -1
+
+    # Process return code handling:
+    if proc.returncode == 0:
+        logger.debug(f"File {executable_name} ran with input {crash} without errors.")
+        return 0
+    elif proc.returncode == 1:
+        logger.info(f"Run of {executable_name} terminated with return code 1.")
+        return 1
+    elif proc.returncode is None:
+        logger.error("Process did not return an exit code; treating as error.")
+        return -1
+    else:
+        signal_code = proc.returncode - 128
+        logger.info(f"Run of {executable_name} terminated with signal {signal_code}.")
+        return signal_code
 
 
 # TODO extract this into autopatchshared
@@ -343,7 +347,6 @@ def prep_executables_for_evaluation(
 
 async def process_item(item):
     """Asynchronously process an item."""
-    logger.info(f"Processing item: {item}")
     crash_detail = await map_cloud_event_as_crash_detail(item)
     await process_crash_detail(crash_detail)
     logger.info(f"Done Processing item")
@@ -368,15 +371,11 @@ async def process_crash_detail(crash_detail: CrashDetail) -> None:
     executable_path = os.path.join(
         config.executables_full_path, crash_detail.executable_name
     )
-    # TODO REFACTOR
-    temp_crash_file_name = (
-        "" if not crash_detail.is_input_from_file else temp_crash_file.name
-    )
     return_code = await run_file_async(
         executable_path,
         crash_detail.executable_name,
         crash_detail,
-        temp_crash_file_name,
+        "" if not crash_detail.is_input_from_file else temp_crash_file.name,
         config.run_timeout,
     )
 
@@ -437,20 +436,10 @@ async def main():
     # get the current ISO timestamp
     EVAL_SVC_START_TIMESTAMP: Final[str] = get_current_timestamp()
 
-    # create timestamped directories
-    _timestamped_patch_eval_results_path: Final[str] = os.path.join(
-        config.patch_eval_results_full_path, EVAL_SVC_START_TIMESTAMP
-    )
-
     # log some info, make the directories if they DNE
     logger.info("AppVersion: " + config.version)
-    os.makedirs(_timestamped_patch_eval_results_path, exist_ok=True)
     logger.info("Creating executables directory: " + config.executables_full_path)
     os.makedirs(config.executables_full_path, exist_ok=True)
-    logger.info(
-        "Creating temporary crash files directory: " + config.temp_crashes_full_path
-    )
-    os.makedirs(config.temp_crashes_full_path, exist_ok=True)
 
     # list of files successfully compiled and a dict for the results of each
     executables_to_process, results = prep_executables_for_evaluation(

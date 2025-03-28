@@ -1,7 +1,7 @@
 {
     "version": "0.4.1-alpha",
     "appname": "autopatch.patch-evaluation-service",
-    "logging_config" : "/workspace/AutoPatch-LLM/src/patch-evaluation-service/config/logging-config.json",
+    "logging_config" : "/workspace/AutoPatch-LLM/src/patch-evaluation-service/config/dev-logging-config.json",
     "crashes_events":"/workspace/AutoPatch-LLM/src/patch-evaluation-service/crash_events",
     "patch_eval_results_full_path":"/workspace/AutoPatch-LLM/src/patch-evaluation-service/data",
     "patched_codes_path":"/workspace/AutoPatch-LLM/src/patch-evaluation-service/patched_codes",
@@ -10,8 +10,8 @@
     "compiler_tool_full_path": "/usr/bin/gcc",
     "compiler_warning_flags":"-Wall -Wextra -Wformat -Wshift-overflow -Wcast-align -Wstrict-overflow -fstack-protector-strong",
     "compiler_feature_flags": "-O1 -g -o",
-    "compile_timeout":10,
-    "run_timeout":10,
+    "compile_timeout": 5,
+    "run_timeout": 5,
     "message_broker_host": "mosquitto",
     "message_broker_port": 1883,
     "autopatch_crash_detail_input_topic": "autopatch/crash_detail"
