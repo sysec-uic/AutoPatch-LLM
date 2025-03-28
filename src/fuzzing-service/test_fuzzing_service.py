@@ -2,7 +2,9 @@ import base64
 import logging
 import os
 import subprocess
-from datetime import datetime as real_datetime, timezone, date
+from datetime import date
+from datetime import datetime as real_datetime
+from datetime import timezone
 from types import SimpleNamespace
 from unittest import mock
 
