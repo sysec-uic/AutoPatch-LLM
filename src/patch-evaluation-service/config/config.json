@@ -10,8 +10,8 @@
     "compiler_warning_flags":"-Wall -Wextra -Wformat -Wshift-overflow -Wcast-align -Wstrict-overflow -fstack-protector-strong",
     "compiler_feature_flags": "-O1 -g -o",
     "temp_crashes_full_path":"/app/temp_crashes_files",
-    "compile_timeout":10,
-    "run_timeout":10,
+    "compile_timeout": 10,
+    "run_timeout": 10,
     "message_broker_host": "mosquitto",
     "message_broker_port": 1883,
     "autopatch_crash_detail_input_topic": "autopatch/crash_detail"
