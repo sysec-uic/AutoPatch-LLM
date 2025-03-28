@@ -5,23 +5,23 @@ import logging
 import os
 import subprocess
 from unittest import mock
-import paho.mqtt.client as mqtt_client
 
-import pytest
+import paho.mqtt.client as mqtt_client
 import patch_evaluation_service
+import pytest
+from autopatchdatatypes import CrashDetail
+from patch_eval_config import PatchEvalConfig
 
 # Import the functions and globals
 from patch_evaluation_service import (
-    run_file_async,
     compile_file,
-    write_crashes_csv,
     map_cloud_event_as_crash_detail,
     on_consume_crash_detail,
     prep_executables_for_evaluation,
     process_crash_detail,
+    run_file_async,
+    write_crashes_csv,
 )
-from autopatchdatatypes import CrashDetail
-from patch_eval_config import PatchEvalConfig
 
 
 class DummyProcess:
