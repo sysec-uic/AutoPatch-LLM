@@ -10,7 +10,7 @@ import paho.mqtt.client as mqtt_client
 import pytest
 import patch_evaluation_service
 
-# Import the functions and globals from your module.
+# Import the functions and globals
 from patch_evaluation_service import (
     run_file_async,
     compile_file,
