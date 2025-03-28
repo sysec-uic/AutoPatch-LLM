@@ -79,36 +79,36 @@ jobs:
               "iconv_tool_timeout": 120
           }
           EOF
-      - name: Create patch evaluation component JSON config file
-        run: |
-          cat <<EOF > patch-evaluation-service-config.json
-          {
-              "version": "CITestonlyversion",
-              "appname": "autopatch.patch-evaluation-service",
-              "logging_config" : "${{ github.workspace }}/src/patch-evaluation-service/logging-config.json",
-              "crashes_events":"${{ github.workspace }}/src/patch-evaluation-service/crash_events",
-              "patch_eval_results":"${{ github.workspace }}/src/patch-evaluation-service/data",
-              "patched_codes_path":"${{ github.workspace }}/src/patch-evaluation-service/patched_codes",
-              "executables_path":"${{ github.workspace }}/src/patch-evaluation-service/bin/executables",
-              "compiler_warning_flags":"-Wall -Wextra -Wformat -Wshift-overflow -Wcast-align -Wstrict-overflow -fstack-protector-strong",
-              "temp_crashes_path":"${{ github.workspace }}src/patch-evaluation-service/temp_crashes_files",
-              "compile_timeout":10,
-              "run_timeout":10,
-              "message_broker_host": "mosquitto",
-              "message_broker_port": 1883,
-              "autopatch_crash_detail_input_topic": "autopatch/crash_detail"
-          }
-          EOF
+      # - name: Create patch evaluation component JSON config file
+      #   run: |
+      #     cat <<EOF > patch-evaluation-service-config.json
+      #     {
+      #         "version": "CITestonlyversion",
+      #         "appname": "autopatch.patch-evaluation-service",
+      #         "logging_config" : "${{ github.workspace }}/src/patch-evaluation-service/logging-config.json",
+      #         "crashes_events":"${{ github.workspace }}/src/patch-evaluation-service/crash_events",
+      #         "patch_eval_results":"${{ github.workspace }}/src/patch-evaluation-service/data",
+      #         "patched_codes_path":"${{ github.workspace }}/src/patch-evaluation-service/patched_codes",
+      #         "executables_path":"${{ github.workspace }}/src/patch-evaluation-service/bin/executables",
+      #         "compiler_warning_flags":"-Wall -Wextra -Wformat -Wshift-overflow -Wcast-align -Wstrict-overflow -fstack-protector-strong",
+      #         "temp_crashes_path":"${{ github.workspace }}src/patch-evaluation-service/temp_crashes_files",
+      #         "compile_timeout":10,
+      #         "run_timeout":10,
+      #         "message_broker_host": "mosquitto",
+      #         "message_broker_port": 1883,
+      #         "autopatch_crash_detail_input_topic": "autopatch/crash_detail"
+      #     }
+      #     EOF
       - name: Verify Fuzzing Service Config JSON file
         run: |
           cat ${{ github.workspace }}/fuzzing-service-config.json
-      - name: Verify Patch Evaluation Service Config JSON file
-        run: |
-          cat ${{ github.workspace }}/patch-evaluation-service-config.json
+      # - name: Verify Patch Evaluation Service Config JSON file
+      #   run: |
+      #     cat ${{ github.workspace }}/patch-evaluation-service-config.json
       - name: Run tests with coverage
         env:
           FUZZ_SVC_CONFIG: ${{ github.workspace}}/fuzzing-service-config.json
-          PATCH_EVAL_SVC_CONFIG: ${{ github.workspace}}/patch-evaluation-service-config.json
+          # PATCH_EVAL_SVC_CONFIG: ${{ github.workspace}}/patch-evaluation-service-config.json
         run: |
           task test-with-coverage
       - name: Clean up temporary test config files
