@@ -347,7 +347,6 @@ async def process_item(item):
     """Asynchronously process an item."""
     crash_detail = await map_cloud_event_as_crash_detail(item)
     await process_crash_detail(crash_detail)
-    logger.info(f"Done Processing item")
 
 
 async def process_crash_detail(crash_detail: CrashDetail) -> None:
@@ -448,7 +447,7 @@ async def main():
     logger = init_logging(config.logging_config, config.appname)
 
     # get the current ISO timestamp
-    EVAL_SVC_START_TIMESTAMP: Final[str] = get_current_timestamp()
+    # EVAL_SVC_START_TIMESTAMP: Final[str] = get_current_timestamp()
 
     # log some info, make the directories if they DNE
     logger.info("AppVersion: " + config.version)
@@ -468,7 +467,7 @@ async def main():
     event_loop = asyncio.get_running_loop()
 
     # Start the consumer coroutine as a background task.
-    consumer_task = asyncio.create_task(crash_detail_consumer())
+    asyncio.create_task(crash_detail_consumer())
 
     message_broker_client: Final[MessageBrokerClient] = init_message_broker(
         config.message_broker_host,
