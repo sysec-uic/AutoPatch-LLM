@@ -19,6 +19,7 @@ def on_connect(client, userdata, flags, rc):
         client.publish(topic, message)
         sleep(1)
 
+
 def on_message(client, userdata, msg):
     print("Message received on topic: " + msg.topic)
     print("Message received: ", msg.payload.decode("utf-8"))
