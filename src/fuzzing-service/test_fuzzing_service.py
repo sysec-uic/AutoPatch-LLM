@@ -16,10 +16,10 @@ from fuzz_svc_config import FuzzSvcConfig
 
 # Import the function to test from the updated module.
 from fuzzing_service import (
-    map_crash_detail_as_cloudevent,
-    map_crashdetails_as_cloudevents,
     compile_program_run_fuzzer,
     extract_crashes,
+    map_crash_detail_as_cloudevent,
+    map_crashdetails_as_cloudevents,
     produce_output,
     write_crashes_csv,
 )
