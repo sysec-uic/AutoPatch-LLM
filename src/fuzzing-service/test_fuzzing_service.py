@@ -2,7 +2,7 @@ import base64
 import logging
 import os
 import subprocess
-from datetime import datetime as real_datetime
+from datetime import datetime as real_datetime, timezone, date
 from types import SimpleNamespace
 from unittest import mock
 
@@ -51,18 +51,6 @@ def dummy_FuzzSvcConfig() -> FuzzSvcConfig:
     return FuzzSvcConfig(**dummy_config)
 
 
-# A fixed datetime class to always return the same timestamp.
-class FixedDatetime:
-    @classmethod
-    def now(cls, tz=None):
-        dt = real_datetime(2025, 1, 1, 12, 0, 0)
-        return dt if tz is None else dt.replace(tzinfo=tz)
-
-    @classmethod
-    def fromisoformat(cls, iso_str):
-        return FixedDatetime.now()
-
-
 # A dummy logger to capture logger calls.
 class DummyLogger:
     def __init__(self):
@@ -96,6 +84,23 @@ def fake_message_broker_client(monkeypatch):
     monkeypatch.setattr(
         fuzzing_service, "MessageBrokerClient", DummyMessageBrokerClient
     )
+    monkeypatch.setattr("fuzzing_service.get_current_timestamp", FixedDatetime.now)
+
+
+# A fixed datetime class to always return the same timestamp.
+class FixedDatetime:
+    @classmethod
+    def now(cls) -> str:
+        dt = (
+            real_datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+            .isoformat(timespec="seconds")
+            .replace("+00:00", "Z")
+        )
+        return dt
+
+    @classmethod
+    def fromisoformat(cls, iso_str):
+        return real_datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
 
 
 @pytest.fixture(autouse=True)
@@ -211,6 +216,7 @@ def test_run_fuzzer_compile_failure(monkeypatch):
 
 def test_run_fuzzer_popen_failure(monkeypatch):
     # Set up config.
+    fuzzing_service.config = dummy_FuzzSvcConfig()
     fuzzing_service.config.compiler_warning_flags = "-w"
     fuzzing_service.config.compiler_feature_flags = "-f"
     fuzzing_service.config.afl_tool_child_process_memory_limit_mb = 128
@@ -260,7 +266,7 @@ def test_extract_crashes_no_directory(monkeypatch):
 # --------------
 
 
-def test_write_crashes_csv_new_file_input_from_file(tmp_path):
+def test_write_crashes_csv_new_file_input_from_file(monkeypatch, tmp_path):
     """
     Test that when the CSV file does not exist, the header is written,
     and when isInputFromFile is True, the crashes (as strings) are written.
@@ -293,7 +299,7 @@ def test_write_crashes_csv_new_file_input_from_file(tmp_path):
     assert lines[2] == expected_line2
 
 
-def test_write_crashes_csv_existing_file_no_header(tmp_path):
+def test_write_crashes_csv_existing_file_no_header(monkeypatch, tmp_path):
     """
     Test that if the CSV file already exists and is non-empty,
     the header is not re-written.
@@ -328,7 +334,7 @@ def test_write_crashes_csv_existing_file_no_header(tmp_path):
     assert lines[2] == expected_line2
 
 
-def test_write_crashes_csv_empty_crashes(tmp_path):
+def test_write_crashes_csv_empty_crashes(monkeypatch, tmp_path):
     """
     Test that when the crashes list is empty and the file does not exist,
     only the header is written.
@@ -345,7 +351,7 @@ def test_write_crashes_csv_empty_crashes(tmp_path):
     assert lines == ["timestamp,executable_name,crash_detail_base64,isInputFromFile"]
 
 
-def test_write_crashes_csv_creates_directory(tmp_path):
+def test_write_crashes_csv_creates_directory(monkeypatch, tmp_path):
     """
     Test that the function creates the output directory if it does not exist.
     """

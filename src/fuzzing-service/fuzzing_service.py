@@ -407,5 +407,6 @@ async def main():
     logger.info("Processing complete, exiting.")
 
 
-# Run the event loop
-asyncio.run(main())
+if __name__ == "__main__":
+    # Run the event loop
+    asyncio.run(main())
