@@ -1,1 +1,0 @@
-Create a LLAMA hello world example interaction

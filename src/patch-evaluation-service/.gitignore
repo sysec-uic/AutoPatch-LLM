@@ -1,7 +1,0 @@
-.env
-log/*
-data/*
-crash_events/
-patched_codes/
-bin/executables/*
-temp_crashes_files/
