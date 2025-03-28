@@ -414,6 +414,22 @@ async def crash_detail_consumer():
             async_crash_details_queue.task_done()
 
 
+def init_message_broker(
+    message_broker_host: str, message_broker_port: int, logger: logging.Logger
+) -> MessageBrokerClient:
+    """
+    Initialize a MessageBrokerClient instance with the configured host, port, and logger settings.
+    Returns:
+        MessageBrokerClient: The configured MessageBrokerClient ready for use.
+    """
+    message_broker_client: Final[MessageBrokerClient] = MessageBrokerClient(
+        message_broker_host,
+        message_broker_port,
+        logger,
+    )
+    return message_broker_client
+
+
 async def main():
     global event_loop
     global logger
@@ -451,17 +467,16 @@ async def main():
         config.compile_timeout,
     )
 
-    # initialize the message broker client
-    message_broker_client: MessageBrokerClient = MessageBrokerClient(
-        config.message_broker_host,
-        config.message_broker_port,
-        logger,
-    )
-
     event_loop = asyncio.get_running_loop()
 
     # Start the consumer coroutine as a background task.
     consumer_task = asyncio.create_task(crash_detail_consumer())
+
+    message_broker_client: Final[MessageBrokerClient] = init_message_broker(
+        config.message_broker_host,
+        config.message_broker_port,
+        logger,
+    )
 
     # subscribe to topic
     message_broker_client.consume(
@@ -472,5 +487,6 @@ async def main():
     await asyncio.Future()  # This future will never complete.
 
 
-# Run the event loop
-asyncio.run(main())
+if __name__ == "__main__":
+    # Run the event loop
+    asyncio.run(main())
