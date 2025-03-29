@@ -3,6 +3,7 @@ FROM mcr.microsoft.com/devcontainers/base:noble AS base
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1
 
+# Delete the cache mounts if not building on a ubuntu based host system
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
     --mount=target=/var/cache/apt,type=cache,sharing=locked \
     rm -f /etc/apt/apt.conf.d/docker-clean && \
