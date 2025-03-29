@@ -26,6 +26,14 @@
             "program": "/workspace/AutoPatch-LLM/src/patch-evaluation-service/patch_evaluation_service.py",
             "console": "integratedTerminal",
             "envFile": "/workspace/AutoPatch-LLM/src/patch-evaluation-service/.env"
+        },
+        {
+            "name": "Python Debugger: AutoPatch Code Property Graph Generator",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/workspace/AutoPatch-LLM/src/code-property-graph-generator/code_property_graph_generator.py",
+            "console": "integratedTerminal",
+            "envFile": "/workspace/AutoPatch-LLM/src/code-property-graph-generator/.env"
         }
     ]
 }

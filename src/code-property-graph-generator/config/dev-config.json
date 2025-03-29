@@ -1,0 +1,9 @@
+{
+    "version": "0.4.1-alpha",
+    "appname": "autopatch.code-property-graph-generator",
+    "logging_config" : "/workspace/AutoPatch-LLM/src/code-property-graph-generator/config/dev-logging-config.json",
+    "concurrency_threshold": 10,
+    "message_broker_host": "mosquitto",
+    "message_broker_port": 1883,
+    "message_broker_protocol": "mqtt"
+}
