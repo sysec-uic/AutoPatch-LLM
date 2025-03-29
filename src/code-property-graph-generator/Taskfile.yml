@@ -1,0 +1,27 @@
+version: '3'
+
+env:
+  ARGS: --break-system-packages # Use this If you are installing packages using the Taskfile Extension for VSCode UI and devcontainer
+
+tasks:
+  build:
+    desc: Build AutoPatch Code Property Graph Generator
+    cmds:
+      - echo "Building Code Property Graph Generator"
+      - python -m build
+  install:
+    desc: Install AutoPatch Code Property Graph Generator
+    cmds:
+      - echo "Installing AutoPatch Code Property Graph Generator"
+      - pip install {{.CLI_ARGS}} $ARGS ./dist/*.whl
+  uninstall:
+    desc: Uninstall AutoPatch Code Property Graph Generator
+    cmds:
+      - pip uninstall -y code-property-graph-generator-*-py3-none-any.whl --break-system-packages
+  clean:
+    desc: Clean AutoPatch Code Property Graph Generator
+    cmds:
+      - echo "Cleaning AutoPatch Code Property Graph Generator"
+      - rm -rf ./dist
+      - rm -rf ./build
+      - rm -rf ./code-property-generator.egg-info
