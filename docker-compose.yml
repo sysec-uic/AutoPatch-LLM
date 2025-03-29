@@ -3,35 +3,22 @@
 # this file is intended for interactive development only
 
 services:
-  # autopatch:
+  # autopatchpubsub: # simple echo server for development only
   #   networks:
-  #     - autopatch-docker-network-test
-  #   build: ./src
-  #   container_name: autopatch
-  #   env_file:
-  #     - ./src/.env
-  #   volumes:
-  #     - ./afl-2.52b:/app/afl-2.52b
-  #     - ./src/bugLog:/app/src/bugLog
-  #     - ./assets/input_codebase:/app/src/codebase
-  #     - ./src/executables:/app/src/executables
-  #     - ./src/executables_afl:/app/src/executables_afl
-  #     - ./src/input:/app/src/input
-  #     - ./src/patched_codes:/app/src/patched_codes
+  #     - autopatch-llm_autopatch-docker-network
+  #   build: ./src/autopatchpubsub
+  #   container_name: autopatchpubsub
   #   working_dir: /app
-  autopatchpubsub:
-    networks:
-      - autopatch-llm_autopatch-docker-network
-    build: ./src/autopatchpubsub
-    container_name: autopatchpubsub
-    working_dir: /app
   autopatch-fuzzing-service:
     networks:
       - autopatch-llm_autopatch-docker-network
     build: ./src/fuzzing-service
     container_name: autopatch-fuzzing-service
+    # user: "${UID:-1000}:${GID:-1000}"
     environment:
       - FUZZ_SVC_CONFIG=/app/config/config.json
+      # - UID=${UID:-1000}
+      # - GID=${GID:-1000}
     volumes:
       - ./src/fuzzing-service/config:/app/config:ro
       - ./src/fuzzing-service/log:/app/log:rw

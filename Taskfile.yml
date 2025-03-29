@@ -1,9 +1,6 @@
 version: '3'
 
 includes:
-   autopatch:
-      taskfile: ./src/Taskfile.yml
-      dir: ./src
    fuzzing-service:
       taskfile: ./src/fuzzing-service/Taskfile.yml
       dir: ./src/fuzzing-service
@@ -32,10 +29,13 @@ tasks:
       desc: Run AutoPatch-LLM
         - docker compose up
    install-devtools:
-      desc: Install devtools
+      desc: Install AutoPatch devtools
+      env:
+      ARGS: --break-system-packages # Use this If you are installing packages using the Taskfile Extension for VSCode UI and devcontainer
       cmds:
         - task: create-docker-network
-        - task: autopatch:install-devtools
+        - echo "If you are running this manually and installing in a VM instead of a devcontainer, use a virtual environment and activate it first."
+        - pip install {{.CLI_ARGS}} $ARGS -r ./src/dev-requirements.txt
         - task: install-package-dependencies
    test-with-coverage:
       desc: Run tests with coverage
@@ -56,6 +56,7 @@ tasks:
       desc: Build and install datatypes package
       cmds:
         - "echo 'Building datatypes...'"
+        - task: autopatchdatatypes:clean
         - task: autopatchdatatypes:build
         - task: autopatchdatatypes:install
         - cp ./src/autopatchdatatypes/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet
@@ -64,6 +65,7 @@ tasks:
       desc: Build and install
       cmds:
         - "echo 'Building message broker facade...'"
+        - task: autopatchpubsub:clean
         - task: autopatchpubsub:build
         - task: autopatchpubsub:install
         - cp ./src/autopatchpubsub/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet
@@ -72,6 +74,7 @@ tasks:
       desc: Build and install shared modules package
       cmds:
         - "echo 'Building shared modules...'"
+        - task: autopatchshared:clean
         - task: autopatchshared:build
         - task: autopatchshared:install
         - cp ./src/autopatchshared/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet
@@ -84,9 +87,9 @@ tasks:
         - task: build-install-shared
         - task: build-install-facades
         - task: fuzzing-service:install
+        - task: patch-evaluation-service:install
         # - task llm-dispatch:install
         # - task patch-request-generator-component:install
         # - task main:install
         # - task report-generaation:install
-        # - task patch-evaluation-service:install
         # - task prompt-evaluation-service:install

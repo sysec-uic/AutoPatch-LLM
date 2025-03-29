@@ -11,7 +11,7 @@
         "class": "logging.FileHandler",
         "level": "DEBUG",
         "formatter": "standard",
-        "filename": "/workspace/AutoPatch-LLM/src/fuzzing-service/log/autopatch.fuzzing-service.debug.log"
+        "filename": "/workspace/AutoPatch-LLM/src/patch-evaluation-service/log/autopatch.patch-evaluation-service.debug.log"
       },
       "console_err_handler": {
         "class": "logging.StreamHandler",
@@ -27,7 +27,7 @@
       }
     },
     "loggers": {
-      "autopatch.fuzzing-service": {
+      "autopatch.patch-evaluation-service": {
         "handlers": ["file_debug_handler", "console_err_handler", "console_info_handler"],
         "level": "DEBUG",
         "propagate": false

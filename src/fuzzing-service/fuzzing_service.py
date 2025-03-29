@@ -6,12 +6,14 @@ import os
 import signal
 import subprocess
 import sys
-from datetime import datetime, timezone
+import time
+from datetime import datetime
 from typing import Final, List
 
 from autopatchdatatypes import CrashDetail
 from autopatchpubsub import MessageBrokerClient
-from autopatchshared import init_logging, load_config_as_json
+from autopatchshared import get_current_timestamp, init_logging, load_config_as_json
+from cloudevents.conversion import to_json
 from cloudevents.http import CloudEvent
 from fuzz_svc_config import FuzzSvcConfig
 
@@ -23,7 +25,7 @@ config: FuzzSvcConfig
 logger = logging.getLogger(__name__)
 
 
-async def MapCrashDetailAsCloudEvent(crash_detail: CrashDetail) -> CloudEvent:
+async def map_crash_detail_as_cloudevent(crash_detail: CrashDetail) -> CloudEvent:
     """
     Maps a CrashDetail instance to a CloudEvent Occurence.
 
@@ -60,15 +62,6 @@ async def MapCrashDetailAsCloudEvent(crash_detail: CrashDetail) -> CloudEvent:
 
     event = CloudEvent(attributes, data)
     return event
-
-
-def get_current_timestamp() -> str:
-    """
-    Get the current timestamp in ISO 8601 format.
-    """
-    return (
-        datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
-    )
 
 
 def compile_program_run_fuzzer(
@@ -139,11 +132,15 @@ def compile_program_run_fuzzer(
             shell=True,
             start_new_session=True,  # This creates a new process group
         )
+        time.sleep(0.5)  # Give the process a moment to start
 
         # Check if process started successfully
         if process.poll() is not None:
             logger.error("Fuzzer subprocess failed to start.")
         else:
+            logger.info(
+                f"Fuzzer process started with PID: {process.pid}. Waiting for it to finish."
+            )
             # Wait for process to complete or timeout
             stdout, stderr = process.communicate(timeout=fuzzer_timeout)
             logger.debug(f"Fuzzer command output: {stdout} {stderr}")
@@ -185,7 +182,11 @@ def extract_crashes(
     Examine the fuzzer output directory for crash inputs.
     Returns a list of crash file paths (if isInputFromFile is True) or raw byte contents.
     """
-    crash_dir = os.path.join(f"{fuzzer_output_path}", f"{executable_name}", "crashes")
+
+    # add 'default' to the path to match the AFL++ output directory structure
+    crash_dir = os.path.join(
+        f"{fuzzer_output_path}", f"{executable_name}", "default", "crashes"
+    )
     crashes = []
     try:
         for crash_file in os.listdir(crash_dir):
@@ -260,16 +261,18 @@ def write_crashes_csv(crash_details: List[CrashDetail], csv_path: str) -> None:
             )
 
 
-async def MapCrashDetailsAsCloudEvents(
+async def map_crashdetails_as_cloudevents(
     crash_details: List[CrashDetail],
 ) -> List[CloudEvent]:
     if len(crash_details) > config.concurrency_threshold:
         # Run in parallel
-        tasks = [MapCrashDetailAsCloudEvent(detail) for detail in crash_details]
+        tasks = [map_crash_detail_as_cloudevent(detail) for detail in crash_details]
         results = await asyncio.gather(*tasks)
     else:
         # Run sequentially
-        results = [await MapCrashDetailAsCloudEvent(detail) for detail in crash_details]
+        results = [
+            await map_crash_detail_as_cloudevent(detail) for detail in crash_details
+        ]
 
     return results
 
@@ -283,11 +286,11 @@ async def produce_output(crash_details: List[CrashDetail]) -> None:
         )
         logger.debug(f"Producing CloudEvent: {event}")
         message_broker_client.publish(
-            config.fuzz_svc_output_topic, str(event)  # noqa: F821
+            config.fuzz_svc_output_topic, to_json(event).decode("utf-8")  # noqa: F821
         )
 
-    crash_details_cloud_events: List[CloudEvent] = await MapCrashDetailsAsCloudEvents(
-        crash_details
+    crash_details_cloud_events: List[CloudEvent] = (
+        await map_crashdetails_as_cloudevents(crash_details)
     )
     message_broker_client: Final[MessageBrokerClient] = MessageBrokerClient(
         config.message_broker_host, config.message_broker_port, logger
@@ -404,5 +407,6 @@ async def main():
     logger.info("Processing complete, exiting.")
 
 
-# Run the event loop
-asyncio.run(main())
+if __name__ == "__main__":
+    # Run the event loop
+    asyncio.run(main())

@@ -1,6 +1,7 @@
 import logging
 import time
 import uuid
+from typing import Final
 
 import paho.mqtt.client as mqtt_client
 import paho.mqtt.enums as mqtt_enums
@@ -8,14 +9,19 @@ import paho.mqtt.enums as mqtt_enums
 
 class MessageBrokerClient:
     def __init__(
-        self, message_broker_host: str, message_broker_port: int, logger: logging.Logger
+        self,
+        message_broker_host: str,
+        message_broker_port: int,
+        logger: logging.Logger,
     ):
         self.message_broker_host = message_broker_host
         self.message_broker_port = message_broker_port
+        self.message_callback = None
         self.logger = logger
         _client = self.connect_message_broker()
         self.client = _client
         self.client.enable_logger(self.logger)
+        self.client.loop_start()  # Start the network loop in a background thread to process callbacks.
         self.FIRST_RECONNECT_DELAY = 1
         self.RECONNECT_RATE = 2
         self.MAX_RECONNECT_COUNT = 12
@@ -29,7 +35,7 @@ class MessageBrokerClient:
 
     def connect_message_broker(self) -> mqtt_client.Client:
 
-        def on_connect(client, userdata, flags, reason_code) -> None:
+        def on_connect(client, userdata, flags, reason_code, properties) -> None:
             if reason_code == 0:
                 self.logger.info(
                     f"{self.__class__.__name__} - Connected to MQTT Broker!"
@@ -73,11 +79,17 @@ class MessageBrokerClient:
                 f"{self.__class__.__name__} - Reconnect failed after {reconnect_count} attempts. Exiting..."
             )
 
-        def on_publish(client, userdata, mid) -> None:
+        def on_publish(client, userdata, mid, reason_code, properties) -> None:
             self.logger.info(f"{self.__class__.__name__} - Message {mid} published")
 
         def on_message(client, userdata, message) -> None:
-            self.logger.info(f"{self.__class__.__name__} - Message received: {message}")
+            self.logger.info(
+                f"{self.__class__.__name__} - Message received on topic {message.topic}: {message.payload}"
+            )
+            print("Message received on topic: " + message.topic)
+            print("Message received: ", message.payload.decode("utf-8"))
+
+            self.trigger_event(message.payload.decode("utf-8"))
 
         def generate_uuid() -> str:
             return str(uuid.uuid4())
@@ -113,8 +125,22 @@ class MessageBrokerClient:
             f"{self.__class__.__name__} - Published message to topic {topic}"
         )
 
-    def consume(self, topic: str, message: str) -> None:
+    def consume(self, topic: str, func) -> None:
         """
-        Consume a message from the specified topic.
+        Consume messages from the specified topic.
+
+        The provided callback function will be called with the message payload as a string.
         """
         self.client.subscribe(topic)
+        if callable(func):
+            self.message_callback = func
+        else:
+            error_message: Final[str] = "Callback function must be callable"
+            self.logger.error(error_message)
+            raise ValueError(error_message)
+
+    def trigger_event(self, *args, **kwargs):
+        if self.message_callback:
+            return self.message_callback(*args, **kwargs)
+        else:
+            self.logger.info("No callback function set.")

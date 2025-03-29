@@ -1,5 +1,7 @@
 # This file is a developement tool and example code only and can be used to test the MQTT broker.
 
+from time import sleep
+
 import paho.mqtt.client as mqtt
 
 
@@ -7,8 +9,15 @@ def on_connect(client, userdata, flags, rc):
     topic = "autopatch/crash_detail"
     client.subscribe(topic)
     print(f"subscribed to {topic}")
-    print("publishing message Hello from mqtt-produce.py")
-    client.publish(topic, "Hello from mqtt-produce.py")
+    print("publishing message from mqtt-produce-consume.py")
+
+    count = 5
+    topic = "autopatch/crash_detail"
+
+    message = "hello devtool"
+    for i in range(count):
+        client.publish(topic, message)
+        sleep(1)
 
 
 def on_message(client, userdata, msg):
@@ -25,4 +34,5 @@ client.on_connect = on_connect
 print("connecting to mosquitto")
 client.connect(server, port)
 print("connected to mosquitto")
+
 client.loop_forever()

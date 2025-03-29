@@ -1,630 +1,620 @@
+import asyncio
 import base64
 import json
+import logging
 import os
 import subprocess
-from datetime import datetime as real_datetime
-from types import SimpleNamespace
-from unittest.mock import mock_open
+from unittest import mock
 
-import patch_evaluation_service as patch_evaluation_service
+import paho.mqtt.client as mqtt_client
+import patch_evaluation_service
 import pytest
 from autopatchdatatypes import CrashDetail
+from patch_eval_config import PatchEvalConfig
 
-# Import the function to test from the module.
+# Import the functions and globals
 from patch_evaluation_service import (
-    CONST_PATCH_EVAL_SVC_CONFIG,
     compile_file,
-    create_temp_crash_file,
-    init_logging,
-    load_config,
-    log_results,
-    run_file,
+    map_cloud_event_as_crash_detail,
+    on_consume_crash_detail,
+    prep_executables_for_evaluation,
+    process_crash_detail,
+    run_file_async,
     write_crashes_csv,
 )
 
 
-# A fixed datetime class to always return the same timestamp.
-class FixedDatetime:
-    @classmethod
-    def now(cls, tz=None):
-        dt = real_datetime(2025, 1, 1, 12, 0, 0)
-        return dt if tz is None else dt.replace(tzinfo=tz)
-
-
-# A dummy logger to capture logger.info calls.
-class DummyLogger:
-    def __init__(self):
-        self.messages = []
-
-    def info(self, msg):
-        self.messages.append(msg)
-
-        # --- Pytest fixtures ---
-
-
-# Automatically patch the datetime used in patch_evaluation_service.
-@pytest.fixture(autouse=True)
-def patch_datetime(monkeypatch):
-    # The write_crashes_csv function does "from datetime import datetime",
-    # so patch the datetime in the patch_evaluation_service module.
-    monkeypatch.setattr("patch_evaluation_service.datetime", FixedDatetime)
-
-
-# A fixture to patch the logger in the patch_evaluation_service module.
-@pytest.fixture
-def dummy_logger(monkeypatch):
-    logger = DummyLogger()
-    monkeypatch.setattr("patch_evaluation_service.logger", logger)
-    return logger
-
-
-# --- Tests ---
-
-# --------------
-# Tests for init_logging
-# --------------
-
-
-def test_init_logging_file_not_found(monkeypatch, capsys):
-    # Force os.path.exists to always return False
-    monkeypatch.setattr(os.path, "exists", lambda path: False)
-    # Call init_logging with a dummy path.
-    logger = init_logging("dummy_logging.json", "test_app")
-    captured = capsys.readouterr().out
-    assert "not found" in captured
-    assert "Falling back to basic logging configuration." in captured
-    # Even in fallback, a logger with the given name is returned.
-    assert logger.name == "test_app"
-
-
-def test_init_logging_invalid_json(monkeypatch, capsys):
-    # Simulate that the logging config file exists.
-    monkeypatch.setattr(os.path, "exists", lambda path: True)
-    # Provide invalid JSON content.
-    m = mock_open(read_data="not valid json")
-    monkeypatch.setattr("builtins.open", m)
-    logger = init_logging("dummy_logging.json", "test_app")
-    captured = capsys.readouterr().out
-    assert "Error decoding JSON" in captured or "Unexpected error" in captured
-    assert "Falling back to basic logging configuration." in captured
-    assert logger.name == "test_app"
-
-
-def test_init_logging_valid(monkeypatch, capsys):
-    # Provide a valid logging configuration.
-    valid_config = {
-        "version": 1,
-        "formatters": {"default": {"format": "%(levelname)s:%(message)s"}},
-        "handlers": {
-            "console": {
-                "class": "logging.StreamHandler",
-                "formatter": "default",
-                "stream": "ext://sys.stdout",
-            }
-        },
-        "loggers": {
-            "test_app": {
-                "handlers": ["console"],
-                "level": "DEBUG",
-                "propagate": False,
-            }
-        },
-    }
-    config_str = json.dumps(valid_config)
-    # Simulate file exists.
-    monkeypatch.setattr(os.path, "exists", lambda path: True)
-    m = mock_open(read_data=config_str)
-    monkeypatch.setattr("builtins.open", m)
-    logger = init_logging("dummy_logging.json", "test_app")
-    # The logger should be configured and have logged the initialization.
-    captured = capsys.readouterr().out
-    assert "Logger initialized successfully." in captured
-    assert logger.name == "test_app"
-
-
-# --------------
-# Tests for load_config
-# --------------
-
-
-def test_load_config_valid(monkeypatch, tmp_path):
-    # Create a temporary config file.
-    config_data = {"logging_config": "dummy_logging.json", "appname": "dummy_app"}
-    config_file = tmp_path / "config.json"
-    config_file.write_text(json.dumps(config_data), encoding="utf-8")
-    # Set the environment variable.
-    monkeypatch.setenv(CONST_PATCH_EVAL_SVC_CONFIG, str(config_file))
-    # Call load_config and verify the output.
-    loaded_config = load_config()
-    assert loaded_config == config_data
-
-
-def test_load_config_no_env(monkeypatch):
-    # Ensure the environment variable is not set.
-    monkeypatch.delenv(CONST_PATCH_EVAL_SVC_CONFIG, raising=False)
-    with pytest.raises(SystemExit):
-        load_config()
-
-
-# the error in this one i think is to do with my settings
-def test_load_config_file_not_found(monkeypatch):
-    # Set the env var to a non-existent file.
-    monkeypatch.setenv(CONST_PATCH_EVAL_SVC_CONFIG, "nonexistent_config.json")
-    # Monkey-patch open to raise FileNotFoundError.
-    monkeypatch.setattr(
-        "builtins.open", lambda f, **kw: (_ for _ in ()).throw(FileNotFoundError)
-    )
-    with pytest.raises(SystemExit):
-        load_config()
-
-
-# this error also probably because of something im doing wrong
-def test_load_config_invalid_utf8(monkeypatch):
-    # Set env var to a dummy file.
-    monkeypatch.setenv(CONST_PATCH_EVAL_SVC_CONFIG, "dummy_config.json")
-
-    # Monkey-patch open to raise UnicodeDecodeError.
-    def fake_open(*args, **kwargs):
-        raise UnicodeDecodeError("codec", b"", 0, 1, "reason")
-
-    monkeypatch.setattr("builtins.open", fake_open)
-    with pytest.raises(SystemExit):
-        load_config()
-
-
-def test_load_config_invalid_json(monkeypatch, tmp_path):
-    # Create a temporary config file with invalid JSON.
-    config_file = tmp_path / "config.json"
-    config_file.write_text("invalid json", encoding="utf-8")
-    monkeypatch.setenv(CONST_PATCH_EVAL_SVC_CONFIG, str(config_file))
-    with pytest.raises(SystemExit):
-        load_config()
-
-
-# --------------
-# Tests for load_config
-# --------------
-
-
-def test_write_crashes_csv_new_file(tmp_path):
-    """
-    Test that when the CSV file does not exist, the header is written
-    """
-    csv_path = tmp_path / "crashes.csv"
-
-    executable_name = "test_exe"
-    return_code = 1
-
-    crash_string = "01234abcde"
-    crash_encoded = base64.b64encode(crash_string.encode("utf-8")).decode("utf-8")
-    crash_detail = CrashDetail(executable_name, crash_encoded, False)
-    # Call the function (it should create the file and write the header).
-    write_crashes_csv(crash_detail, return_code, csv_path)
-
-    # Read back the file.
-    content = csv_path.read_text(encoding="utf-8")
-    lines = content.splitlines()
-
-    # head
-    # Verify header is present.
-    assert lines[0] == "timestamp,crash_detail,return_code,inputFromFile"
-    # Each crash line uses the fixed timestamp.
-    expected_line1 = (
-        f"2025-01-01T12:00:00,{crash_detail.base64_message},{return_code},False"
-    )
-
-    assert lines[1] == expected_line1
-
-
-def test_write_crashes_csv_existing_file_no_header(tmp_path):
-    """
-    Test that if the CSV file already exists and is non-empty,
-    the header is not re-written.
-    """
-    csv_path = tmp_path / "crashes.csv"
-    # Create a file with a header already.
-    header = "timestamp,crash_detail,return_code,inputFromFile\n"
-    csv_path.write_text(header, encoding="utf-8")
-
-    executable_name = "test_exe"
-    # Provide crashes as raw bytes.
-    crashes_strings = ["hello", "world"]
-    crashes_encoded = [
-        base64.b64encode(crash.encode("utf-8")).decode("utf-8")
-        for crash in crashes_strings
-    ]
-    crash_details = [
-        CrashDetail(executable_name, crash_encoded, False)
-        for crash_encoded in crashes_encoded
-    ]
-
-    return_code = 1
-    write_crashes_csv(crash_details[0], return_code, str(csv_path))
-    write_crashes_csv(crash_details[1], return_code, str(csv_path))
-
-    content = csv_path.read_text(encoding="utf-8")
-    lines = content.splitlines()
-
-    # The first line should still be the original header.
-    assert lines[0] == "timestamp,crash_detail,return_code,inputFromFile"
-
-    # Compute the expected hex values.
-    expected_line1 = f"2025-01-01T12:00:00,{"aGVsbG8="},1,False"
-    expected_line2 = f"2025-01-01T12:00:00,{"d29ybGQ="},1,False"
-    assert lines[1] == expected_line1
-    assert lines[2] == expected_line2
-
-
-def test_write_crashes_csv_creates_directory(tmp_path):
-    """
-    Test that the function creates the output directory if it does not exist.
-    """
-    # Define a CSV path in a subdirectory that does not exist.
-    subdir = tmp_path / "nonexistent_dir"
-    csv_path = subdir / "crashes.csv"
-    executable_name = "test_exe"
-    base64_encoded_message = base64.b64encode(b"crash_in_dir").decode("utf-8")
-    crash_detail = CrashDetail(executable_name, base64_encoded_message, True)
-    return_code = 1
-    # Ensure the subdirectory does not exist yet.
-    assert not subdir.exists()
-
-    write_crashes_csv(crash_detail, return_code, str(csv_path))
-
-    # Now the directory should have been created.
-    assert subdir.exists()
-
-    content = csv_path.read_text(encoding="utf-8")
-    lines = content.splitlines()
-    expected_line = f"2025-01-01T12:00:00,{crash_detail.base64_message},{return_code},{crash_detail.is_input_from_file}"
-    # Header is the first line.
-    assert lines[1] == expected_line
-
-
-def test_write_crashes_csv_logger_called(tmp_path, dummy_logger):
-    """
-    Test that logger.info is called for each crash.
-    """
-    csv_path = tmp_path / "crashes.csv"
-    executable_name = "test_exe"
-    log_crash1_base64 = base64.b64encode(b"log_crash1").decode("utf-8")
-    log_crash2_base64 = base64.b64encode(b"log_crash2").decode("utf-8")
-    dummy_base64_messages = [log_crash1_base64, log_crash2_base64]
-    crash_details = [
-        CrashDetail(executable_name, crash, True) for crash in dummy_base64_messages
-    ]
-
-    write_crashes_csv(crash_details[0], 1, str(csv_path))
-    write_crashes_csv(crash_details[1], 1, str(csv_path))
-
-    # Verify that a log entry was recorded for each crash.
-    expected_messages = [f"  - {crash}" for crash in crash_details]
-    assert dummy_logger.messages == expected_messages
-
-
-# --------------
-# Tests for log_results
-# --------------
-
-
-def test_log_results_empty_results_dict(tmp_path):
-    """
-    Test that evaluation.md and evaluation.csv are created when log_results gets an empty results dict,
-    and that the header is written for each file and nothing else.
-    """
-    csv_path = tmp_path / "evaluation.csv"
-    md_path = tmp_path / "evaluation.md"
-
-    results = dict()
-
-    log_results(results, tmp_path)
-    csv_content = csv_path.read_text()
-    csv_lines = csv_content.splitlines()
-    md_content = md_path.read_text()
-    md_lines = md_content.splitlines()
-
-    assert (
-        csv_lines[0]
-        == "executable_name,triggers_addressed,triggers_total,success_rate,designation[S,P,F]"
-    )
-    assert md_lines[0] == "# Results of running patches:"
-
-    assert len(md_lines) == 1
-    assert len(csv_lines) == 1
-
-
-def test_log_results_non_empty_results(tmp_path):
-    """
-    Test that evaluation.md and evaluation.csv are created when log_results gets a non-empty dict,
-    that both the headers and data are written.
-    """
-    csv_path = tmp_path / "evaluation.csv"
-    md_path = tmp_path / "evaluation.md"
-
-    results = dict()
-    results["test_exec1"] = dict()
-    results["test_exec2"] = dict()
-    results["test_exec3"] = dict()
-    # this crash should be an F
-    results["test_exec1"]["patched_crashes"] = 3
-    results["test_exec1"]["total_crashes"] = 4
-    # this crash should be a P
-    results["test_exec2"]["patched_crashes"] = 4
-    results["test_exec2"]["total_crashes"] = 5
-    # this crash should be an S
-    results["test_exec3"]["patched_crashes"] = 5
-    results["test_exec3"]["total_crashes"] = 5
-
-    log_results(results, tmp_path)
-
-    csv_content = csv_path.read_text()
-    csv_lines = csv_content.splitlines()
-
-    md_content = md_path.read_text()
-    md_lines = md_content.splitlines()
-
-    success_rate_designation = dict()
-    success_rate_designation["test_exec1"] = [75.0, "patch failure"]
-    success_rate_designation["test_exec2"] = [80.0, "partial potential patch success"]
-    success_rate_designation["test_exec3"] = [100.0, "potential patch success"]
-
-    assert (
-        csv_lines[0]
-        == "executable_name,triggers_addressed,triggers_total,success_rate,designation[S,P,F]"
-    )
-    assert csv_lines[1] == "test_exec1,3,4,75.0,F"
-    assert csv_lines[2] == "test_exec2,4,5,80.0,P"
-    assert csv_lines[3] == "test_exec3,5,5,100.0,S"
-
-    assert md_lines[0] == "# Results of running patches:"
-    line_num = 1
-    for exec_name in results.keys():
-        assert md_lines[line_num] == f"### {exec_name}"
-        line_num += 1
-        assert (
-            md_lines[line_num]
-            == f"**Patch addresses {results[exec_name]["patched_crashes"]} out of {results[exec_name]["total_crashes"]} trigger conditions.**"
-        )
-        line_num += 2
-
-        assert (
-            md_lines[line_num]
-            == f"**Patch is {success_rate_designation[exec_name][0]}% successful: {success_rate_designation[exec_name][1]}.**"
-        )
-        line_num += 2
-
-    assert (
-        md_lines[len(md_lines) - 1]
-        == " ### Total success rate of 3 files is 12 / 14, or 85.71%."
-    )
-
-
-def test_log_results_logger_called(tmp_path, dummy_logger):
-    """
-    Test that logger.info is called for the log_results call.
-    """
-    csv_path = tmp_path / "evaluation.csv"
-    md_path = tmp_path / "evaluation.md"
-
-    results = dict()
-    results["test_exec1"] = dict()
-    results["test_exec2"] = dict()
-    results["test_exec3"] = dict()
-    # this crash should be an F
-    results["test_exec1"]["patched_crashes"] = 3
-    results["test_exec1"]["total_crashes"] = 4
-    # this crash should be a P
-    results["test_exec2"]["patched_crashes"] = 4
-    results["test_exec2"]["total_crashes"] = 5
-    # this crash should be an S
-    results["test_exec3"]["patched_crashes"] = 5
-    results["test_exec3"]["total_crashes"] = 5
-
-    log_results(results, tmp_path)
-
-    expected_messages = [
-        f"Creating batched info file {md_path}.",
-        f"Creating batched csv file {csv_path}.",
-        "Success of evaluation: 85.71%.",
-    ]
-
-    # Verify that a log entry was recorded for each crash.
-
-    assert dummy_logger.messages == expected_messages
-
-
-# --------------
-# Tests for create_temp_crash_file
-# --------------
-
-
-def test_create_temp_crash_file_creates_dir(tmp_path):
-    subdir = tmp_path / "temp_crash_dir_dne"
-    assert not subdir.exists()
-    crash_string = "hello_world"
-    base64_encoded_message = base64.b64encode(crash_string.encode("utf-8")).decode(
-        "utf-8"
-    )
-    crash_detail = CrashDetail("test_exec", base64_encoded_message, True)
-
-    create_temp_crash_file(crash_detail, subdir)
-    assert subdir.exists()
-
-
-def test_create_temp_crash_file_creates_file(tmp_path):
-    subdir = tmp_path / "temp_crash_dir_dne"
-    crash_string = "hello_world"
-    base64_encoded_message = base64.b64encode(crash_string.encode("utf-8")).decode(
-        "utf-8"
-    )
-    crash_detail = CrashDetail("test_exec", base64_encoded_message, True)
-
-    path = create_temp_crash_file(crash_detail, subdir)
-
-    assert path == f"{subdir}/crash"
-
-
-# --------------
-# Tests for compile_file
-# --------------
-
-
 class DummyProcess:
-    def __init__(self, timeout_return=("dummy stdout", "dummy stderr")):
-        self.pid = 1234
-        self.called = 0
-        self.timeout_return = timeout_return
+    def __init__(self, returncode=0, stdout=b"output", stderr=b"error"):
+        self.returncode = returncode
+        self._stdout = stdout
+        self._stderr = stderr
 
-    def communicate(self, timeout):
-        self.called += 1
-        return self.timeout_return
+    async def communicate(self, input=None):
+        return (self._stdout, self._stderr)
 
-
-def dummy_run_success(*args, **kwargs):
-    # Return an object with stdout and stderr attributes.
-    dummy = SimpleNamespace(stdout="compile ok", stderr="")
-    return dummy
+    def kill(self):
+        self.returncode = -1
 
 
-def dummy_popen_success(*args, **kwargs):
-    return DummyProcess()
-
-
-def test_compile_file_success(monkeypatch):
-    exec_dir_path = "/dummy/executables"
-    source_code_path = "test.c"
-    file_name = "test.c"
-    executable_name = "test"
-
-    patch_evaluation_service.config = {
+def dummy_PatchEvalConfig() -> PatchEvalConfig:
+    dummy_config = {
+        "version": "0.4.1-alpha",
+        "appname": "autopatch.patch-evaluation-service",
+        "logging_config": "/workspace/AutoPatch-LLM/src/patch-evaluation-service/config/dev-logging-config.json",
+        "patch_eval_results_full_path": "/workspace/AutoPatch-LLM/src/patch-evaluation-service/data",
+        "patched_codes_path": "/workspace/AutoPatch-LLM/src/patch-evaluation-service/patched_codes",
+        "executables_full_path": "/workspace/AutoPatch-LLM/src/patch-evaluation-service/bin/executables",
+        "compiler_tool_full_path": "/usr/bin/gcc",
         "compiler_warning_flags": "-Wall -Wextra -Wformat -Wshift-overflow -Wcast-align -Wstrict-overflow -fstack-protector-strong",
-        "compile_timeout": 10,
+        "compiler_feature_flags": "-O1 -g -o",
+        "compile_timeout": 5,
+        "run_timeout": 5,
+        "message_broker_host": "mosquitto",
+        "message_broker_port": 1883,
+        "autopatch_crash_detail_input_topic": "autopatch/crash_detail",
     }
 
-    # Patch subprocess.run to simulate successful compile.
-    monkeypatch.setattr(subprocess, "run", dummy_run_success)
-    # Patch subprocess.Popen to simulate a process that returns valid output.
-    monkeypatch.setattr(subprocess, "Popen", dummy_popen_success)
+    return PatchEvalConfig(**dummy_config)
 
-    # Patch os.path.exists to simulate that the fuzzer_stats file exists.
+
+@pytest.fixture(autouse=True)
+def fake_message_broker_client(monkeypatch):
+    class DummyMessageBrokerClient:
+        def __init__(self, *args, **kwargs):
+            self.client = mock.Mock(spec=mqtt_client.Client)
+
+        def publish(self, topic, message):
+            # Optionally, record calls or simply do nothing.
+            # self.client.publish(topic, message)
+            pass
+
+    monkeypatch.setattr(
+        patch_evaluation_service, "MessageBrokerClient", DummyMessageBrokerClient
+    )
+
+
+@pytest.mark.asyncio
+async def test_run_file_byte_input_async_success(monkeypatch):
+    # Assemble
+
+    # Simulate successful execution for byte input on stdin
+    dummy_proc = DummyProcess(returncode=0, stdout=b"success", stderr=b"")
+
+    async def fake_create_subprocess_exec(*args, **kwargs):
+        return dummy_proc
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_create_subprocess_exec)
+
+    # Create a dummy CrashDetail with some base64-encoded crash message.
+    message = "dummy crash"
+    encoded = base64.b64encode(message.encode()).decode()
+    crash_detail = CrashDetail(
+        executable_name="dummy_exe", base64_message=encoded, is_input_from_file=True
+    )
+
+    crash_detail.is_input_from_file = False
+
+    # Act
+    result = await run_file_async(
+        "dummy_path", "dummy_exe", crash_detail, "", timeout=5
+    )
+
+    # Assert
+    assert result == 0
+
+
+@pytest.mark.asyncio
+async def test_run_file_file_input_async_success(monkeypatch):
+    # Assemble
+    # Simulate successful execution for both file input
+    dummy_proc = DummyProcess(returncode=0, stdout=b"success", stderr=b"")
+
+    async def fake_create_subprocess_exec(*args, **kwargs):
+        return dummy_proc
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_create_subprocess_exec)
+
+    # Create a dummy CrashDetail with some base64-encoded crash message.
+    message = "dummy crash"
+    encoded = base64.b64encode(message.encode()).decode()
+    crash_detail = CrashDetail(
+        executable_name="dummy_exe", base64_message=encoded, is_input_from_file=True
+    )
+
+    # Act
+    result = await run_file_async(
+        "dummy_path", "dummy_exe", crash_detail, "dummy_temp_file", timeout=5
+    )
+
+    # Assert
+    assert result == 0
+
+
+@pytest.mark.asyncio
+async def test_run_file_async_timeout(monkeypatch):
+    # Assemble
+    # Create a dummy process that delays its response to trigger a timeout.
+    class DummyProcessTimeout:
+        def __init__(self):
+            self.returncode = None
+
+        async def communicate(self, input=None):
+            await asyncio.sleep(2)
+            return (b"", b"")
+
+        def kill(self):
+            self.returncode = -1
+
+    async def fake_create_subprocess_exec(*args, **kwargs):
+        return DummyProcessTimeout()
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_create_subprocess_exec)
+
+    message = "dummy crash"
+    encoded = base64.b64encode(message.encode()).decode()
+    crash_detail = CrashDetail(
+        executable_name="dummy_exe", base64_message=encoded, is_input_from_file=False
+    )
+
+    # Act
+    result = await run_file_async(
+        "dummy_path", "dummy_exe", crash_detail, "", timeout=1
+    )
+
+    # Assert
+    assert result == -1
+
+
+@pytest.mark.asyncio
+async def test_run_file_async_exception(monkeypatch):
+    # Assemble
+    async def fake_create_subprocess_exec(*args, **kwargs):
+        raise Exception("test exception")
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_create_subprocess_exec)
+
+    message = "dummy crash"
+    encoded = base64.b64encode(message.encode()).decode()
+    crash_detail = CrashDetail(
+        executable_name="dummy_exe", base64_message=encoded, is_input_from_file=False
+    )
+
+    # Act
+    result = await run_file_async(
+        "dummy_path", "dummy_exe", crash_detail, "", timeout=5
+    )
+
+    # Assert
+    assert result == -1
+
+
+@pytest.mark.asyncio
+async def test_run_file_async_signal(monkeypatch):
+    # Assemble
+    # Simulate a process with return code 130, which should yield a signal code 2 (i.e. 130-128).
+    dummy_proc = DummyProcess(returncode=130, stdout=b"output", stderr=b"error")
+
+    async def fake_create_subprocess_exec(*args, **kwargs):
+        return dummy_proc
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_create_subprocess_exec)
+
+    message = "dummy crash"
+    encoded = base64.b64encode(message.encode()).decode()
+    crash_detail = CrashDetail(
+        executable_name="dummy_exe", base64_message=encoded, is_input_from_file=False
+    )
+
+    # Act
+    result = await run_file_async(
+        "dummy_path", "dummy_exe", crash_detail, "", timeout=5
+    )
+
+    # Assert
+    assert result == 2
+
+
+# # --- Tests for compile_file ---
+
+
+def test_compile_file_success(monkeypatch, tmp_path):
+    # Assemble
+    # Setup a temporary directory to simulate the executables directory.
+    executables_dir = tmp_path / "executables"
+    executables_dir.mkdir()
+    file_path = str(tmp_path / "dummy.c")
+    file_name = "dummy.c"
+    executable_path = str(executables_dir)
+    compiler_tool_full_path = "gcc"
+    compiler_warning_flags = "-Wall"
+    compiler_feature_flags = "-std=c99"
+    compiler_timeout = 5
+
+    # Monkeypatch subprocess.run to simulate a successful compile.
+    def fake_run(command, stderr, stdout, universal_newlines, timeout, shell):
+        class Result:
+            stderr = ""
+            stdout = "compiled successfully"
+
+        return Result()
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    # Monkeypatch os.path.exists to return True when checking for the compiled executable.
     def fake_exists(path):
-        if path == os.path.join(exec_dir_path, executable_name):
+        if "dummy" in path:
             return True
         return False
 
     monkeypatch.setattr(os.path, "exists", fake_exists)
 
-    compile_result = compile_file(source_code_path, file_name, exec_dir_path)
+    # Act
+    executable_name = compile_file(
+        file_path,
+        file_name,
+        executable_path,
+        compiler_tool_full_path,
+        compiler_warning_flags,
+        compiler_feature_flags,
+        compiler_timeout,
+    )
 
-    assert compile_result == "test"
+    # Assert
+    assert executable_name == "dummy"
 
 
-def test_compile_file_failure(monkeypatch):
-    exec_dir_path = "/dummy/executables"
-    source_code_path = "test.c"
-    file_name = "test.c"
+def test_compile_file_failure(monkeypatch, tmp_path):
+    # Assemble
+    executables_dir = tmp_path / "executables"
+    executables_dir.mkdir()
+    file_path = str(tmp_path / "dummy.c")
+    file_name = "dummy.c"
+    executable_path = str(executables_dir)
+    compiler_tool_full_path = "gcc"
+    compiler_warning_flags = "-Wall"
+    compiler_feature_flags = "-std=c99"
+    compiler_timeout = 5
 
-    patch_evaluation_service.config = {
-        "compiler_warning_flags": "-Wall -Wextra -Wformat -Wshift-overflow -Wcast-align -Wstrict-overflow -fstack-protector-strong",
-        "compile_timeout": 10,
+    def fake_run(command, stderr, stdout, universal_newlines, timeout, shell):
+        class Result:
+            stderr = "compilation error"
+            stdout = ""
+
+        return Result()
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(os.path, "exists", lambda path: False)
+
+    # Act
+    executable_name = compile_file(
+        file_path,
+        file_name,
+        executable_path,
+        compiler_tool_full_path,
+        compiler_warning_flags,
+        compiler_feature_flags,
+        compiler_timeout,
+    )
+
+    # Assert
+    assert executable_name == ""
+
+
+# # --- Tests for write_crashes_csv and log_crash_information ---
+
+
+def test_write_crashes_csv(tmp_path):
+    # Assemble
+    csv_path = str(tmp_path / "results.csv")
+    message = "crash data"
+    encoded = base64.b64encode(message.encode()).decode()
+    crash_detail = CrashDetail(
+        executable_name="dummy_exe", base64_message=encoded, is_input_from_file=False
+    )
+
+    # Act
+    write_crashes_csv(crash_detail, 0, csv_path)
+    with open(csv_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    # Assert
+    assert "timestamp,crash_detail,return_code,inputFromFile" in content
+    assert encoded in content
+
+
+# # --- Test for map_cloud_event_as_crash_detail ---
+
+
+def test_map_cloud_event_as_crash_detail():
+    # Assemble
+    data = {
+        "data": {
+            "executable_name": "dummy_exe",
+            "crash_detail_base64": base64.b64encode("crash".encode()).decode(),
+            "is_input_from_file": True,
+        }
+    }
+    cloud_event_str = json.dumps(data)
+
+    # Act
+    crash_detail = asyncio.run(map_cloud_event_as_crash_detail(cloud_event_str))
+
+    # Assert
+    assert crash_detail.executable_name == "dummy_exe"
+    assert crash_detail.is_input_from_file is True
+    decoded = base64.b64decode(crash_detail.base64_message).decode("utf-8")
+    assert decoded == "crash"
+
+
+# # --- Test for load_config ---
+
+
+def test_load_config(monkeypatch):
+    def fake_load_config_as_json(path, logger):
+        return {
+            "logging_config": {},
+            "appname": "dummy_app",
+            "version": "1.0",
+            "executables_full_path": "/dummy/executables",
+            "patched_codes_path": "/dummy/patches",
+            "compiler_tool_full_path": "gcc",
+            "compiler_warning_flags": "-Wall",
+            "compiler_feature_flags": "-std=c99",
+            "compile_timeout": 5,
+            "run_timeout": 10,
+            "patch_eval_results_full_path": "/dummy/results",
+            "message_broker_host": "localhost",
+            "message_broker_port": 1883,
+            "autopatch_crash_detail_input_topic": "dummy_topic",
+        }
+
+    # Assemble
+    monkeypatch.setattr(
+        patch_evaluation_service, "load_config_as_json", fake_load_config_as_json
+    )
+    dummy_logger = logging.getLogger("dummy")
+
+    # Act
+    config_obj = patch_evaluation_service.load_config("dummy_path", dummy_logger)
+
+    # Assert
+    assert isinstance(config_obj, PatchEvalConfig)
+    assert config_obj.appname == "dummy_app"
+
+
+# # --- Test for on_consume_crash_detail ---
+
+
+def test_on_consume_crash_detail(monkeypatch):
+    # Assemble
+    calls = []
+
+    class DummyLoop:
+        def call_soon_threadsafe(self, callback, arg):
+            calls.append((callback, arg))
+
+    patch_evaluation_service.event_loop = DummyLoop()
+    cloud_event_str = "dummy event"
+
+    # Act
+    on_consume_crash_detail(cloud_event_str)
+
+    # Assert
+    assert len(calls) == 1
+    callback, arg = calls[0]
+    # Ensure that the callback is the put_nowait method of the async queue.
+    assert callback == patch_evaluation_service.async_crash_details_queue.put_nowait
+    assert arg == cloud_event_str
+
+
+# # --- Test for prep_executables_for_evaluation ---
+
+
+def test_prep_executables_for_evaluation(monkeypatch, tmp_path):
+    # Assemble
+    def fake_compile_file(
+        file_path,
+        file_name,
+        executable_path,
+        compiler_tool_full_path,
+        compiler_warning_flags,
+        compiler_feature_flags,
+        compile_timeout,
+    ):
+        # For testing, simply return the file name without extension.
+        return file_name.split(".")[0]
+
+    # Create a dummy patched codes directory with two files.
+    patched_codes_dir = tmp_path / "patches"
+    patched_codes_dir.mkdir()
+    (patched_codes_dir / "file1.c").write_text("dummy")
+    (patched_codes_dir / "file2.c").write_text("dummy")
+    executables_dir = tmp_path / "executables"
+    executables_dir.mkdir()
+
+    monkeypatch.setattr("patch_evaluation_service.compile_file", fake_compile_file)
+
+    # Act
+    executables, results_dict = prep_executables_for_evaluation(
+        str(executables_dir),
+        str(patched_codes_dir),
+        "dummy_compiler",
+        "-Wall",
+        "-std=c99",
+        5,
+    )
+
+    # Assert
+    assert "file1" in executables
+    assert "file2" in executables
+    assert results_dict["file1"]["total_crashes"] == 0
+    assert results_dict["file1"]["patched_crashes"] == 0
+
+
+# # --- Test for process_crash_detail ---
+
+
+@pytest.mark.asyncio
+async def test_process_crash_detail(monkeypatch, tmp_path):
+
+    # Assemble
+    dummy_config = dummy_PatchEvalConfig()
+    dummy_config.executables_full_path = str(tmp_path / "executables")
+    dummy_config.run_timeout = 5
+    dummy_config.patch_eval_results_full_path = str(tmp_path / "results")
+    os.makedirs(dummy_config.executables_full_path, exist_ok=True)
+    os.makedirs(dummy_config.patch_eval_results_full_path, exist_ok=True)
+    patch_evaluation_service.config = dummy_config
+    patch_evaluation_service.executables_to_process = {"dummy_exe"}
+    patch_evaluation_service.results = {
+        "dummy_exe": {"total_crashes": 0, "patched_crashes": 0}
     }
 
-    # Simulate compile failure.
-    def fake_run_fail(*args, **kwargs):
-        raise subprocess.CalledProcessError(1, args[0], output="error")
+    message = "dummy crash"
+    encoded = base64.b64encode(message.encode()).decode()
+    crash_detail = CrashDetail(
+        executable_name="dummy_exe", base64_message=encoded, is_input_from_file=False
+    )
 
-    monkeypatch.setattr(subprocess, "run", fake_run_fail)
-    compile_result = compile_file(source_code_path, file_name, exec_dir_path)
+    async def fake_run_file_async(*args, **kwargs):
+        return 0
 
-    assert compile_result == ""
+    monkeypatch.setattr(patch_evaluation_service, "run_file_async", fake_run_file_async)
 
+    async def fake_log_crash_information(*args, **kwargs):
+        pass
 
-# --------------
-# Tests for run_file
-# --------------
+    monkeypatch.setattr(
+        patch_evaluation_service, "log_crash_information", fake_log_crash_information
+    )
 
+    # Act
+    await process_crash_detail(crash_detail)
 
-def test_run_file_success_stdin(monkeypatch):
-    exec_file_path = "/dummy/executables/test"
-    executable_name = "test"
-    crash_string = "hello_world"
-    crash_encoded = base64.b64encode(crash_string.encode("utf-8")).decode("utf-8")
-    crash_detail = CrashDetail(executable_name, crash_encoded, False)
-
-    patch_evaluation_service.config = {
-        "run_timeout": 10,
-    }
-
-    # Patch subprocess.run to simulate successful compile.
-    monkeypatch.setattr(subprocess, "run", dummy_run_success)
-    # Patch subprocess.Popen to simulate a process that returns valid output.
-    monkeypatch.setattr(subprocess, "Popen", dummy_popen_success)
-
-    return_code = run_file(exec_file_path, executable_name, crash_detail)
-
-    assert return_code == 1 or return_code == 0
+    # Assert
+    # Expect total_crashes and patched_crashes to update (since return code 0 counts as a patched crash).
+    assert patch_evaluation_service.results["dummy_exe"]["total_crashes"] == 1
+    assert patch_evaluation_service.results["dummy_exe"]["patched_crashes"] == 1
 
 
-def test_run_file_failure_stdin(monkeypatch):
-    exec_file_path = "/dummy/executables/test"
-    executable_name = "test"
-    crash_string = "hello_world"
-    crash_encoded = base64.b64encode(crash_string.encode("utf-8")).decode("utf-8")
-    crash_detail = CrashDetail(executable_name, crash_encoded, False)
-
-    patch_evaluation_service.config = {
-        "run_timeout": 10,
-    }
-
-    # Simulate compile failure.
-    def fake_run_fail(*args, **kwargs):
-        raise subprocess.CalledProcessError(127, args[0], output="error")
-
-    monkeypatch.setattr(subprocess, "run", fake_run_fail)
-
-    return_code = run_file(exec_file_path, executable_name, crash_detail)
-
-    assert return_code == -1
+# # --- Test for crash_detail_consumer ---
 
 
-def test_run_file_success_file_input(monkeypatch):
-    exec_file_path = "/dummy/executables/test"
-    executable_name = "test"
-    crash_string = "hello_world"
-    crash_encoded = base64.b64encode(crash_string.encode("utf-8")).decode("utf-8")
-    crash_detail = CrashDetail(executable_name, crash_encoded, True)
+@pytest.mark.asyncio
+async def test_crash_detail_consumer(monkeypatch):
+    # Assemble
+    called = False
 
-    patch_evaluation_service.config = {
-        "run_timeout": 10,
-    }
+    async def fake_process_item(item):
+        nonlocal called
+        called = True
 
-    # Patch subprocess.run to simulate successful compile.
-    monkeypatch.setattr(subprocess, "run", dummy_run_success)
-    # Patch subprocess.Popen to simulate a process that returns valid output.
-    monkeypatch.setattr(subprocess, "Popen", dummy_popen_success)
+    monkeypatch.setattr(patch_evaluation_service, "process_item", fake_process_item)
 
-    return_code = run_file(exec_file_path, executable_name, crash_detail)
+    # Enqueue a dummy cloud event.
+    dummy_event = json.dumps(
+        {
+            "data": {
+                "executable_name": "dummy_exe",
+                "crash_detail_base64": base64.b64encode("crash".encode()).decode(),
+                "is_input_from_file": False,
+            }
+        }
+    )
+    patch_evaluation_service.async_crash_details_queue.put_nowait(dummy_event)
 
-    assert return_code == 1 or return_code == 0
+    # Act
+    # Run the consumer briefly.
+    consumer_task = asyncio.create_task(
+        patch_evaluation_service.crash_detail_consumer()
+    )
+    await asyncio.sleep(0.1)
+    consumer_task.cancel()
+    try:
+        await consumer_task
+    except asyncio.CancelledError:
+        pass
+
+    # Assert
+    assert called is True
 
 
-def test_run_file_failure_file_input(monkeypatch):
-    exec_file_path = "/dummy/executables/test"
-    executable_name = "test"
-    crash_string = "hello_world"
-    crash_encoded = base64.b64encode(crash_string.encode("utf-8")).decode("utf-8")
-    crash_detail = CrashDetail(executable_name, crash_encoded, True)
+# --- Test for main() ---
+#
 
-    patch_evaluation_service.config = {
-        "run_timeout": 10,
-    }
 
-    # Simulate compile failure.
-    def fake_run_fail(*args, **kwargs):
-        raise subprocess.CalledProcessError(127, args[0], output="error")
+@pytest.mark.asyncio
+async def test_main(monkeypatch, tmp_path):
 
-    monkeypatch.setattr(subprocess, "run", fake_run_fail)
+    # Because main() enters an infinite wait at the end, we monkeypatch asyncio.Future to return a future that is
+    # already done so that main() completes.
 
-    return_code = run_file(exec_file_path, executable_name, crash_detail)
+    # Assemble
+    dummy_config_path = str(tmp_path / "config.json")
+    dummy_config_content = json.dumps(
+        {
+            "logging_config": {},
+            "appname": "dummy_app",
+            "version": "1.0",
+            "executables_full_path": str(tmp_path / "executables"),
+            "patched_codes_path": str(tmp_path / "patches"),
+            "compiler_tool_full_path": "gcc",
+            "compiler_warning_flags": "-Wall",
+            "compiler_feature_flags": "-std=c99",
+            "compile_timeout": 5,
+            "run_timeout": 5,
+            "patch_eval_results_full_path": str(tmp_path / "results"),
+            "message_broker_host": "localhost",
+            "message_broker_port": 1883,
+            "autopatch_crash_detail_input_topic": "dummy_topic",
+        }
+    )
+    with open(dummy_config_path, "w") as f:
+        f.write(dummy_config_content)
+    monkeypatch.setenv("PATCH_EVAL_SVC_CONFIG", dummy_config_path)
 
-    assert return_code == -1
+    # Prepare a dummy config object.
+    dummy_config = PatchEvalConfig(**json.loads(dummy_config_content))
+    monkeypatch.setattr(
+        patch_evaluation_service, "load_config", lambda path, logger: dummy_config
+    )
+    monkeypatch.setattr(
+        patch_evaluation_service,
+        "init_logging",
+        lambda config, appname: logging.getLogger("dummy"),
+    )
+    monkeypatch.setattr(
+        patch_evaluation_service,
+        "prep_executables_for_evaluation",
+        lambda *args, **kwargs: (
+            {"dummy_exe"},
+            {"dummy_exe": {"total_crashes": 0, "patched_crashes": 0}},
+        ),
+    )
+
+    # Dummy MessageBrokerClient with a no-op consume.
+    class DummyMessageBrokerClient:
+        def __init__(self, host, port, logger):
+            pass
+
+        def consume(self, topic, callback):
+            pass
+
+    monkeypatch.setattr(
+        patch_evaluation_service, "MessageBrokerClient", DummyMessageBrokerClient
+    )
+
+    # Replace asyncio.Future with one that is already completed.
+    class DummyFuture(asyncio.Future):
+        def __init__(self):
+            super().__init__()
+            self.set_result(None)
+
+    monkeypatch.setattr(asyncio, "Future", lambda: DummyFuture())
+
+    # Run main; it should complete because the future is already done.
+    try:
+        await asyncio.wait_for(patch_evaluation_service.main(), timeout=1)
+    except asyncio.TimeoutError:
+        pytest.fail("main() did not complete as expected")

@@ -51,7 +51,7 @@ isort .
 ## Ensure linting passes
 
 ```sh
-flake8
+flake8 .
 ```
 
 ## Run tests (if applicable) and verify no regressions

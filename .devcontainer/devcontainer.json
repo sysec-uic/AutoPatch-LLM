@@ -83,7 +83,7 @@
 	"runArgs": [
 		"--network", "autopatch-llm_autopatch-docker-network"
 	],
-	"postCreateCommand": "task autopatch:install-devtools",
+	"postCreateCommand": "task install-devtools",
 	"postStartCommand": "fastfetch && black --version && coverage --version && echo -n 'isort version: ' && isort --version-number",
 	"workspaceMount": "source=${localWorkspaceFolder},target=/workspace/AutoPatch-LLM,type=bind",
 	"workspaceFolder": "/workspace/AutoPatch-LLM"

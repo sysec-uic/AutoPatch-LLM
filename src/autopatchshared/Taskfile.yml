@@ -15,7 +15,13 @@ tasks:
       - echo "Installing AutoPatch Shared"
       - pip install {{.CLI_ARGS}} $ARGS ./dist/*.whl
   uninstall:
-    desc: Uninstall AutoPatch Shared
+    desc: uninstall autopatchshared
     cmds:
-      - echo "Uninstalling AutoPatch Shared"
-      - pip uninstall -y autopatchshared
+      - pip uninstall -y autopatchshared-*-py3-none-any.whl --break-system-packages
+  clean:
+    desc: Clean AutoPatch shared
+    cmds:
+      - echo "Cleaning AutoPatch shared"
+      - rm -rf ./dist
+      - rm -rf ./build
+      - rm -rf ./autopatchpubsub.egg-info
