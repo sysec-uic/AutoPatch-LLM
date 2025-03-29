@@ -1,8 +1,10 @@
 import asyncio
 import base64
+import glob
 import logging
 import logging.config
 import os
+import pandas as pd
 import signal
 import subprocess
 import sys
@@ -59,13 +61,140 @@ async def map_cpg_detail_as_cloudevent(cpg_detail: CpgDetail) -> CloudEvent:
     raise NotImplementedError
 
 
-def extract_code_property_graph():
-    raise NotImplementedError
+def extract_code_property_graph(crash_details: List[CpgDetail], code_path: str) -> list[str]:
+    parse_command = ['joern-parse']
+    cpg_list = []
+
+    for filename in os.listdir(code_path):
+        filepath = os.path.join(code_path, filename)
+        basename, ext = os.path.splitext(filename)
+        # TODO change to asset data directory
+        output_filename = os.path.join(code_path, basename + ".cpg")
+        cmd = parse_command + [filepath, "-o", output_filename]
+
+        if os.path.isfile(filepath):
+            try:
+                process = subprocess.run(
+                    cmd,
+                    stdout = subprocess.PIPE,
+                    stderr = subprocess.PIPE,
+                    text=True
+                )
+
+                cpg_list.append(output_filename)
+            except Exception as e:
+                print(f'error processing {filename}: {e}')
+
+    return cpg_list    
 
 
-def write_code_property_graphs_as_csv(crash_details: List[CpgDetail], csv_path: str) -> None:
-    raise NotImplementedError
+def write_code_property_graphs_as_csv(crash_details: List[CpgDetail], cpg_path: str) -> list[str]:
+    csv_gen_command = ['joern-export']
+    cpg_list = []
+    for filename in os.listdir(cpg_path):
+        filepath = os.path.join(cpg_path, filename)
+        basename, ext = os.path.splitext(filename)
 
+        #TODO change path to service data directory
+        output_dir = cpg_path + basename + os.sep
+        cmd = csv_gen_command + [filepath, "--out", output_dir, "--repr", "all", "--format", "neo4jcsv"]
+
+        if os.path.isfile(filepath):
+            try:
+                process = subprocess.run(
+                    cmd,
+                    stdout = subprocess.PIPE,
+                    stderr = subprocess.PIPE,
+                    text=True
+                )
+                cpg_list.append(output_dir)
+                
+            except Exception as e:
+                print(f'error processing {filename}: {e}')
+
+    return cpg_list
+
+def consolidate_csv(crash_details: List[CpgDetail], pattern: str) -> list[pd.DataFrame]:
+    data_suffix="_data.csv"
+    header_suffix="_header.csv"
+    files = glob.glob(pattern)
+    dfs = []
+    for file in files:
+        # Derive header filename: replace the data_suffix with header_suffix
+        header_file = file.replace(data_suffix, header_suffix)
+        if os.path.exists(header_file):
+            # use header.csv to name columns
+            with open(header_file, 'r') as hf:
+                header_line = hf.readline().strip()
+                columns = header_line.split(',')
+            df = pd.read_csv(file, header=None, names=columns)
+            dfs.append(df)
+        else:
+            #TODO handle this differently
+            print(f"Header file {header_file} not found for data file {file}.")
+    if dfs:
+        return pd.concat(dfs, ignore_index=True)
+    else:
+        # Handle this differently? Only get here if no dfs created
+        return pd.DataFrame()
+
+def process_cpg_folders(crash_details: List[CpgDetail], csv_path: str) -> dict:
+    cpg_df = {}
+    for folder in os.listdir(csv_path):
+        # ignore joern folder 'workspace'
+        if folder == "workspace": continue
+        folder_path = os.path.join(csv_path, folder)
+        if os.path.isdir(folder_path):
+            # Build glob patterns for node and edge data files
+            nodes_pattern = os.path.join(folder_path, "nodes_*_data.csv")
+            edges_pattern = os.path.join(folder_path, "edges_*_data.csv")
+            
+            nodes_df = consolidate_csv(nodes_pattern)
+            edges_df = consolidate_csv(edges_pattern)
+            
+            cpg_df[folder] = {"nodes": nodes_df, "edges": edges_df}
+    return cpg_df
+
+def scan_cpg(code_path: str) -> dict:
+    results = {}
+    scan_command = ['joern-scan']
+    # force joern-scan to generate a new cpg
+    scan_command.append('--overwrite')
+
+    for filename in os.listdir(code_path):
+        filepath = os.path.join(code_path, filename)
+
+        if os.path.isfile(filepath):
+
+            try:
+                process = subprocess.run(
+                    scan_command + [filepath],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+                )
+
+                output = process.stdout + process.stderr
+                result_line = None
+                for line in output.splitlines():
+                    if line.startswith("Result:"):
+                        if result_line != None: # lookout for multiple 'result_line's
+                            print("more than one result found!")
+                            print(f'result_line = {result_line}')
+                            print(f'line = {line}')
+                        else:
+                            result_line = line
+
+                results[filename] = result_line
+
+            except Exception as e:
+                print(f'error processing {filename}: {e}')
+                # Change behavior to list where result = error?
+                results[filename] = {
+                    'result': None,
+                    'error': str(e)
+                }
+    return results
 
 async def map_crashdetails_as_cloudevents(
     crash_details: List[CpgDetail],
