@@ -14,6 +14,10 @@
 			"installOhMyZshConfig": true,
 			"upgradePackages": true
 		},
+		"ghcr.io/devcontainers-extra/features/joern-sdkman:2": {
+			"version": "4.0.247",
+			"jdkVersion": "21"
+		},
 		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
 			"moby": true,
 			"installDockerBuildx": true,
