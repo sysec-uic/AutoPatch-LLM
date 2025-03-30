@@ -5,5 +5,8 @@
     "concurrency_threshold": 10,
     "message_broker_host": "mosquitto",
     "message_broker_port": 1883,
-    "message_broker_protocol": "mqtt"
+    "message_broker_protocol": "mqtt",
+    "cpg_svc_output_topic" : "",
+    "cpg_svc_input_codebase_path" : "/workspace/AutoPatch-LLM/src/code-property-graph-generator/data/dev",
+    "cpg_svc_output_path" : "/workspace/AutoPatch-LLM/src/code-property-graph-generator/data"
 }
