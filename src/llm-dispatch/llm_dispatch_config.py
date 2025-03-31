@@ -20,3 +20,4 @@ class LLMDispatchConfig:
     in_memory_models: Dict[str, str]
     in_memory_providers: Dict[str, str]
     # in_memory_secrets: Dict[str, str]
+    model_router: Dict

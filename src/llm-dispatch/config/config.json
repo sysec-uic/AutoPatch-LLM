@@ -53,18 +53,12 @@
     },
     "model_router": {
         "enabled": true,
-        "routing_strategy": "round_robin",
-        "fallback_model": "gpt-3.5-turbo",
+        "fallback_model": "google/gemini-2.5-pro-exp-03-25:free",
         "max_concurrent_requests": 5,
-        "router_base_url": "https://router.llm-dispatch.com/v1",
-        "router_timeout": 30,
-        "router_retry_attempts": 3,
-        "router_retry_delay": 2000,
-        "api_provider": {
-            "api_key": "your_router_api_key",
-            "api_base": "https://router.llm-dispatch.com/v1",
-            "api_type": "open_router"
-        },
+        "base_url": "https://openrouter.ai/api/v1",
+        "timeout": 30,
+        "retry_attempts": 3,
+        "retry_delay": 2000
     },
     "models": [
         {
