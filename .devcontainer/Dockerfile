@@ -10,7 +10,7 @@ RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
     apt-get update && apt-get -y install --no-install-recommends \
         software-properties-common \
         python3 python3-pip python3-venv \
-        afl++ \
+        afl++=4.09c-1ubuntu3 \
         gcc-multilib libc6-dev-i386 && \
     add-apt-repository ppa:zhangsongcui3371/fastfetch && \
     apt-get update && apt-get -y install --no-install-recommends \

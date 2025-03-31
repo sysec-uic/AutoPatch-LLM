@@ -1,11 +1,10 @@
 [project]
-name = 'autopatch.fuzzing-service'
+name = 'autopatchllm-dispatch'
 version = '0.5.0'
 requires-python = '>=3.12.3'
 readme = 'README.md'
 authors = [
     { name = 'Robert D. Hernandez', email = 'rherna70@uic.edu' },
-    { name = 'Lily Leith', email = 'lleit@uic.edu' }
 ]
 
 [build-system]
