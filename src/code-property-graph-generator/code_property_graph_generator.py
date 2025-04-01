@@ -1,7 +1,4 @@
-<<<<<<< HEAD
 import time
-=======
->>>>>>> b18d82c953c2d250cbdf3a92e1a20ca672a9c302
 import asyncio
 import base64
 from dataclasses import dataclass, field
@@ -9,10 +6,6 @@ import glob
 import logging
 import logging.config
 import os
-<<<<<<< HEAD
-
-=======
->>>>>>> b18d82c953c2d250cbdf3a92e1a20ca672a9c302
 import pandas as pd
 import signal
 import subprocess
@@ -29,18 +22,13 @@ from cloudevents.http import CloudEvent
 @dataclass
 class CpgDetail:
     # vuln (vulnerable) - boolean flag indicating whether a CVE has been detected in this cpg
-<<<<<<< HEAD
     is_vuln: bool
-=======
-    vuln: bool
->>>>>>> b18d82c953c2d250cbdf3a92e1a20ca672a9c302
     # vuln_type - classification of detected vulnerability
     vuln_type: str
     graph: dict = field(default_factory=dict)
 
 
 @dataclass
-<<<<<<< HEAD
 class ScanResult:
     vuln_severity: float
     executable_name: str
@@ -49,8 +37,6 @@ class ScanResult:
 
 
 @dataclass
-=======
->>>>>>> b18d82c953c2d250cbdf3a92e1a20ca672a9c302
 class CpgSvcConfig:
     version: str
     appname: str
@@ -108,7 +94,6 @@ async def map_cpg_detail_as_cloudevent(cpg_detail: CpgDetail) -> CloudEvent:
     raise NotImplementedError
 
 
-<<<<<<< HEAD
 def extract_code_property_graph(code_path: str) -> list[str]:
     timeout_seconds = 10
     command_name_str: Final[str] = "joern-parse"
@@ -118,15 +103,6 @@ def extract_code_property_graph(code_path: str) -> list[str]:
     c_programs_in_code_path = os.listdir(code_path)
 
     for filename in c_programs_in_code_path:
-=======
-def extract_code_property_graph(
-    crash_details: List[CpgDetail], code_path: str
-) -> list[str]:
-    parse_command = ["joern-parse"]
-    cpg_list = []
-
-    for filename in os.listdir(code_path):
->>>>>>> b18d82c953c2d250cbdf3a92e1a20ca672a9c302
         filepath = os.path.join(code_path, filename)
         basename, ext = os.path.splitext(filename)
         # TODO change to asset data directory
@@ -134,7 +110,6 @@ def extract_code_property_graph(
         cmd = parse_command + [filepath, "-o", output_filename]
 
         if os.path.isfile(filepath):
-<<<<<<< HEAD
             logger.info(f"Processing {filename}...")
             try:
                 process = subprocess.Popen(
@@ -174,21 +149,10 @@ def extract_code_property_graph(
                 logger.error(
                     f"Unhandled novel Exception error processing {filename}: {e}"
                 )
-=======
-            try:
-                process = subprocess.run(
-                    cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-                )
-
-                cpg_list.append(output_filename)
-            except Exception as e:
-                print(f"error processing {filename}: {e}")
->>>>>>> b18d82c953c2d250cbdf3a92e1a20ca672a9c302
 
     return cpg_list
 
 
-<<<<<<< HEAD
 def write_code_property_graphs_as_csv(cpg_path: str) -> List[str]:
     timeout_seconds = 10
     command_name_str: Final[str] = "joern-export"
@@ -203,20 +167,11 @@ def write_code_property_graphs_as_csv(cpg_path: str) -> List[str]:
     files_in_cpg_path = os.listdir(cpg_path)
     for filename in files_in_cpg_path:
         logger.info(f"Processing {filename}...")
-=======
-def write_code_property_graphs_as_csv(
-    crash_details: List[CpgDetail], cpg_path: str
-) -> list[str]:
-    csv_gen_command = ["joern-export"]
-    cpg_list = []
-    for filename in os.listdir(cpg_path):
->>>>>>> b18d82c953c2d250cbdf3a92e1a20ca672a9c302
         filepath = os.path.join(cpg_path, filename)
         basename, ext = os.path.splitext(filename)
 
         # TODO change path to service data directory
         output_dir = cpg_path + basename + os.sep
-<<<<<<< HEAD
         cmd: Final[str] = csv_gen_command + [
             filepath,
             out_cmd_line_arg,
@@ -225,21 +180,10 @@ def write_code_property_graphs_as_csv(
             all_cmd_line_arg,
             format_cmd_line_arg,
             neo4jcsv_cmd_line_arg,
-=======
-        cmd = csv_gen_command + [
-            filepath,
-            "--out",
-            output_dir,
-            "--repr",
-            "all",
-            "--format",
-            "neo4jcsv",
->>>>>>> b18d82c953c2d250cbdf3a92e1a20ca672a9c302
         ]
 
         if os.path.isfile(filepath):
             try:
-<<<<<<< HEAD
                 process = subprocess.Popen(
                     cmd,
                     stderr=subprocess.PIPE,
@@ -279,29 +223,12 @@ def write_code_property_graphs_as_csv(
 
 
 def consolidate_csv(pattern: str) -> List[pd.DataFrame]:
-=======
-                process = subprocess.run(
-                    cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-                )
-                cpg_list.append(output_dir)
-
-            except Exception as e:
-                print(f"error processing {filename}: {e}")
-
-    return cpg_list
-
-
-def consolidate_csv(crash_details: List[CpgDetail], pattern: str) -> list[pd.DataFrame]:
->>>>>>> b18d82c953c2d250cbdf3a92e1a20ca672a9c302
     data_suffix = "_data.csv"
     header_suffix = "_header.csv"
     files = glob.glob(pattern)
     dfs = []
     for file in files:
-<<<<<<< HEAD
         logger.info(f"Processing file: {file}")
-=======
->>>>>>> b18d82c953c2d250cbdf3a92e1a20ca672a9c302
         # Derive header filename: replace the data_suffix with header_suffix
         header_file = file.replace(data_suffix, header_suffix)
         if os.path.exists(header_file):
@@ -313,11 +240,7 @@ def consolidate_csv(crash_details: List[CpgDetail], pattern: str) -> list[pd.Dat
             dfs.append(df)
         else:
             # TODO handle this differently
-<<<<<<< HEAD
             logger.error(f"Header file {header_file} not found for data file {file}.")
-=======
-            print(f"Header file {header_file} not found for data file {file}.")
->>>>>>> b18d82c953c2d250cbdf3a92e1a20ca672a9c302
     if dfs:
         return pd.concat(dfs, ignore_index=True)
     else:
@@ -325,20 +248,13 @@ def consolidate_csv(crash_details: List[CpgDetail], pattern: str) -> list[pd.Dat
         return pd.DataFrame()
 
 
-<<<<<<< HEAD
 def process_cpg_folders(csv_path: str) -> dict:
-=======
-def process_cpg_folders(crash_details: List[CpgDetail], csv_path: str) -> dict:
->>>>>>> b18d82c953c2d250cbdf3a92e1a20ca672a9c302
     cpg_df = {}
     for folder in os.listdir(csv_path):
         # ignore joern folder 'workspace'
         if folder == "workspace":
             continue
-<<<<<<< HEAD
         logger.info(f"Processing folder: {folder}")
-=======
->>>>>>> b18d82c953c2d250cbdf3a92e1a20ca672a9c302
         folder_path = os.path.join(csv_path, folder)
         if os.path.isdir(folder_path):
             # Build glob patterns for node and edge data files
@@ -352,7 +268,6 @@ def process_cpg_folders(crash_details: List[CpgDetail], csv_path: str) -> dict:
     return cpg_df
 
 
-<<<<<<< HEAD
 # TODO: return ScanResult dataclass
 def scan_cpg(code_path: str) -> dict:
     timeout_seconds = 10
@@ -362,20 +277,11 @@ def scan_cpg(code_path: str) -> dict:
     scan_command = [command_name_str]
     # force joern-scan to generate a new cpg
     # scan_command.append("--overwrite")
-=======
-# TODO: change return to data object
-def scan_cpg(code_path: str) -> dict:
-    results = {}
-    scan_command = ["joern-scan"]
-    # force joern-scan to generate a new cpg
-    scan_command.append("--overwrite")
->>>>>>> b18d82c953c2d250cbdf3a92e1a20ca672a9c302
 
     for filename in os.listdir(code_path):
         filepath = os.path.join(code_path, filename)
 
         if os.path.isfile(filepath):
-<<<<<<< HEAD
             cmd = scan_command + [filepath]
             logger.info(f"Processing {filename}...")
 
@@ -401,37 +307,20 @@ def scan_cpg(code_path: str) -> dict:
                     logger.info(f"Process completed with PID: {process.pid}")
                 else:
                     logger.error(f"Process failed to start. PID: {process.pid}")
-=======
-
-            try:
-                process = subprocess.run(
-                    scan_command + [filepath],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                )
->>>>>>> b18d82c953c2d250cbdf3a92e1a20ca672a9c302
 
                 output = process.stdout + process.stderr
                 result_line = None
                 for line in output.splitlines():
                     if line.startswith("Result:"):
                         if result_line != None:  # lookout for multiple 'result_line's
-<<<<<<< HEAD
                             logger.info("more than one result found!")
                             logger.info(f"result_line = {result_line}")
                             logger.info(f"line = {line}")
-=======
-                            print("more than one result found!")
-                            print(f"result_line = {result_line}")
-                            print(f"line = {line}")
->>>>>>> b18d82c953c2d250cbdf3a92e1a20ca672a9c302
                         else:
                             result_line = line
 
                 results[filename] = result_line
 
-<<<<<<< HEAD
                 logger.info(f"Finished scanning {filename} with result: {result_line}")
             except OSError as e:
                 return_code = getattr(e, "returncode", "N/A")
@@ -443,12 +332,6 @@ def scan_cpg(code_path: str) -> dict:
             except Exception as e:
                 logger.error(f"error processing {filename}: {e}")
                 results[filename] = str(e)
-=======
-            except Exception as e:
-                print(f"error processing {filename}: {e}")
-                # Change behavior to list where result = error?
-                results[filename] = {"result": None, "error": str(e)}
->>>>>>> b18d82c953c2d250cbdf3a92e1a20ca672a9c302
     return results
 
 
@@ -543,33 +426,20 @@ async def main():
     # TODO
     # do the thing
     scan_results = scan_cpg(config.cpg_svc_input_codebase_path)
-<<<<<<< HEAD
     logger.info(scan_results)
 
     cpg_list = extract_code_property_graph(config.cpg_svc_input_codebase_path)
     logger.info(cpg_list)
-=======
-    print(scan_results)
-
-    cpg_list = extract_code_property_graph(config.cpg_svc_input_codebase_path)
-    print(cpg_list)
->>>>>>> b18d82c953c2d250cbdf3a92e1a20ca672a9c302
     # TODO adjust to handle timestamped directory
     # write_code_property_graphs_as_csv() looks for .cpg files in passed directory
     # process_cpg_folders() looks for subdirectories in passed directory
     # therefore it should be ok to use same timestamped directory
     csv_list = write_code_property_graphs_as_csv(config.cpg_svc_output_path)
-<<<<<<< HEAD
     logger.info(csv_list)
     cpg_df = process_cpg_folders(
         "/workspace/AutoPatch-LLM/src/code-property-graph-generator/data/dev"
     )
     logger.info(cpg_df.keys())
-=======
-    print(csv_list)
-    cpg_df = process_cpg_folders(config.cpg_svc_output_path)
-    print(cpg_df)
->>>>>>> b18d82c953c2d250cbdf3a92e1a20ca672a9c302
 
     CPG_SVC_END_TIMESTAMP: Final[str] = get_current_timestamp()
     time_delta = datetime.fromisoformat(CPG_SVC_END_TIMESTAMP) - datetime.fromisoformat(
