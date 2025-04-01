@@ -246,8 +246,55 @@ class LLMClient:
         return await self.active_strategy.generate(prompt)
 
 
+def _return_simple_user_prompt() -> str:
+    str_source = """
+    Your goal is to generate a patch to the following C code that alleviates any memory safety bugs:
+    ```
+    #include <stdio.h>
+    #include <string.h>
+    #include <ctype.h>
+    #include <stdlib.h>
+
+    #define BUFSIZE 16  
+
+    char *lccopy(const char *str) {
+        char buf[BUFSIZE];  // vulnerable buffer
+        char *p;
+
+        strcpy(buf, str);  // no bounds checking on input
+        for (p = buf; *p; p++) {
+            if (isupper(*p)) {
+                *p = tolower(*p);  // convert uppercase to lowercase
+            }
+        }
+        return strdup(buf);  // return a duplicate of the modified string
+    }
+
+    int main(int argc, char *argv[]) {
+        if (argc != 2) {
+            printf("Usage: %s <input_string>\n", argv[0]);
+            return 1;
+        }
+
+        char *result = lccopy(argv[1]);
+        printf("Modified string: %s\n", result);
+        free(result);
+
+        return 0;
+    }
+
+    ```
+    """
+    return str_source
+
+
 async def main():
     global config, logger
+
+    # config = load_config(config_full_path)
+    # logger = init_logging(config.logging_config, config.appname)
+
+    LLM_DISPATCH_START_TIMESTAMP: Final[str] = get_current_timestamp()
 
     # "google/gemini-2.0-flash-lite-preview-02-05:free",
     models = [
@@ -299,7 +346,12 @@ async def main():
 
     # Set active strategy at runtime.
     client.set_strategy("api")  # Change to "in_memory" to use the in-memory strategy.
-    prompt = "What is the capital of France?"
+    system_prompt = "You are a helpful AI assistant familiar with the C programming language, cybersecurity and low level memory safety bugs.  Construct your answers using concise language, and do not add additional data or make up answers."
+    user_prompt = _return_simple_user_prompt()
+
+    # prompt = "What is the capital of France?"
+    prompt = f"{system_prompt} {user_prompt}"
+
     responses = await client.generate(prompt)
     for response in responses:
         print(f"LLM: {response['llm_name']}\nResponse: {response['response']}\n")
@@ -312,10 +364,6 @@ async def main():
         )
         sys.exit(1)
 
-    config = load_config(config_full_path)
-    logger = init_logging(config.logging_config, config.appname)
-
-    LLM_DISPATCH_START_TIMESTAMP: Final[str] = get_current_timestamp()
     pass
 
 
