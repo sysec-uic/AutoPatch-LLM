@@ -9,11 +9,16 @@ tasks:
     cmds:
       - echo "Building Code Property Graph Generator"
       - python -m build
+  test:
+    desc: test code-property-graph-generator
+    cmds:
+      - pytest
   install:
     desc: Install AutoPatch Code Property Graph Generator
     cmds:
       - echo "Installing AutoPatch Code Property Graph Generator"
-      - pip install {{.CLI_ARGS}} $ARGS ./dist/*.whl
+      #- pip install {{.CLI_ARGS}} $ARGS ./dist/*.whl
+      - pip install -r requirements.txt --break-system-packages 
   uninstall:
     desc: Uninstall AutoPatch Code Property Graph Generator
     cmds:

@@ -8,10 +8,10 @@
     },
     "handlers": {
       "file_debug_handler": {
-        "class": "logging.FileHandler",
+        "class": "logging.StreamHandler",
         "level": "DEBUG",
         "formatter": "standard",
-        "filename": "/workspace/AutoPatch-LLM/src/code-property-graph-generator/log/autopatch.code-property-graph-generator.debug.log"
+        "stream": "ext://sys.stdout"
       },
       "console_err_handler": {
         "class": "logging.StreamHandler",
