@@ -23,7 +23,7 @@ This project is funded by [Google](https://google.com/) and the [National Scienc
 2. **Patching**: sourcing the buggy source code, crash instances, and static analysis to query LLMs to generate a patch.
 3. **Evaluation**: sourcing the potential patch (2) and the identified trigger inputs (1) to test the patch’s success.
 
-Theory tells us that creating bug-free programs is nearly impossible: proving correctness in large programs is very difficult and time-consuming.
+Theory tells us that creating bug-free programs is nearly impossible and proving correctness in large programs is very difficult and time-consuming.
 
 **AutoPatch** is an attempt to leverage modern tools to get closer to ideal bug-free programs, and do this quicker than previous practices.
 
