@@ -1,0 +1,25 @@
+[project]
+name = 'autopatch'
+version = '0.4.1'
+requires-python = '>=3.12.3'
+description = ''
+authors = [
+    { name = 'Robert D. Hernandez', email = 'rherna70@uic.edu' },
+    { name = 'Lily Leith', email = 'lleit@uic.edu' }
+]
+
+[tool.isort]
+profile = 'black'
+src_paths = ['src']
+
+# Optional dependencies (e.g., for development)
+[project.optional-dependencies]
+dev = [
+    'isort',
+    'black',
+    'flake8',
+    'pytest',
+    'pytest-asyncio',
+    'pytest-cov',
+    'build'
+]
