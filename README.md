@@ -13,34 +13,7 @@
 
 High level design sequence diagram:
 
-```mermaid
-sequenceDiagram
-    AutoPatch-->>+AutoPatch: onInvoke()
-    FuzzingService->>+FuzzingService: onInvoke()
-    FuzzingService->>FuzzingService: Discover 1..n C programs w/ memory safety CVEs in trusted repo
-    FuzzingService->>FuzzingService: Perform fuzzing over 1...n C programs w/ memory safety bug CVE
-    FuzzingService-->>FuzzingService: ∀ Produce (Autopatch.CrashDetail)
-    FuzzingService->>-FuzzingService: ∀ Write CSV Entry
-    PatchEvaluationService->>+PatchEvaluationService: onConsume(AutoPatch.CrashDetail) as CloudEvent on 'autopatch/crash-detail-v1'   
-    deactivate PatchEvaluationService
-    AutoPatch->>+LLM-Dispatch: QueueRequestPatches([...]) or Produce(AutoPatch.CvePatchRequest)
-    LLM-Dispatch-->>LLM-Dispatch: onConsume(AutoPatch.CvePatchRequest)
-    deactivate LLM-Dispatch
-    AutoPatch->>+CPG-Interface: Invoke_Get_Context([...])
-    CPG-Interface->>+CPG-DAL: CQRS
-    CPG-DAL-->>-CPG-Interface: CQRS
-    CPG-Interface-->>-AutoPatch: Return Invoke_Get_Context([...])
-    AutoPatch-->>AutoPatch: correlate Context (Fuzzing, CPG, etc.) with CVE and UUID
-    AutoPatch-->>-AutoPatch: Produce(AutoPatch.CvePatchRequest)
-    LLM-Dispatch->>+LLM-Dispatch: onConsume(AutoPatch.CvePatchRequest)
-    LLM-Dispatch->>+LLM [1..n]: Hello, may I have a patch?
-    LLM [1..n]-->>-LLM-Dispatch: 
-    LLM-Dispatch->>-LLM-Dispatch: Produce (Autopatch.CvePatchCandidate) as CloudEvent on 'autopatch/cve-patch-candidate-v1'
-    PatchEvaluationService->>+PatchEvaluationService: onConsume(AutoPatch.CvePatchCandidate) 
-    PatchEvaluationService->>-PatchEvaluationService: produce autopatch.patch-evaluation-result
-    AutoPatch-->>+AutoPatch: compile metrics / create report etc.
-    deactivate AutoPatch
-```
+[![High Level Sequence Diagram.  AutoPatch v0.5.0-alpha]](./assets/Diagrams/autopatch-v0.5.0.drawio.png)
 
 ## CI Status
 
