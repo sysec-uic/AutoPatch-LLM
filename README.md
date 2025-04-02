@@ -61,7 +61,7 @@ Theory tells us that creating bug-free programs is nearly impossible and proving
 2. **Fuzzing:**  
    AFL++ tests the program for runtime crashes using mutated inputs.  
 3. **Patching with GenAI:**  
-   Issues detected by ASan and AFL++ are passed to a competing ensemble of LLMs, which each generate a fixes.  
+   Issues detected by ASan and AFL++ are passed to a competing ensemble of LLMs, which each generate fixes.  
 4. **Iterative Process:**  
    The patched code is retested with crashes conditions generated with AFL++ to ensure reliability.  Potential patches are surfaced to the user for human evaluation.
 
