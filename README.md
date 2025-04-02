@@ -11,9 +11,25 @@
 - [Logging](#logging)
 - [Glossary](#glossary)
 
+This project is funded by (Google)[https://google.com/] and the (National Science Foundation)[https://www.nsf.gov/] through a grant made by the [CAHSI-Google Institutional Research Program](https://cahsi.utep.edu/cahsi-google-irp), in collaboration [Texas A&M University](https://engineering.tamu.edu/cse/index.html)
+
+[![Google Logo](./docs/images/google-logo.png)](https://google.com) [![NSF CAHSI Logo](./docs/images/NSF-CAHSI-logo.png)](https://cahsi.utep.edu/)  
+
+
+**AutoPatch**: an end-to-end service that performs vulnerability detection, vulnerability patching, and evaluation of patches for real-world programs.
+
+**Method:**
+1. **Vulnerability detection** through fuzzing and static analysis (address sanitizer, [WIP]code property graphs).
+2. **Patching**: sourcing the buggy source code, crash instances, and static analysis to query LLMs to generate a patch.
+3. **Evaluation**: sourcing the potential patch (2) and the identified trigger inputs (1) to test the patch’s success.
+
+Theory tells us that creating bug-free programs is nearly impossible: proving correctness in large programs is very difficult and time-consuming.
+
+**AutoPatch** is an attempt to leverage modern tools to get closer to ideal bug-free programs, and do this quicker than previous practices.
+
 High level system design diagram:
 
-[![High Level System Diagram AutoPatch v0.5.0-alpha](./assets/Diagrams/autopatch-v0.5.0.drawio.png)](./assets/Diagrams/autopatch-v0.5.0.drawio.png)
+[![High Level System Diagram AutoPatch v0.5.0-alpha](./docs/Diagrams/autopatch-v0.5.0.drawio.png)](./docs/Diagrams/autopatch-v0.5.0.drawio.png)
 
 ## CI Status
 
