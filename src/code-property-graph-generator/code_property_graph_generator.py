@@ -268,20 +268,47 @@ def process_cpg_folders(csv_path: str) -> dict:
     return cpg_df
 
 
+def _remove_jeorn_scan_temp_file(file_full_path: str) -> None:
+    """
+    Deletes the specified file if it exists.  Does not yet support NT paths.
+    """
+
+    if not os.path.exists(file_full_path):
+        logger.info(f"File '{file_full_path}' does not exist, no need to delete.")
+        return
+
+    logger.info(f"Attempting to delete {file_full_path}")
+    try:
+        os.remove(file_full_path)
+        logger.info(f"File '{file_full_path}' has been deleted successfully.")
+    except FileNotFoundError:
+        logger.error(f"File '{file_full_path}' not found.")
+    except PermissionError:
+        logger.error(f"Permission denied to delete the file '{file_full_path}'.")
+    except Exception as e:
+        logger.error(f"Error occurred while deleting the file: {e}")
+
+
 # TODO: return ScanResult dataclass
 def scan_cpg(code_path: str) -> dict:
-    timeout_seconds = 10
+
+    joern_scan_temp_log_file_full_path: Final[str] = "/tmp/joern-scan-log.txt"
+    _remove_jeorn_scan_temp_file(joern_scan_temp_log_file_full_path)
+
+    timeout_seconds = 20
     command_name_str: Final[str] = "joern-scan"
+
     results = {}
     # scan_command = ["sudo", command_name_str]
     scan_command = [command_name_str]
     # force joern-scan to generate a new cpg
-    # scan_command.append("--overwrite")
+    scan_command.append("--overwrite")
 
     for filename in os.listdir(code_path):
         filepath = os.path.join(code_path, filename)
+        basename, ext = os.path.splitext(filename)
 
-        if os.path.isfile(filepath):
+        if os.path.isfile(filepath) and ext == ".c":
             cmd = scan_command + [filepath]
             logger.info(f"Processing {filename}...")
 
@@ -308,7 +335,8 @@ def scan_cpg(code_path: str) -> dict:
                 else:
                     logger.error(f"Process failed to start. PID: {process.pid}")
 
-                output = process.stdout + process.stderr
+                # stdout, stderr = process.communicate()
+                output = stdout + stderr
                 result_line = None
                 for line in output.splitlines():
                     if line.startswith("Result:"):
