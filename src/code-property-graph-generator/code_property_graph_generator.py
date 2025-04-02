@@ -11,7 +11,7 @@ import signal
 import subprocess
 import sys
 from datetime import datetime
-from typing import Final, List
+from typing import Final, List, Dict
 
 # from autopatchdatatypes import CpgDetail
 from autopatchpubsub import MessageBrokerClient
@@ -34,6 +34,7 @@ class ScanResult:
     executable_name: str
     vuln_line: int
     vuln_function: str
+    vuln_description: str
 
 
 @dataclass
@@ -289,8 +290,9 @@ def _remove_jeorn_scan_temp_file(file_full_path: str) -> None:
         logger.error(f"Error occurred while deleting the file: {e}")
 
 
-# TODO: return ScanResult dataclass
-def scan_cpg(code_path: str) -> dict:
+def scan_cpg(c_program_full_path: str) -> Dict:
+
+    results: Dict[str, str] = {}
 
     joern_scan_temp_log_file_full_path: Final[str] = "/tmp/joern-scan-log.txt"
     _remove_jeorn_scan_temp_file(joern_scan_temp_log_file_full_path)
@@ -298,72 +300,61 @@ def scan_cpg(code_path: str) -> dict:
     timeout_seconds = 20
     command_name_str: Final[str] = "joern-scan"
 
-    results = {}
-    # scan_command = ["sudo", command_name_str]
     scan_command = [command_name_str]
     # force joern-scan to generate a new cpg
     scan_command.append("--overwrite")
 
-    for filename in os.listdir(code_path):
-        filepath = os.path.join(code_path, filename)
-        basename, ext = os.path.splitext(filename)
+    if not c_program_full_path.endswith(".c"):
+        logger.error(f"File {c_program_full_path} is not a C file. Skipping...")
+        return None
 
-        if os.path.isfile(filepath) and ext == ".c":
-            cmd = scan_command + [filepath]
-            logger.info(f"Processing {filename}...")
+    cmd = scan_command + [c_program_full_path]
+    logger.info(f"Processing {c_program_full_path}...")
 
-            try:
-                process = subprocess.Popen(
-                    cmd,
-                    stderr=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
-                    universal_newlines=True,
-                    start_new_session=True,  # This creates a new process group
-                    text=True,
-                )
-                time.sleep(0.5)  # Give the process a moment to start
+    try:
+        process = subprocess.Popen(
+            cmd,
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            universal_newlines=True,
+            start_new_session=True,  # This creates a new process group
+            text=True,
+        )
+        time.sleep(0.1)  # Give the process a moment to start
 
-                # Wait here
-                if process.poll() is None:  # has started correctly
-                    logger.info(f"Process started with PID: {process.pid}")
-                    # Wait for process to complete or timeout
-                    stdout, stderr = process.communicate(timeout=timeout_seconds)
-                    logger.debug(
-                        f"{command_name_str} command output: {stdout} {stderr}"
-                    )
-                    logger.info(f"Process completed with PID: {process.pid}")
-                else:
-                    logger.error(f"Process failed to start. PID: {process.pid}")
+        if process.poll() is not None:  # has started correctly
+            logger.error(f"Process failed to start. PID: {process.pid}")
+            return None
 
-                # stdout, stderr = process.communicate()
-                output = stdout + stderr
-                result_line = None
-                for line in output.splitlines():
-                    if line.startswith("Result:"):
-                        if result_line != None:  # lookout for multiple 'result_line's
-                            logger.info("more than one result found!")
-                            logger.info(f"result_line = {result_line}")
-                            logger.info(f"line = {line}")
-                        else:
-                            result_line = line
+        logger.info(f"Process started with PID: {process.pid}")
+        # Wait for process to complete or timeout
+        stdout, stderr = process.communicate(timeout=timeout_seconds)
+        logger.debug(f"{command_name_str} command output: {stdout} {stderr}")
+        logger.info(f"Process completed with PID: {process.pid}")
 
-                results[filename] = result_line
+        output = stdout + stderr
 
-                logger.info(f"Finished scanning {filename} with result: {result_line}")
-            except OSError as e:
-                return_code = getattr(e, "returncode", "N/A")
-                output = getattr(e, "output", "N/A")
-                logger.error(
-                    f"Failed to start {command_name_str} subprocess. Return Code: {return_code}"
-                )
-                logger.debug(f"Output of {command_name_str} subprocess: {output}")
-            except Exception as e:
-                logger.error(f"error processing {filename}: {e}")
-                results[filename] = str(e)
+        reversed_output = output.splitlines()[::-1]
+        for line in reversed_output:
+            if line.startswith("Result:"):
+                results[c_program_full_path] = line
+
+        logger.info(
+            f"Finished scanning {c_program_full_path} with result: {results[c_program_full_path]}"
+        )
+    except OSError as e:
+        return_code = getattr(e, "returncode", "N/A")
+        output = getattr(e, "output", "N/A")
+        logger.error(
+            f"Failed to start {command_name_str} subprocess. Return Code: {return_code}"
+        )
+        logger.debug(f"Output of {command_name_str} subprocess: {output}")
+    except Exception as e:
+        logger.error(f"error processing {c_program_full_path}: {e}")
     return results
 
 
-async def map_crashdetails_as_cloudevents(
+async def map_cpgdetail_as_cloudevents(
     crash_details: List[CpgDetail],
 ) -> List[CloudEvent]:
     if len(crash_details) > config.concurrency_threshold:
@@ -417,6 +408,38 @@ def load_config(json_config_full_path: str) -> CpgSvcConfig:
     return CpgSvcConfig(**config)
 
 
+def unmarshall_raw_joern_scan_result(
+    executable_name: str, scan_result: str
+) -> ScanResult:
+    raise NotImplementedError()
+
+
+def unmarshall_raw_joern_scan_results(scan_results: Dict[str, str]) -> List[ScanResult]:
+    res = [unmarshall_raw_joern_scan_result(k, v) for k, v in scan_results.items()]
+    return res
+
+
+def work_in_progress_features() -> None:
+    # feature 2:
+    # Generate a code property graph (CPG) for each c file in the input directory
+    # saved as a .cpg file compatible with joern
+    cpg_list = extract_code_property_graph(config.cpg_svc_input_codebase_path)
+    logger.info(cpg_list)
+
+    # feature 3:
+    # Export the code property graphs (CPGs) in input directory as CSV files
+    # compatible with Neo4j and networkx
+    csv_list = write_code_property_graphs_as_csv(config.cpg_svc_output_path)
+    logger.info(csv_list)
+
+    # feature 4:
+    # Consolidate the CSV files into one dataframe containing nodes and edges
+    cpg_df = process_cpg_folders(
+        "/workspace/AutoPatch-LLM/src/code-property-graph-generator/data/dev"
+    )
+    logger.info(cpg_df.keys())
+
+
 async def main():
     global config, logger
 
@@ -432,42 +455,37 @@ async def main():
 
     CPG_SVC_START_TIMESTAMP: Final[str] = get_current_timestamp()
 
-    # TODO delete the fuzzing config implementation below and replace with CPG specific context
-
-    # _fuzz_svc_input_codebase_path: Final[str] = config.fuzz_svc_input_codebase_path
-    # _fuzzer_tool_timeout_seconds: Final[int] = config.fuzzer_tool_timeout_seconds
-    # _afl_tool_full_path: Final[str] = config.afl_tool_full_path
-    # _afl_tool_seed_input_path: Final[str] = config.afl_tool_seed_input_path
-    # _afl_tool_compiled_binary_executables_output_path: Final[str] = (
-    #     config.afl_tool_compiled_binary_executables_output_path
-    # )
-    # _afl_tool_output_path: Final[str] = os.path.join(
-    #     config.afl_tool_output_path, CPG_SVC_START_TIMESTAMP
-    # )
-    # _afl_compiler_tool_full_path: Final[str] = config.afl_compiler_tool_full_path
-
     logger.info("AppVersion: " + config.version)
     # TODO Update the config names and values
     # logger.info("CPG tool name: " + config.fuzzer_tool_name)
     # logger.info("CPG tool version: " + config.fuzzer_tool_version)
 
-    # TODO
-    # do the thing
-    scan_results = scan_cpg(config.cpg_svc_input_codebase_path)
-    logger.info(scan_results)
+    # feature 1:
+    # Scan a c file using joern-scan and if vulnerability is
+    # detected, return a scan results that contain the vulnerability
+    # severity, executable name, line number, and function name# c
+    input_c_programs: Final[List[str]] = os.listdir(config.cpg_svc_input_codebase_path)
 
-    cpg_list = extract_code_property_graph(config.cpg_svc_input_codebase_path)
-    logger.info(cpg_list)
-    # TODO adjust to handle timestamped directory
-    # write_code_property_graphs_as_csv() looks for .cpg files in passed directory
-    # process_cpg_folders() looks for subdirectories in passed directory
-    # therefore it should be ok to use same timestamped directory
-    csv_list = write_code_property_graphs_as_csv(config.cpg_svc_output_path)
-    logger.info(csv_list)
-    cpg_df = process_cpg_folders(
-        "/workspace/AutoPatch-LLM/src/code-property-graph-generator/data/dev"
-    )
-    logger.info(cpg_df.keys())
+    raw_joern_scan_results: Dict[str, str] = {}
+
+    len_input_c_programs = len(input_c_programs)
+    for i in range(len_input_c_programs):
+        fully_qualified_path = os.path.join(
+            config.cpg_svc_input_codebase_path, input_c_programs[i]
+        )
+        res = scan_cpg(fully_qualified_path)
+        logger.info(f"Scan result for {input_c_programs[i]}: {res}")
+        raw_joern_scan_results[input_c_programs[i]] = res
+
+    # raw_joern_scan_results = scan_cpg(input_c_programs)
+    logger.info(raw_joern_scan_results)
+
+    # TODO convert from raw str to strong type
+    # scan_results: List[ScanResult] = [unmarshaell_raw_joern_scan_results(x) for x in raw_joern_scan_results]
+    # logger.info(scan_results)
+
+    # TODO
+    # work_in_progress_features()
 
     CPG_SVC_END_TIMESTAMP: Final[str] = get_current_timestamp()
     time_delta = datetime.fromisoformat(CPG_SVC_END_TIMESTAMP) - datetime.fromisoformat(
@@ -477,5 +495,6 @@ async def main():
     logger.info("Processing complete, exiting.")
 
 
-# Run the event loop
-asyncio.run(main())
+if __name__ == "__main__":
+    # Run the event loop
+    asyncio.run(main())
