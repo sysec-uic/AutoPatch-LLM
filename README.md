@@ -11,36 +11,15 @@
 - [Logging](#logging)
 - [Glossary](#glossary)
 
-High level design sequence diagram:
+This project is funded by [Google](https://google.com/) and the [National Science Foundation](https://www.nsf.gov/) through a grant made by the [CAHSI-Google Institutional Research Program](https://cahsi.utep.edu/cahsi-google-irp), in collaboration [Texas A&M University](https://www.tamu.edu/index.html)
 
-```mermaid
-sequenceDiagram
-    AutoPatch-->>+AutoPatch: onInvoke()
-    FuzzingService->>+FuzzingService: onInvoke()
-    FuzzingService->>FuzzingService: Discover 1..n C programs w/ memory safety CVEs in trusted repo
-    FuzzingService->>FuzzingService: Perform fuzzing over 1...n C programs w/ memory safety bug CVE
-    FuzzingService-->>FuzzingService: ∀ Produce (Autopatch.CrashDetail)
-    FuzzingService->>-FuzzingService: ∀ Write CSV Entry
-    PatchEvaluationService->>+PatchEvaluationService: onConsume(AutoPatch.CrashDetail) as CloudEvent on 'autopatch/crash-detail-v1'   
-    deactivate PatchEvaluationService
-    AutoPatch->>+LLM-Dispatch: QueueRequestPatches([...]) or Produce(AutoPatch.CvePatchRequest)
-    LLM-Dispatch-->>LLM-Dispatch: onConsume(AutoPatch.CvePatchRequest)
-    deactivate LLM-Dispatch
-    AutoPatch->>+CPG-Interface: Invoke_Get_Context([...])
-    CPG-Interface->>+CPG-DAL: CQRS
-    CPG-DAL-->>-CPG-Interface: CQRS
-    CPG-Interface-->>-AutoPatch: Return Invoke_Get_Context([...])
-    AutoPatch-->>AutoPatch: correlate Context (Fuzzing, CPG, etc.) with CVE and UUID
-    AutoPatch-->>-AutoPatch: Produce(AutoPatch.CvePatchRequest)
-    LLM-Dispatch->>+LLM-Dispatch: onConsume(AutoPatch.CvePatchRequest)
-    LLM-Dispatch->>+LLM [1..n]: Hello, may I have a patch?
-    LLM [1..n]-->>-LLM-Dispatch: 
-    LLM-Dispatch->>-LLM-Dispatch: Produce (Autopatch.CvePatchCandidate) as CloudEvent on 'autopatch/cve-patch-candidate-v1'
-    PatchEvaluationService->>+PatchEvaluationService: onConsume(AutoPatch.CvePatchCandidate) 
-    PatchEvaluationService->>-PatchEvaluationService: produce autopatch.patch-evaluation-result
-    AutoPatch-->>+AutoPatch: compile metrics / create report etc.
-    deactivate AutoPatch
-```
+[![Google Logo](./docs/images/google-logo.png)](https://google.com) [![NSF CAHSI Logo](./docs/images/NSF-CAHSI-logo.png)](https://cahsi.utep.edu/)  
+
+
+
+High level system design diagram:
+
+![High Level System Diagram AutoPatch v0.5.0](./docs/Diagrams/autopatch-v.0.5.0.drawio.png)
 
 ## CI Status
 
@@ -55,9 +34,19 @@ sequenceDiagram
 
 ## Introduction  
 
-AutoPatch is a GenAI-assisted tool designed to automatically detect and patch bugs in C code.
-By combining **Google's Address Sanitizer (ASan)**, **American Fuzzy Lop (AFL)** and **OpenAI's GPT-4o mini**, AutoPatch simplifies the debugging process by identifying and resolving memory safety bugs such as Use After Free, Double Free, and Buffer Overlow.
-Including runtime, syntactic, and semantic errors in buggy C programs.
+
+**AutoPatch**: AutoPatch is an end-2-end GenAI-assisted tool designed to automatically detect and patch bugs in C code by performing vulnerability detection, vulnerability patching, and evaluation of patches for real-world C programs.
+
+By combining **Google's Address Sanitizer (ASan)**, **American Fuzzy Lop (AFL++)** and **a competing ensemble of Large Language Models**, AutoPatch targets low level memory safety bugs.  Identifying and resolving memory safety bugs such as Use After Free, Double Free, and Buffer Overlow.
+
+**Method:**
+1. **Vulnerability detection** through fuzzing and static analysis (address sanitizer, [WIP]code property graphs).
+2. **Patching**: sourcing the buggy source code, crash instances, and static analysis to query LLMs to generate a patch.
+3. **Evaluation**: sourcing the potential patch (2) and the identified trigger inputs (1) to test the patch’s success.
+
+Theory tells us that creating bug-free programs is nearly impossible and proving correctness in large programs is very difficult and time-consuming.
+
+**AutoPatch** is an attempt to leverage modern tools to get closer to ideal bug-free programs, and do this quicker than previous practices.
 
 ### Features  
 
@@ -70,11 +59,11 @@ Including runtime, syntactic, and semantic errors in buggy C programs.
 1. **Initial Compilation:**  
    The code is compiled with ASan to detect memory-related issues.  
 2. **Fuzzing:**  
-   AFL tests the program for runtime crashes using mutated inputs.  
-3. **Patching with GPT:**  
-   Issues detected by ASan and AFL are passed to GPT-4o mini, which generates fixes.  
+   AFL++ tests the program for runtime crashes using mutated inputs.  
+3. **Patching with GenAI:**  
+   Issues detected by ASan and AFL++ are passed to a competing ensemble of LLMs, which each generate fixes.  
 4. **Iterative Process:**  
-   The patched code is retested with AFL to ensure reliability.  
+   The patched code is retested with crashes conditions generated with AFL++ to ensure reliability.  Potential patches are surfaced to the user for human evaluation.
 
 ## Pre-requisites
 
