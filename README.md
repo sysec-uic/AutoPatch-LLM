@@ -16,16 +16,6 @@ This project is funded by [Google](https://google.com/) and the [National Scienc
 [![Google Logo](./docs/images/google-logo.png)](https://google.com) [![NSF CAHSI Logo](./docs/images/NSF-CAHSI-logo.png)](https://cahsi.utep.edu/)  
 
 
-**AutoPatch**: an end-to-end service that performs vulnerability detection, vulnerability patching, and evaluation of patches for real-world programs.
-
-**Method:**
-1. **Vulnerability detection** through fuzzing and static analysis (address sanitizer, [WIP]code property graphs).
-2. **Patching**: sourcing the buggy source code, crash instances, and static analysis to query LLMs to generate a patch.
-3. **Evaluation**: sourcing the potential patch (2) and the identified trigger inputs (1) to test the patch’s success.
-
-Theory tells us that creating bug-free programs is nearly impossible and proving correctness in large programs is very difficult and time-consuming.
-
-**AutoPatch** is an attempt to leverage modern tools to get closer to ideal bug-free programs, and do this quicker than previous practices.
 
 High level system design diagram:
 
@@ -44,9 +34,19 @@ High level system design diagram:
 
 ## Introduction  
 
-AutoPatch is a GenAI-assisted tool designed to automatically detect and patch bugs in C code.
-By combining **Google's Address Sanitizer (ASan)**, **American Fuzzy Lop (AFL)** and **OpenAI's GPT-4o mini**, AutoPatch simplifies the debugging process by identifying and resolving memory safety bugs such as Use After Free, Double Free, and Buffer Overlow.
-Including runtime, syntactic, and semantic errors in buggy C programs.
+
+**AutoPatch**: AutoPatch is an end-2-end GenAI-assisted tool designed to automatically detect and patch bugs in C code by performing vulnerability detection, vulnerability patching, and evaluation of patches for real-world C programs.
+
+By combining **Google's Address Sanitizer (ASan)**, **American Fuzzy Lop (AFL++)** and **a competing ensemble of Large Language Models**, AutoPatch targets low level memory safety bugs.  Identifying and resolving memory safety bugs such as Use After Free, Double Free, and Buffer Overlow.
+
+**Method:**
+1. **Vulnerability detection** through fuzzing and static analysis (address sanitizer, [WIP]code property graphs).
+2. **Patching**: sourcing the buggy source code, crash instances, and static analysis to query LLMs to generate a patch.
+3. **Evaluation**: sourcing the potential patch (2) and the identified trigger inputs (1) to test the patch’s success.
+
+Theory tells us that creating bug-free programs is nearly impossible and proving correctness in large programs is very difficult and time-consuming.
+
+**AutoPatch** is an attempt to leverage modern tools to get closer to ideal bug-free programs, and do this quicker than previous practices.
 
 ### Features  
 
@@ -59,11 +59,11 @@ Including runtime, syntactic, and semantic errors in buggy C programs.
 1. **Initial Compilation:**  
    The code is compiled with ASan to detect memory-related issues.  
 2. **Fuzzing:**  
-   AFL tests the program for runtime crashes using mutated inputs.  
-3. **Patching with GPT:**  
-   Issues detected by ASan and AFL are passed to GPT-4o mini, which generates fixes.  
+   AFL++ tests the program for runtime crashes using mutated inputs.  
+3. **Patching with GenAI:**  
+   Issues detected by ASan and AFL++ are passed to a competing ensemble of LLMs, which each generate a fixes.  
 4. **Iterative Process:**  
-   The patched code is retested with AFL to ensure reliability.  
+   The patched code is retested with crashes conditions generated with AFL++ to ensure reliability.  Potential patches are surfaced to the user for human evaluation.
 
 ## Pre-requisites
 
