@@ -11,9 +11,9 @@
 - [Logging](#logging)
 - [Glossary](#glossary)
 
-High level design sequence diagram:
+High level system design diagram:
 
-[![High Level Sequence Diagram.  AutoPatch v0.5.0-alpha]](./assets/Diagrams/autopatch-v0.5.0.drawio.png)
+[![High Level System Diagram AutoPatch v0.5.0-alpha](./assets/Diagrams/autopatch-v0.5.0.drawio.png)](./assets/Diagrams/autopatch-v0.5.0.drawio.png)
 
 ## CI Status
 
