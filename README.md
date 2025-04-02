@@ -11,7 +11,7 @@
 - [Logging](#logging)
 - [Glossary](#glossary)
 
-This project is funded by (Google)[https://google.com/] and the (National Science Foundation)[https://www.nsf.gov/] through a grant made by the [CAHSI-Google Institutional Research Program](https://cahsi.utep.edu/cahsi-google-irp), in collaboration [Texas A&M University](https://engineering.tamu.edu/cse/index.html)
+This project is funded by [Google](https://google.com/) and the [National Science Foundation](https://www.nsf.gov/) through a grant made by the [CAHSI-Google Institutional Research Program](https://cahsi.utep.edu/cahsi-google-irp), in collaboration [Texas A&M University](https://engineering.tamu.edu/cse/index.html)
 
 [![Google Logo](./docs/images/google-logo.png)](https://google.com) [![NSF CAHSI Logo](./docs/images/NSF-CAHSI-logo.png)](https://cahsi.utep.edu/)  
 
@@ -29,7 +29,7 @@ Theory tells us that creating bug-free programs is nearly impossible: proving co
 
 High level system design diagram:
 
-[![High Level System Diagram AutoPatch v0.5.0-alpha](./docs/Diagrams/autopatch-v0.5.0.drawio.png)](./docs/Diagrams/autopatch-v0.5.0.drawio.png)
+![High Level System Diagram AutoPatch v0.5.0](./docs/Diagrams/autopatch-v.0.5.0.drawio.png)
 
 ## CI Status
 
