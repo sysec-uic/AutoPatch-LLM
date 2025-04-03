@@ -107,8 +107,15 @@ PATCH version increments when a backward compatible bugfix is introduced.
 
 ## Glossary
 
+- **`top_p` (nucleus sampling)** is a decoding parameter that selects from the smallest set of tokens whose cumulative probability exceeds *p*. Tokens are then sampled from this subset.
+- **`temperature`** controls randomness in token sampling: 
+  - Higher values (e.g., 1.0) yield more random output. Example: High temperature (e.g., 0.8): Ideal for creative tasks like brainstorming or storytelling, where diversity and imagination are valued.  Encourages the model to explore less likely words, leading to more creative and diverse outputs, but potentially at the cost of coherence. 
+  - Lower values (e.g., 0.2) make output more deterministic.  Example: Low temperature (e.g., 0.2): Suitable for tasks requiring accuracy and precision, like answering factual questions. 
+ Makes the model more likely to select the most probable next word, resulting in predictable and factual outputs.
+ 
 - **Memory Safety Bug**: a vulnerability in which memory is accessed or written in a way that violates the logic (intention) or safety of the program, or performs actions outside of the permitted memory of that program. Common examples include buffer overflow, memory leaks, and use after free. If these vulnerabilities can be exposed by specific input by a user, they can be exploited.
 - **Address Sanitizer**: a compilation tool that is capable of improving recognition of memory safety bugs beyond the base compiler. Utilized by a command line argument at compilation time, and can be added as an argument in afl compilation. ASan is the alias commonly used.
 - **Bug Log**: the log made at compile time of a program, contains the output (warnings, errors, or ASan messages depending on the compilation context) of the compilation.
 - **Fuzzer**: a tool that seeks to find all the control flow areas of a program that takes input (via file or stdin) by mutating the input, and logs any crashes or hangs. For more detailed information on fuzzing, refer to docs/QuickStart.md.
 - **LLM**: large language model, such as GPT, LLAMA, or DeepSeek.
+- **Transformer** is a deep learning architecture that was developed by researchers at Google and is based on the multi-head attention mechanism [1](./docs/References/reference.bib). Text is converted to numerical representations called tokens, and each token is converted into a vector via lookup from a word embedding table. At each layer, each token is then contextualized within the scope of the context window with other (unmasked) tokens via a parallel multi-head attention mechanism, allowing the signal for key tokens to be amplified and less important tokens to be diminished.
