@@ -79,13 +79,16 @@ async def read_file(file_full_path: str) -> str:
 #     return f"{_goals} {_return_format} {_warnings} {_context_window}"
 
 
-async def full_prompt(
-    system_prompt_file_full_patch: str, user_prompt_file_full_patch: str
-) -> str:
-    _system_prompt = await read_file(system_prompt_file_full_patch)
-    _user_prompt = await read_file(user_prompt_file_full_patch)
+async def full_prompt(system_prompt_full_path: str, user_prompt_full_path: str) -> str:
+    _system_prompt = await read_file(system_prompt_full_path)
+    _user_prompt = await read_file(user_prompt_full_path)
 
-    return f"{_system_prompt} {_user_prompt}"
+    _c_program_source_code_to_patch = await read_file(
+        "/workspace/AutoPatch-LLM/src/llm-dispatch/data/prompts/dummy_c_file.c"
+    )
+    _separator = "\n---\n"
+
+    return f"{_system_prompt} {_user_prompt} {_separator} {_c_program_source_code_to_patch}"
 
 
 async def wrap_raw_response():
@@ -118,7 +121,7 @@ class ApiLLM(BaseLLM):
 
     async def generate(self, prompt: str) -> Dict:
         # Simulate an API call; replace with a real API call in production.
-        response_text = f"API response for prompt '{prompt}' from {self.name}"
+        response_text = f"API response for prompt '{prompt}' from {self.name}"  # TODO deletethis unused line
         response_text = await self.request_completion_http(
             api_key=self.api_key,
             base_url=self.endpoint,
@@ -156,6 +159,8 @@ class ApiLLM(BaseLLM):
                 }
             ],
         )
+
+        # TODO handle out of quota errors here
 
         completion = completion.choices[0].message.content
         logger.info(f"Completion: {completion}")
@@ -222,7 +227,7 @@ class LLMClient:
     def __init__(self):
         # Mapping of strategy names to strategy instances.
         self.strategies: Dict[str, LLMStrategy] = {}
-        self.active_strategy: LLMStrategy = None
+        self.active_strategy: LLMStrategy
 
     def register_strategy(self, name: str, strategy: LLMStrategy):
         """
