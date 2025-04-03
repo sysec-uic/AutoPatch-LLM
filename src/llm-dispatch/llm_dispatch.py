@@ -34,6 +34,15 @@ logger = logging.getLogger(__name__)
 
 
 def load_config(json_config_full_path: str) -> LLMDispatchConfig:
+    """
+    Load the configuration from a JSON file and instantiate a LLMDispatchConfig object.
+    Parameters:
+        json_config_full_path (str): The full file path to the JSON configuration file.
+    Returns:
+        LLMDispatchConfig: An instance of LLMDispatchConfig populated with the loaded configuration.
+    Raises:
+        Exception: Propagates any exceptions encountered during JSON loading or configuration parsing.
+    """
     config = load_config_as_json(json_config_full_path, logger)
     return LLMDispatchConfig(**config)
 
@@ -44,79 +53,39 @@ def load_config(json_config_full_path: str) -> LLMDispatchConfig:
 #     pass
 
 
-async def request_completion(
-    sytem_prompt: str,
-    user_prompt: str,
-    model: str,
-    temperature: float,
-    top_p: str,
-    max_tokens: int,
-):
-    pass
+async def read_file(file_full_path: str) -> str:
+    """
+    Asynchronously read the content of a file from a given full file path.
+    Parameters:
+        file_full_path (str): The full path of the file to be read.
+    Returns:
+        str: The content of the file if it exists; otherwise, an empty string is returned and an error is logged.
+
+    """
+    if not file_full_path:
+        logger.error("File does not exist")
+        return ""
+
+    with open(file_full_path, "r") as f:
+        return f.read()
 
 
-async def system_prompt():
-    # return config.system_prompt
-    raise NotImplementedError(
-        "The system prompt function is not implemented. Please implement it."
-    )
+# async def user_prompt(user_prompt_file_full_patch: str) -> str:
+#     _goals = ""
+#     _return_format = ""
+#     _warnings = ""
+#     _context_window = ""
+
+#     return f"{_goals} {_return_format} {_warnings} {_context_window}"
 
 
-async def user_prompt():
-    _goals = ""
-    _return_format = ""
-    _warnings = ""
-    _context_window = ""
-
-    # return f"{_goals} {_return_format} {_warnings} {_context_window}"
-    raise NotImplementedError(
-        "The user prompt function is not implemented. Please implement it."
-    )
-
-
-async def full_prompt():
-    _system_prompt = await system_prompt()
-    _user_prompt = await user_prompt()
+async def full_prompt(
+    system_prompt_file_full_patch: str, user_prompt_file_full_patch: str
+) -> str:
+    _system_prompt = await read_file(system_prompt_file_full_patch)
+    _user_prompt = await read_file(user_prompt_file_full_patch)
 
     return f"{_system_prompt} {_user_prompt}"
-
-
-async def request_completion_http(
-    api_key: str,
-    base_url: str,
-    model: str,
-    user_prompt: str,
-    # system_prompt: str,
-    # temperature: float,
-    # top_p: str,
-    # max_tokens: int,
-    # context_window: str,
-    # request_timeout: int,
-    # request_retries: int,
-    # request_delay: int,
-    # request_delay_max: int,
-) -> str:
-    # _api_key = os.environ.get("OPENROUTERAI_API_KEY")
-    _api_key = api_key
-    client = OpenAI(base_url=base_url, api_key=_api_key)
-
-    completion = client.chat.completions.create(
-        # model="google/gemini-2.0-flash-lite-preview-02-05:free",
-        # model="deepseek/deepseek-r1-zero:free",
-        #   model="openai/gpt-4o-mini",
-        model=model,
-        messages=[
-            {
-                "role": "user",
-                "content": user_prompt,
-                #   "content": "What is the meaning of life?"
-            }
-        ],
-    )
-
-    completion = completion.choices[0].message.content
-    logger.info(f"Completion: {completion}")
-    return completion if completion else "No response"
 
 
 async def wrap_raw_response():
@@ -150,13 +119,48 @@ class ApiLLM(BaseLLM):
     async def generate(self, prompt: str) -> Dict:
         # Simulate an API call; replace with a real API call in production.
         response_text = f"API response for prompt '{prompt}' from {self.name}"
-        response_text = await request_completion_http(
+        response_text = await self.request_completion_http(
             api_key=self.api_key,
             base_url=self.endpoint,
             model=self.name,
             user_prompt=prompt,
         )
         return {"llm_name": self.name, "response": response_text}
+
+    async def request_completion_http(
+        self,
+        api_key: str,
+        base_url: str,
+        model: str,
+        user_prompt: str,
+        # system_prompt: str,
+        # temperature: float,
+        # top_p: str,
+        # max_tokens: int,
+        # context_window: str,
+        # request_timeout: int,
+        # request_retries: int,
+        # request_delay: int,
+        # request_delay_max: int,
+    ) -> str:
+        # _api_key = os.environ.get("OPENROUTERAI_API_KEY")
+        _api_key = api_key
+        client = OpenAI(base_url=base_url, api_key=_api_key)
+
+        completion = client.chat.completions.create(
+            model=model,
+            messages=[
+                {
+                    "role": "user",
+                    "content": user_prompt,
+                }
+            ],
+        )
+
+        completion = completion.choices[0].message.content
+        logger.info(f"Completion: {completion}")
+
+        return completion if completion else "No response"
 
 
 class InMemoryLLM(BaseLLM):
@@ -246,69 +250,9 @@ class LLMClient:
         return await self.active_strategy.generate(prompt)
 
 
-def _return_simple_user_prompt() -> str:
-    str_source = """
-    Your goal is to generate a patch to the following C code that alleviates any memory safety bugs:
-    ```
-    #include <stdio.h>
-    #include <string.h>
-    #include <ctype.h>
-    #include <stdlib.h>
-
-    #define BUFSIZE 16  
-
-    char *lccopy(const char *str) {
-        char buf[BUFSIZE];  // vulnerable buffer
-        char *p;
-
-        strcpy(buf, str);  // no bounds checking on input
-        for (p = buf; *p; p++) {
-            if (isupper(*p)) {
-                *p = tolower(*p);  // convert uppercase to lowercase
-            }
-        }
-        return strdup(buf);  // return a duplicate of the modified string
-    }
-
-    int main(int argc, char *argv[]) {
-        if (argc != 2) {
-            printf("Usage: %s <input_string>\n", argv[0]);
-            return 1;
-        }
-
-        char *result = lccopy(argv[1]);
-        printf("Modified string: %s\n", result);
-        free(result);
-
-        return 0;
-    }
-
-    ```
-    """
-    return str_source
-
-
-async def main():
-    global config, logger
-
-    # config = load_config(config_full_path)
-    # logger = init_logging(config.logging_config, config.appname)
-
-    LLM_DISPATCH_START_TIMESTAMP: Final[str] = get_current_timestamp()
-
-    # "google/gemini-2.0-flash-lite-preview-02-05:free",
-    models = [
-        "google/gemini-2.5-pro-exp-03-25:free",
-        "openai/gpt-4o-mini:free",
-        "deepseek/deepseek-r1-zero:free",
-    ]
-
-    # model_router_base_url = config.model_router["base_url"]
-    model_router_api_key = os.environ.get("MODEL_ROUTER_API_KEY", "")
-    open_router_base_url = os.environ.get("MODEL_ROUTER_BASE_URL", "")
-    _api_key = os.environ.get("OPENROUTERAI_API_KEY", "")
-
-    # Example usage:
+async def init_llm_client(
+    models: List[str], model_router_api_key: str, model_router_base_url
+) -> LLMClient:
     client = LLMClient()
 
     # Create strategy instances.
@@ -316,45 +260,29 @@ async def main():
     in_memory_strategy = InMemoryLLMStrategy()
 
     # Register LLMs with their respective strategies.
-    api_strategy.register(
-        ApiLLM(
-            name=models[0],
-            api_key=_api_key,
-            endpoint=open_router_base_url,
+    len_models = len(models)
+    for i in range(len_models):
+        api_strategy.register
+        api_strategy.register(
+            ApiLLM(
+                name=models[i],
+                api_key=model_router_api_key,
+                endpoint=model_router_base_url,
+            )
         )
-    )
-    api_strategy.register(
-        ApiLLM(
-            name=models[1],
-            api_key=_api_key,
-            endpoint=open_router_base_url,
-        )
-    )
-    api_strategy.register(
-        ApiLLM(
-            name=models[2],
-            api_key=_api_key,
-            endpoint=open_router_base_url,
-        )
-    )
 
+    # TODO not yet implemented
     in_memory_strategy.register(InMemoryLLM(name="LocalModel", model="dummy_model"))
 
     # Register strategies with the client.
     client.register_strategy("api", api_strategy)
     client.register_strategy("in_memory", in_memory_strategy)
 
-    # Set active strategy at runtime.
-    client.set_strategy("api")  # Change to "in_memory" to use the in-memory strategy.
-    system_prompt = "You are a helpful AI assistant familiar with the C programming language, cybersecurity and low level memory safety bugs.  Construct your answers using concise language, and do not add additional data or make up answers."
-    user_prompt = _return_simple_user_prompt()
+    return client
 
-    # prompt = "What is the capital of France?"
-    prompt = f"{system_prompt} {user_prompt}"
 
-    responses = await client.generate(prompt)
-    for response in responses:
-        print(f"LLM: {response['llm_name']}\nResponse: {response['response']}\n")
+async def main():
+    global config, logger
 
     config_full_path = os.environ.get(CONST_LLM_DISPATCH_CONFIG)
 
@@ -364,7 +292,42 @@ async def main():
         )
         sys.exit(1)
 
-    pass
+    config = load_config(config_full_path)
+    logger = init_logging(config.logging_config, config.appName)
+
+    LLM_DISPATCH_START_TIMESTAMP: Final[str] = get_current_timestamp()
+
+    models = [
+        "openai/gpt-4o-mini:free",
+        "deepseek/deepseek-r1-zero:free",
+        "google/gemini-2.5-pro-exp-03-25:free",
+    ]
+
+    model_router_base_url = os.environ.get("MODEL_ROUTER_BASE_URL", "")
+    model_router_api_key = os.environ.get("OPENROUTERAI_API_KEY", "")
+
+    client: LLMClient = await init_llm_client(
+        models, model_router_api_key, model_router_base_url
+    )
+
+    prompt: Final[str] = await full_prompt(
+        config.system_prompt_full_path, config.user_prompt_full_path
+    )
+
+    # Set active strategy at runtime.
+    client.set_strategy("api")  # Change to "in_memory" to use the in-memory strategy.
+
+    responses = await client.generate(prompt)
+    for response in responses:
+        logger.info(f"LLM: {response['llm_name']}\nResponse: {response['response']}\n")
+
+    LLM_DISPATCH_END_TIMESTAMP: Final[str] = get_current_timestamp()
+    time_delta = datetime.fromisoformat(
+        LLM_DISPATCH_END_TIMESTAMP
+    ) - datetime.fromisoformat(LLM_DISPATCH_START_TIMESTAMP)
+    logger.info(f"Total Processing Time Elapsed: {time_delta}")
+    logger.info("Processing complete, exiting.")
+    exit(0)
 
 
 if __name__ == "__main__":
