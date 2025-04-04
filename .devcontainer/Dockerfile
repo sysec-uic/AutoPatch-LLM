@@ -16,6 +16,5 @@ RUN rm -f /etc/apt/apt.conf.d/docker-clean && \
     wget https://github.com/joernio/joern/releases/download/v4.0.247/joern-install.sh && \
     chmod +x ./joern-install.sh && \
     sudo ./joern-install.sh
-    
-USER vscode:vscode
 
+USER vscode:vscode
