@@ -162,7 +162,6 @@ async def map_scan_result_as_cloudevent(scan_result: ScanResult) -> CloudEvent:
     data = {
         "executable_name": scan_result.executable_name,
         "vulnerability_severity": scan_result.vulnerability_severity,
-        "executable_name": scan_result.executable_name,
         "vulnerable_line_number": scan_result.vulnerable_line_number,
         "vulnerable_function": scan_result.vulnerable_function,
         "vulnerability_description": scan_result.vulnerability_description,
