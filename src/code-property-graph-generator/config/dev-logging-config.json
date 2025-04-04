@@ -29,7 +29,7 @@
     "loggers": {
       "autopatch.code-property-graph-generator": {
         "handlers": ["file_debug_handler", "console_err_handler", "console_info_handler"],
-        "level": "DEBUG",
+        "level": "INFO",
         "propagate": false
       }
     }
