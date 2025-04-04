@@ -165,10 +165,16 @@ class ApiLLM(BaseLLM):
 
         # TODO handle out of quota errors here
 
-        completion = completion.choices[0].message.content
+        completion_str = ""
+        try:
+            completion_str = completion.choices[0].message.content
+        except Exception as e:
+            # TODO expand error handling
+            logger.error(f"Error returned from Model Router API: {e}")
+
         logger.info(f"Completion: {completion}")
 
-        return completion if completion else "No response"
+        return completion_str if completion_str else "No response"
 
 
 class InMemoryLLM(BaseLLM):
@@ -311,6 +317,7 @@ async def main():
         "openai/gpt-4o-mini:free",
         "deepseek/deepseek-r1-zero:free",
         "google/gemini-2.5-pro-exp-03-25:free",
+        "meta-llama/llama-3.3-70b-instruct:free",
     ]
 
     model_router_base_url = os.environ.get("MODEL_ROUTER_BASE_URL", "")
