@@ -6,6 +6,7 @@ readme = 'README.md'
 authors = [
     { name = 'Robert D. Hernandez', email = 'rherna70@uic.edu' },
     { name = 'Nico Gibson', email = 'ngibs01@jaguar.tamu.edu' },
+    { name = 'Matthew Trevino', email = 'mtrev049@jaguar.tamu.edu' }
 ]
 
 [build-system]
