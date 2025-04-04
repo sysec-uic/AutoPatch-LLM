@@ -7,7 +7,6 @@ from datetime import datetime
 from typing import Dict, Final, List
 
 from autopatchshared import get_current_timestamp, init_logging, load_config_as_json
-from openai import OpenAI
 
 # from cloudevents.conversion import to_json
 # from autopatchdatatypes import PatchRequest
@@ -16,6 +15,7 @@ from openai import OpenAI
 # from autopatchpubsub import MessageBrokerClient
 # from cloudevents.http import CloudEvent
 from llm_dispatch_config import LLMDispatchConfig
+from openai import OpenAI
 
 # this is the name of the environment variable that will be used point to the configuration map file to load
 CONST_LLM_DISPATCH_CONFIG: Final[str] = "LLM_DISPATCH_CONFIG"
