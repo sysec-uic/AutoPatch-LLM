@@ -6,4 +6,3 @@ pytest-asyncio==0.25.3
 pytest-cov==6.0.0
 build==1.2.2.post1
 coverage==7.6.12
-pandas==2.2.3
