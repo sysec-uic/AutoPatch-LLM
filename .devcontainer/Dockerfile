@@ -3,10 +3,7 @@ FROM mcr.microsoft.com/devcontainers/base:noble AS base
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1
 
-# Delete the cache mounts if not building on a ubuntu based host system
-RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-    --mount=target=/var/cache/apt,type=cache,sharing=locked \
-    rm -f /etc/apt/apt.conf.d/docker-clean && \
+RUN rm -f /etc/apt/apt.conf.d/docker-clean && \
     apt-get update && apt-get -y install --no-install-recommends \
         software-properties-common \
         python3 python3-pip python3-venv \
@@ -15,6 +12,9 @@ RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
     add-apt-repository ppa:zhangsongcui3371/fastfetch && \
     apt-get update && apt-get -y install --no-install-recommends \
         fastfetch && \
-    apt-get autoremove -y && apt-get clean -y && rm -rf /var/lib/apt/lists/*
+    apt-get autoremove -y && apt-get clean -y && rm -rf /var/lib/apt/lists/* && \
+    wget https://github.com/joernio/joern/releases/download/v4.0.247/joern-install.sh && \
+    chmod +x ./joern-install.sh && \
+    sudo ./joern-install.sh
 
 USER vscode:vscode

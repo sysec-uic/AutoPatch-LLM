@@ -5,16 +5,6 @@ tasks:
     desc: install autopatch-patch-evaluation-service
     cmds:
       - pip install -r requirements.txt --break-system-packages
-  run:
-    desc: run autopatch-patch-evaluation-service
-    dotenv: [".env"]
-    generates:
-      - ./log/autopatch.patch-evaluation-service.debug.log
-    preconditions:
-      - stat ./config/config.json
-    cmds:
-      - python patch_evaluation_service.py
-  
   debug:
     desc: debug autopatch-patch-evaluation-service
     generates:
@@ -23,17 +13,14 @@ tasks:
       - stat ./config/config.json
     cmds:
       - python -m pdb ./patch_evaluation_service.py
-  
   test:
     desc: test autopatch-patch-evaluation-service
     cmds:
       - pytest
-
   clean:
     desc: scrubs the workspace, old debug log files etc.
     cmds:
       - truncate -s 0 ./log/autopatch.patch-evaluation-service.debug.log
-  
   rm-executables:
     desc: removes the subdirectories in the executables directory.
     cmds:
