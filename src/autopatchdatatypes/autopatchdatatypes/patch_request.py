@@ -1,5 +1,5 @@
-from autopatchdatatypes.crash_detail import CrashDetail
 from dataclasses import dataclass
+from autopatchdatatypes.crash_detail import CrashDetail
 
 
 @dataclass
