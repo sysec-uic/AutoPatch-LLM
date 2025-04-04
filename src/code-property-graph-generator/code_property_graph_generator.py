@@ -6,22 +6,13 @@ import os
 import subprocess
 import sys
 from datetime import datetime
-from typing import Final, List, Dict, Deque
+from typing import Final, List, Deque
 from collections import deque
 
-# from autopatchdatatypes import CpgDetail
+from cpg_svc_config import CpgSvcConfig
 from autopatchpubsub import MessageBrokerClient
 from autopatchshared import init_logging, load_config_as_json, get_current_timestamp
 from cloudevents.http import CloudEvent
-
-
-@dataclass
-class CpgDetail:
-    # vuln (vulnerable) - boolean flag indicating whether a CVE has been detected in this cpg
-    is_vuln: bool
-    # vuln_type - classification of detected vulnerability
-    vuln_type: str
-    graph: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -31,21 +22,6 @@ class ScanResult:
     vulnerable_line_number: int
     vulnerable_function: str
     vulnerability_description: str
-
-
-@dataclass
-class CpgSvcConfig:
-    version: str
-    appname: str
-    logging_config: str
-    scan_tool_full_path: str
-    message_broker_host: str
-    message_broker_port: int
-    message_broker_protocol: str
-    concurrency_threshold: int
-    cpg_svc_output_topic: str
-    cpg_svc_input_codebase_path: str
-    cpg_svc_output_path: str
 
 
 # this is the name of the environment variable that will be used point to the configuration map file to load
@@ -77,15 +53,18 @@ def _remove_jeorn_scan_temp_file(file_full_path: str) -> None:
         logger.error(f"Error occurred while deleting the file: {e}")
 
 
-def scan_cpg(c_program_full_path: str) -> List[ScanResult]:
+def scan_cpg(
+    cpg_scan_tool_full_path: str, c_program_full_path: str
+) -> List[ScanResult]:
 
     parsed_datasets: List[ScanResult] = []
 
     joern_scan_temp_log_file_full_path: Final[str] = "/tmp/joern-scan-log.txt"
     _remove_jeorn_scan_temp_file(joern_scan_temp_log_file_full_path)
 
-    timeout_seconds = 20
-    command_name_str: Final[str] = "joern-scan"
+    timeout_seconds = 120
+    # command_name_str: Final[str] = "joern-scan"
+    command_name_str: Final[str] = cpg_scan_tool_full_path
 
     scan_command = [command_name_str]
     # force joern-scan to generate a new cpg
@@ -93,7 +72,7 @@ def scan_cpg(c_program_full_path: str) -> List[ScanResult]:
 
     if not c_program_full_path.endswith(".c"):
         logger.error(f"File {c_program_full_path} is not a C file. Skipping...")
-        return None
+        return []
 
     cmd = scan_command + [c_program_full_path]
     logger.info(f"Processing {c_program_full_path}...")
@@ -111,7 +90,7 @@ def scan_cpg(c_program_full_path: str) -> List[ScanResult]:
 
         if process.poll() is not None:  # has started correctly
             logger.error(f"Process failed to start. PID: {process.pid}")
-            return None
+            return []
 
         logger.info(f"Process started with PID: {process.pid}")
         # Wait for process to complete or timeout
@@ -219,7 +198,7 @@ async def map_scan_result_as_cloudevents(
 #             config.cpg_svc_output_topic, str(event)  # noqa: F821
 #         )
 
-#     cpg_details_cloud_events: List[CloudEvent] = await map_crashdetails_as_cloudevents(
+#     cpg_details_cloud_events: List[CloudEvent] = await map_scan_results_as_cloudevents(
 #         cpg_details
 #     )
 #     message_broker_client: Final[MessageBrokerClient] = MessageBrokerClient(
@@ -301,23 +280,24 @@ async def main():
     input_c_programs: Final[List[str]] = os.listdir(config.cpg_svc_input_codebase_path)
 
     scan_results_queue: Deque[List[ScanResult]] = deque()
-    scan_results_as_cloud_events_queue: Deque[List[ScanResult]] = deque()
+    scan_results_as_cloud_events_queue: Deque[List[CloudEvent]] = deque()
     len_input_c_programs = len(input_c_programs)
     for i in range(len_input_c_programs):
         fully_qualified_path = os.path.join(
             config.cpg_svc_input_codebase_path, input_c_programs[i]
         )
-        scan_results: List[ScanResult] = scan_cpg(fully_qualified_path)
+        scan_results: List[ScanResult] = scan_cpg(
+            config.scan_tool_full_path, fully_qualified_path
+        )
         if not scan_results:
             logger.info(f"No scan results for {input_c_programs[i]}")
             continue
         scan_results_queue.append(scan_results)
 
-    scan_results_as_cloud_events: List[ScanResult] = []
     while scan_results_queue:
         scan_results: List[ScanResult] = scan_results_queue.popleft()
-        scan_results_as_cloud_events = await map_scan_result_as_cloudevents(
-            scan_results
+        scan_results_as_cloud_events: List[CloudEvent] = (
+            await map_scan_result_as_cloudevents(scan_results)
         )
         scan_results_as_cloud_events_queue.append(scan_results_as_cloud_events)
 

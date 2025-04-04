@@ -2,4 +2,4 @@ autopatchdatatypes-0.4.1-py3-none-any.whl
 autopatchshared-0.4.1-py3-none-any.whl
 autopatchpubsub-0.4.1-py3-none-any.whl
 paho-mqtt==2.1.0
-pandas==2.2.3
+cloudevents==1.11.0
