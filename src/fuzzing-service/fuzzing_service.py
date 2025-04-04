@@ -1,7 +1,6 @@
 import asyncio
 import base64
 import logging
-import logging.config
 import os
 import signal
 import subprocess

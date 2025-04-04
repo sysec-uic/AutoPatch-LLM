@@ -12,6 +12,14 @@
             "console": "integratedTerminal",
         },
         {
+            "name": "Python Debugger: AutoPatch LLM Dispatch Service",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/workspace/AutoPatch-LLM/src/llm-dispatch/llm_dispatch.py",
+            "console": "integratedTerminal",
+            "envFile": "/workspace/AutoPatch-LLM/src/llm-dispatch/.env"
+        }
+        {
             "name": "Python Debugger: AutoPatch Fuzzing Service",
             "type": "debugpy",
             "request": "launch",
