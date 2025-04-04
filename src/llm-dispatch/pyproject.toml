@@ -1,5 +1,5 @@
 [project]
-name = 'autopatchllm-dispatch'
+name = 'autopatch.llm-dispatch'
 version = '0.5.0'
 requires-python = '>=3.12.3'
 readme = 'README.md'
