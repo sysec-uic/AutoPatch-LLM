@@ -1,29 +1,21 @@
-from abc import ABC, abstractmethod
-from typing import List, Dict
 import asyncio
-import base64
 import logging
-import logging.config
 import os
-import signal
-import subprocess
 import sys
-import time
+from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Final, List
+from typing import Dict, Final, List
 
+from autopatchshared import get_current_timestamp, init_logging, load_config_as_json
+from openai import OpenAI
+
+# from cloudevents.conversion import to_json
 # from autopatchdatatypes import PatchRequest
 # from autopatchdatatypes import PatchResponse
-
 # from autopatchdatatypes import PatchResponseStatus
-
-from autopatchpubsub import MessageBrokerClient
-from autopatchshared import get_current_timestamp, init_logging, load_config_as_json
-from cloudevents.conversion import to_json
-from cloudevents.http import CloudEvent
+# from autopatchpubsub import MessageBrokerClient
+# from cloudevents.http import CloudEvent
 from llm_dispatch_config import LLMDispatchConfig
-
-from openai import OpenAI
 
 # this is the name of the environment variable that will be used point to the configuration map file to load
 CONST_LLM_DISPATCH_CONFIG: Final[str] = "LLM_DISPATCH_CONFIG"
@@ -114,19 +106,28 @@ class BaseLLM(ABC):
 
 # Concrete LLM implementations.
 class ApiLLM(BaseLLM):
-    def __init__(self, name: str, api_key: str, endpoint: str):
+    def __init__(
+        self,
+        name: str,
+        api_key: str,
+        endpoint: str,
+        temperature: float = 1,
+        top_p: float = 1,
+    ):
         self.name = name
         self.api_key = api_key
         self.endpoint = endpoint
+        self.temperature = temperature
+        self.top_p = top_p
 
-    async def generate(self, prompt: str) -> Dict:
-        # Simulate an API call; replace with a real API call in production.
-        response_text = f"API response for prompt '{prompt}' from {self.name}"  # TODO deletethis unused line
+    async def generate(self, prompt: str) -> Dict[str, str]:
         response_text = await self.request_completion_http(
             api_key=self.api_key,
             base_url=self.endpoint,
             model=self.name,
             user_prompt=prompt,
+            temperature=self.temperature,
+            top_p=self.top_p,
         )
         return {"llm_name": self.name, "response": response_text}
 
@@ -137,8 +138,8 @@ class ApiLLM(BaseLLM):
         model: str,
         user_prompt: str,
         # system_prompt: str,
-        # temperature: float,
-        # top_p: str,
+        temperature: float,
+        top_p: float,
         # max_tokens: int,
         # context_window: str,
         # request_timeout: int,
@@ -152,6 +153,8 @@ class ApiLLM(BaseLLM):
 
         completion = client.chat.completions.create(
             model=model,
+            temperature=temperature,
+            top_p=top_p,
             messages=[
                 {
                     "role": "user",
@@ -204,6 +207,8 @@ class ApiLLMStrategy(LLMStrategy):
         responses = []
         for llm in self.llms:
             responses.append(await llm.generate(prompt))
+            logger.info("Waiting for 0.1 seconds to avoid triggering API rate limits.")
+            await asyncio.sleep(0.1)
         return responses
 
 
