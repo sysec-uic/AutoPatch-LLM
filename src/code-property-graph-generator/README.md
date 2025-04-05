@@ -1,9 +1,10 @@
+# Code Property Graph Generator Readme
 joern-scan first generates a complete cpg of the input code.
 Next it traverses through the graph to locate nodes which match certain attributes.
 For example in one use after free query it will match any method nodes that call the function free() and further filters those results to find functions where the vulnerability exists.
 Here is a reference query:
 
-```
+```scala
 withStrRep({ cpg =>
         cpg.method
           .name("(.*_)?free")
