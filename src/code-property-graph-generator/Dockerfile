@@ -15,7 +15,6 @@ RUN apt-get update && \
         gzip=1.12-1ubuntu3 \ 
         unzip=6.0-28ubuntu4.1 
 
-    # ./coursier install scala:3.3.5 && ./coursier install scalac:3.3.5
 RUN curl -fLo coursier https://github.com/coursier/launchers/raw/master/coursier && \
     chmod +x coursier && \
     ./coursier \
