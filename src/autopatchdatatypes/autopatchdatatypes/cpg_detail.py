@@ -63,5 +63,5 @@ class CpgDetail:
         Return a list of sets, each set being the nodes in a connected component.
         Uses a simple breadth-first search.
         """
-        # if we are doign a BFS, use a deque
+        # if we are doing a BFS, use a deque
         pass
