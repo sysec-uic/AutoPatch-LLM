@@ -10,7 +10,7 @@ from typing import Final, List, Deque
 from collections import deque
 
 from cpg_svc_config import CpgSvcConfig
-from autopatchpubsub import MessageBrokerClient
+# from autopatchpubsub import MessageBrokerClient
 from autopatchshared import init_logging, load_config_as_json, get_current_timestamp
 from cloudevents.http import CloudEvent
 
