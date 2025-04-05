@@ -11,8 +11,9 @@ from collections import deque
 
 from cpg_svc_config import CpgSvcConfig
 
-# from autopatchpubsub import MessageBrokerClient
+from autopatchpubsub import MessageBrokerClient
 from autopatchshared import init_logging, load_config_as_json, get_current_timestamp
+from cloudevents.conversion import to_json
 from cloudevents.http import CloudEvent
 from autopatchdatatypes import CpgScanResult
 
@@ -162,7 +163,7 @@ async def map_scan_result_as_cloudevent(scan_result: CpgScanResult) -> CloudEven
     return event
 
 
-async def map_scan_result_as_cloudevents(
+async def map_scan_results_as_cloudevents(
     scan_results: List[CpgScanResult],
 ) -> List[CloudEvent]:
     if len(scan_results) > config.concurrency_threshold:
@@ -176,6 +177,41 @@ async def map_scan_result_as_cloudevents(
         ]
 
     return results
+
+
+async def produce_output(
+    cpg_scan_results: List[CpgScanResult], output_topic: str
+) -> None:
+
+    async def produce_event(event: CloudEvent) -> None:
+        # flake8 flags the following as F821 because it doesn't recognize the global variable
+        logger.debug(f"Producing on Topic: {output_topic}")  # noqa: F821
+        logger.debug(f"Producing CloudEvent: {event}")
+        message_broker_client.publish(
+            output_topic, to_json(event).decode("utf-8")  # noqa: F821
+        )
+
+    cpg_scan_results_cloud_events: List[CloudEvent] = (
+        await map_scan_results_as_cloudevents(cpg_scan_results)
+    )
+    message_broker_client: Final[MessageBrokerClient] = MessageBrokerClient(
+        config.message_broker_host, config.message_broker_port, logger
+    )
+
+    def consume_callback(message: str) -> None:
+        logger.info(f"Message received: {message}")
+
+    message_broker_client.consume(output_topic, consume_callback)
+
+    logger.info(f"Producing {len(cpg_scan_results_cloud_events)} CloudEvents.")
+    if len(cpg_scan_results_cloud_events) > config.concurrency_threshold:
+        # Run in parallel using asyncio.gather
+        tasks = [produce_event(event) for event in cpg_scan_results_cloud_events]
+        await asyncio.gather(*tasks)
+    else:
+        # Run sequentially
+        for event in cpg_scan_results_cloud_events:
+            await produce_event(event)
 
 
 def load_config(json_config_full_path: str) -> CpgSvcConfig:
@@ -253,12 +289,9 @@ async def main():
 
     while scan_results_queue:
         scan_results: List[CpgScanResult] = scan_results_queue.popleft()
-        scan_results_as_cloud_events: List[CloudEvent] = (
-            await map_scan_result_as_cloudevents(scan_results)
-        )
-        scan_results_as_cloud_events_queue.append(scan_results_as_cloud_events)
-
-    logger.info(f"Scan Results as CloudEvents: {scan_results_as_cloud_events_queue}")
+        await produce_output(scan_results, config.cpg_svc_scan_result_output_topic)
+        logger.info(f"Produced {len(scan_results)} scan results.")
+    # logger.info(f"Scan Results as CloudEvents: {scan_results_as_cloud_events_queue}")
 
     CPG_SVC_END_TIMESTAMP: Final[str] = get_current_timestamp()
     time_delta = datetime.fromisoformat(CPG_SVC_END_TIMESTAMP) - datetime.fromisoformat(
