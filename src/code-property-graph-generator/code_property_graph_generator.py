@@ -63,7 +63,6 @@ def scan_cpg(
     _remove_joern_scan_temp_file(joern_scan_temp_log_file_full_path)
 
     timeout_seconds = 120
-    # command_name_str: Final[str] = "joern-scan"
     command_name_str: Final[str] = cpg_scan_tool_full_path
 
     scan_command = [command_name_str]
