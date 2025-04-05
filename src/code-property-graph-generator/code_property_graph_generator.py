@@ -187,39 +187,6 @@ async def map_scan_result_as_cloudevents(
     return results
 
 
-# async def produce_output(cpg_details: List[CpgDetail]) -> None:
-
-#     async def produce_event(event: CloudEvent) -> None:
-#         # flake8 flags the following as F821 because it doesn't recognize the global variable
-#         logger.debug(f"Producing on Topic: {config.cpg_svc_output_topic}")  # noqa: F821
-#         logger.debug(f"Producing CloudEvent: {event}")
-#         message_broker_client.publish(
-#             config.cpg_svc_output_topic, str(event)  # noqa: F821
-#         )
-
-#     cpg_details_cloud_events: List[CloudEvent] = await map_scan_results_as_cloudevents(
-#         cpg_details
-#     )
-#     message_broker_client: Final[MessageBrokerClient] = MessageBrokerClient(
-#         config.message_broker_host, config.message_broker_port, logger
-#     )
-
-#     logger.info(f"Producing {len(cpg_details_cloud_events)} CloudEvents.")
-#     if len(cpg_details_cloud_events) > config.concurrency_threshold:
-#         # Run in parallel using asyncio.gather
-#         tasks = [produce_event(event) for event in cpg_details_cloud_events]
-#         await asyncio.gather(*tasks)
-#     else:
-#         # Run sequentially
-#         for event in cpg_details_cloud_events:
-#             await produce_event(event)
-
-#     csv_path: Final[str] = os.path.join(
-#         config.cpg_svc_output_path, "code-property-graphs.csv"
-#     )
-#     write_code_property_graphs_as_csv(cpg_details, csv_path)
-
-
 def load_config(json_config_full_path: str) -> CpgSvcConfig:
     config = load_config_as_json(json_config_full_path, logger)
     return CpgSvcConfig(**config)
