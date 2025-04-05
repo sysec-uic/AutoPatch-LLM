@@ -1,11 +1,12 @@
 [project]
-name = 'autopatch.fuzzing-service'
+name = 'code-property-graph-generator'
 version = '0.5.0'
 requires-python = '>=3.12.3'
 readme = 'README.md'
 authors = [
     { name = 'Robert D. Hernandez', email = 'rherna70@uic.edu' },
-    { name = 'Lily Leith', email = 'lleit@uic.edu' }
+    { name = 'Nico Gibson', email = 'ngibs01@jaguar.tamu.edu' },
+    { name = 'Matthew Trevino', email = 'mtrev049@jaguar.tamu.edu' }
 ]
 
 [build-system]

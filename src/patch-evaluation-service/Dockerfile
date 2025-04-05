@@ -21,9 +21,9 @@ RUN groupadd -r appuser && \
 
 COPY requirements.txt .
 
-COPY autopatchdatatypes-0.4.1-py3-none-any.whl .
-COPY autopatchshared-0.4.1-py3-none-any.whl .
-COPY autopatchpubsub-0.4.1-py3-none-any.whl .
+COPY autopatchdatatypes-0.5.0-py3-none-any.whl .
+COPY autopatchshared-0.5.0-py3-none-any.whl .
+COPY autopatchpubsub-0.5.0-py3-none-any.whl .
 
 # this is for layered builds
 # RUN pip install --break-system-packages --user --no-cache-dir -r requirements.txt

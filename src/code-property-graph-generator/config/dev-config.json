@@ -1,0 +1,13 @@
+{
+    "version": "0.5.0-alpha",
+    "appname": "autopatch.code-property-graph-generator",
+    "logging_config" : "/workspace/AutoPatch-LLM/src/code-property-graph-generator/config/dev-logging-config.json",
+    "scan_tool_full_path": "/opt/joern/joern-cli/joern-scan",
+    "concurrency_threshold": 10,
+    "message_broker_host": "mosquitto",
+    "message_broker_port": 1883,
+    "message_broker_protocol": "mqtt",
+    "cpg_svc_scan_result_output_topic" : "autopatch/cpg-scan-result",
+    "cpg_svc_input_codebase_path" : "/workspace/AutoPatch-LLM/assets/input_codebase",
+    "cpg_svc_output_path" : "/workspace/AutoPatch-LLM/src/code-property-graph-generator/data"
+}

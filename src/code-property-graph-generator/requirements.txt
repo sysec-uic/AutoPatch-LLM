@@ -1,5 +1,5 @@
-paho-mqtt==2.1.0
 autopatchdatatypes-0.5.0-py3-none-any.whl
 autopatchshared-0.5.0-py3-none-any.whl
 autopatchpubsub-0.5.0-py3-none-any.whl
+paho-mqtt==2.1.0
 cloudevents==1.11.0
