@@ -25,7 +25,7 @@ config: CpgSvcConfig
 logger = logging.getLogger(__name__)
 
 
-def _remove_joern_scan_temp_file(file_full_path: str) -> None:
+def remove_joern_scan_temp_file(file_full_path: str) -> None:
     """
     Deletes the specified file if it exists.  Does not yet support NT paths.
     """
@@ -53,7 +53,7 @@ def scan_cpg(
     parsed_datasets: List[CpgScanResult] = []
 
     joern_scan_temp_log_file_full_path: Final[str] = "/tmp/joern-scan-log.txt"
-    _remove_joern_scan_temp_file(joern_scan_temp_log_file_full_path)
+    remove_joern_scan_temp_file(joern_scan_temp_log_file_full_path)
 
     timeout_seconds = 120
     command_name_str: Final[str] = cpg_scan_tool_full_path
