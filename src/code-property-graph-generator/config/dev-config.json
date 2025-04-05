@@ -2,7 +2,7 @@
     "version": "0.5.1-alpha",
     "appname": "autopatch.code-property-graph-generator",
     "logging_config" : "/workspace/AutoPatch-LLM/src/code-property-graph-generator/config/dev-logging-config.json",
-    "scan_tool_full_path": "/usr/local/bin/jeorn-scan",
+    "scan_tool_full_path": "/opt/joern/joern-cli/joern-scan",
     "concurrency_threshold": 10,
     "message_broker_host": "mosquitto",
     "message_broker_port": 1883,
