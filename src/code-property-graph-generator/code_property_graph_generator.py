@@ -10,19 +10,11 @@ from typing import Final, List, Deque
 from collections import deque
 
 from cpg_svc_config import CpgSvcConfig
+
 # from autopatchpubsub import MessageBrokerClient
 from autopatchshared import init_logging, load_config_as_json, get_current_timestamp
 from cloudevents.http import CloudEvent
-
-
-@dataclass
-class ScanResult:
-    executable_name: str
-    vulnerability_severity: float
-    vulnerable_line_number: int
-    vulnerable_function: str
-    vulnerability_description: str
-
+from autopatchdatatypes import CpgScanResult
 
 # this is the name of the environment variable that will be used point to the configuration map file to load
 CONST_CPG_SVC_CONFIG: Final[str] = "CPG_SVC_CONFIG"
@@ -55,9 +47,9 @@ def _remove_joern_scan_temp_file(file_full_path: str) -> None:
 
 def scan_cpg(
     cpg_scan_tool_full_path: str, c_program_full_path: str
-) -> List[ScanResult]:
+) -> List[CpgScanResult]:
 
-    parsed_datasets: List[ScanResult] = []
+    parsed_datasets: List[CpgScanResult] = []
 
     joern_scan_temp_log_file_full_path: Final[str] = "/tmp/joern-scan-log.txt"
     _remove_joern_scan_temp_file(joern_scan_temp_log_file_full_path)
@@ -127,7 +119,7 @@ def scan_cpg(
     return parsed_datasets
 
 
-async def map_scan_result_as_cloudevent(scan_result: ScanResult) -> CloudEvent:
+async def map_scan_result_as_cloudevent(scan_result: CpgScanResult) -> CloudEvent:
     """
     Maps a ScanResult instance to a CloudEvent Occurence.
 
@@ -171,7 +163,7 @@ async def map_scan_result_as_cloudevent(scan_result: ScanResult) -> CloudEvent:
 
 
 async def map_scan_result_as_cloudevents(
-    scan_results: List[ScanResult],
+    scan_results: List[CpgScanResult],
 ) -> List[CloudEvent]:
     if len(scan_results) > config.concurrency_threshold:
         # Run in parallel
@@ -191,7 +183,7 @@ def load_config(json_config_full_path: str) -> CpgSvcConfig:
     return CpgSvcConfig(**config)
 
 
-def unmarshall_raw_joern_scan_result(scan_result: str) -> ScanResult:
+def unmarshall_raw_joern_scan_result(scan_result: str) -> CpgScanResult:
     # Parse result into separate attributes and build ScanResult object
     parts = scan_result.split(":")
     # Extract and clean up each part:
@@ -201,7 +193,7 @@ def unmarshall_raw_joern_scan_result(scan_result: str) -> ScanResult:
     vulnerable_line_number = int(parts[4].strip())  # "8" converted to int
     vulnerable_function = parts[5].strip()  # "get_input"
 
-    return ScanResult(
+    return CpgScanResult(
         vulnerability_severity=vulnerability_severity,
         executable_name=executable_file_name,
         vulnerable_line_number=vulnerable_line_number,
@@ -210,8 +202,8 @@ def unmarshall_raw_joern_scan_result(scan_result: str) -> ScanResult:
     )
 
 
-def unmarshall_raw_joern_scan_results(scan_results: List[str]) -> List[ScanResult]:
-    res: List[ScanResult] = []
+def unmarshall_raw_joern_scan_results(scan_results: List[str]) -> List[CpgScanResult]:
+    res: List[CpgScanResult] = []
     for i in scan_results:
         res.append(unmarshall_raw_joern_scan_result(i))
     return res
@@ -244,14 +236,14 @@ async def main():
     # severity, executable name, line number, and function name# c
     input_c_programs: Final[List[str]] = os.listdir(config.cpg_svc_input_codebase_path)
 
-    scan_results_queue: Deque[List[ScanResult]] = deque()
+    scan_results_queue: Deque[List[CpgScanResult]] = deque()
     scan_results_as_cloud_events_queue: Deque[List[CloudEvent]] = deque()
     len_input_c_programs = len(input_c_programs)
     for i in range(len_input_c_programs):
         fully_qualified_path = os.path.join(
             config.cpg_svc_input_codebase_path, input_c_programs[i]
         )
-        scan_results: List[ScanResult] = scan_cpg(
+        scan_results: List[CpgScanResult] = scan_cpg(
             config.scan_tool_full_path, fully_qualified_path
         )
         if not scan_results:
@@ -260,7 +252,7 @@ async def main():
         scan_results_queue.append(scan_results)
 
     while scan_results_queue:
-        scan_results: List[ScanResult] = scan_results_queue.popleft()
+        scan_results: List[CpgScanResult] = scan_results_queue.popleft()
         scan_results_as_cloud_events: List[CloudEvent] = (
             await map_scan_result_as_cloudevents(scan_results)
         )
