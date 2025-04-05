@@ -291,7 +291,6 @@ async def main():
         scan_results: List[CpgScanResult] = scan_results_queue.popleft()
         await produce_output(scan_results, config.cpg_svc_scan_result_output_topic)
         logger.info(f"Produced {len(scan_results)} scan results.")
-    # logger.info(f"Scan Results as CloudEvents: {scan_results_as_cloud_events_queue}")
 
     CPG_SVC_END_TIMESTAMP: Final[str] = get_current_timestamp()
     time_delta = datetime.fromisoformat(CPG_SVC_END_TIMESTAMP) - datetime.fromisoformat(
