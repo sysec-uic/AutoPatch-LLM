@@ -64,6 +64,7 @@ tasks:
         - task: autopatchdatatypes:install
         - cp ./src/autopatchdatatypes/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet
         - cp ./src/autopatchdatatypes/dist/*.whl ./src/patch-evaluation-service # no private pacakge feeds yet
+        - cp ./src/autopatchdatatypes/dist/*.whl ./src/code-property-graph-generator # no private pacakge feeds yet
    build-install-facades:
       desc: Build and install
       cmds:
@@ -73,6 +74,7 @@ tasks:
         - task: autopatchpubsub:install
         - cp ./src/autopatchpubsub/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet
         - cp ./src/autopatchpubsub/dist/*.whl ./src/patch-evaluation-service # no private pacakge feeds yet
+        - cp ./src/autopatchpubsub/dist/*.whl ./src/code-property-graph-generator # no private pacakge feeds yet
    build-install-shared:
       desc: Build and install shared modules package
       cmds:
@@ -82,6 +84,7 @@ tasks:
         - task: autopatchshared:install
         - cp ./src/autopatchshared/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet
         - cp ./src/autopatchshared/dist/*.whl ./src/patch-evaluation-service # no private pacakge feeds yet
+        - cp ./src/autopatchshared/dist/*.whl ./src/code-property-graph-generator # no private pacakge feeds yet
    install-package-dependencies:
       desc: Install package dependencies
       cmds:
