@@ -7,6 +7,9 @@ includes:
    llm-dispatch:
       taskfile: ./src/llm-dispatch/Taskfile.yml
       dir: ./src/llm-dispatch
+   code-property-graph-generator:
+      taskfile: ./src/code-property-graph-generator/Taskfile.yml
+      dir: ./src/code-property-graph-generator
    autopatchdatatypes:
       taskfile: ./src/autopatchdatatypes/Taskfile.yml
       dir: ./src/autopatchdatatypes
@@ -61,6 +64,7 @@ tasks:
         - task: autopatchdatatypes:install
         - cp ./src/autopatchdatatypes/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet
         - cp ./src/autopatchdatatypes/dist/*.whl ./src/patch-evaluation-service # no private pacakge feeds yet
+        - cp ./src/autopatchdatatypes/dist/*.whl ./src/code-property-graph-generator # no private pacakge feeds yet
    build-install-facades:
       desc: Build and install
       cmds:
@@ -70,6 +74,7 @@ tasks:
         - task: autopatchpubsub:install
         - cp ./src/autopatchpubsub/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet
         - cp ./src/autopatchpubsub/dist/*.whl ./src/patch-evaluation-service # no private pacakge feeds yet
+        - cp ./src/autopatchpubsub/dist/*.whl ./src/code-property-graph-generator # no private pacakge feeds yet
    build-install-shared:
       desc: Build and install shared modules package
       cmds:
@@ -79,6 +84,7 @@ tasks:
         - task: autopatchshared:install
         - cp ./src/autopatchshared/dist/*.whl ./src/fuzzing-service # no private pacakge feeds yet
         - cp ./src/autopatchshared/dist/*.whl ./src/patch-evaluation-service # no private pacakge feeds yet
+        - cp ./src/autopatchshared/dist/*.whl ./src/code-property-graph-generator # no private pacakge feeds yet
    install-package-dependencies:
       desc: Install package dependencies
       cmds:
@@ -88,6 +94,7 @@ tasks:
         - task: build-install-facades
         - task: fuzzing-service:install
         - task: patch-evaluation-service:install
+        - task: code-property-graph-generator:install
         # - task llm-dispatch:install
         # - task patch-request-generator-component:install
         # - task main:install

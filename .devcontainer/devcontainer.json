@@ -27,6 +27,9 @@
 		"ghcr.io/devcontainers/features/java:1": {
 			"version": "21"
 		},
+		"ghcr.io/ebaskoro/devcontainer-features/scala:1": {
+			"version": "3.3.5"
+		},
 		"ghcr.io/devcontainers/features/github-cli:1": {
 			"installDirectlyFromGitHubRelease": true
 		},
