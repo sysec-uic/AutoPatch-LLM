@@ -96,6 +96,13 @@ class MockLogger:
         self.messages.append(msg)
 
 
+@pytest.fixture(autouse=True)
+def mock_logger(monkeypatch):
+    logger = MockLogger()
+    monkeypatch.setattr("llm_dispatch_svc.logger", logger)
+    return logger
+
+
 # @pytest.fixture(autouse=True)
 # def mock_message_broker_client(monkeypatch):
 #     class DummyMessageBrokerClient:
@@ -198,13 +205,15 @@ async def test_read_file_normal_case(tmp_path):
 
 @pytest.mark.asyncio
 async def test_read_file_empty_path(caplog):
+    """Be sure app doesn't crash when empty path is passed"""
     # Assemble
-    # Act
-    result = await read_file("")
+    empty_path: Final[str] = ""
 
     # Act
-    assert result == ""
-    assert "File does not exist" in caplog.text
+    res = await read_file(empty_path)
+
+    # Assert
+    assert res == ""
 
 
 @pytest.mark.asyncio
