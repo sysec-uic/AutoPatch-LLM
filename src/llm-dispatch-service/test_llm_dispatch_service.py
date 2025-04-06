@@ -1,14 +1,13 @@
+import logging
 from datetime import datetime as real_datetime
 from datetime import timezone
-import logging
 from pathlib import Path
-import pytest
 from types import SimpleNamespace
 from typing import Final
 from unittest.mock import MagicMock
-import pytest
 
-import llm_dispatch_svc as llm_dispatch_svc
+import llm_dispatch_svc
+import pytest
 from llm_dispatch_svc import full_prompt, init_llm_client, load_config, read_file
 from llm_dispatch_svc_config import LLMDispatchSvcConfig
 
