@@ -11,9 +11,6 @@ RUN apt-get update && \
 # Stage 2: Install Python and pip deps
 FROM base AS python-builder
 
-ENV DEBIAN_FRONTEND=noninteractive \
-    PYTHONUNBUFFERED=1
-
 RUN apt-get install -y --no-install-recommends \
         python3-pip=24.0+dfsg-1ubuntu1.1
 
@@ -28,9 +25,6 @@ RUN pip install --break-system-packages --no-cache-dir -r requirements.txt
 
 # Stage 3: Final runtime image
 FROM base AS final
-
-ENV DEBIAN_FRONTEND=noninteractive \
-    PYTHONUNBUFFERED=1
 
 # Install required packages and clean up apt cache
 RUN apt-get install -y --no-install-recommends \
