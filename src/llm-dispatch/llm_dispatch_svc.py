@@ -14,18 +14,18 @@ from autopatchshared import get_current_timestamp, init_logging, load_config_as_
 # from autopatchdatatypes import PatchResponseStatus
 # from autopatchpubsub import MessageBrokerClient
 # from cloudevents.http import CloudEvent
-from llm_dispatch_config import LLMDispatchConfig
+from llm_dispatch_svc_config import LLMDispatchSvcConfig
 from openai import OpenAI
 
 # this is the name of the environment variable that will be used point to the configuration map file to load
 CONST_LLM_DISPATCH_CONFIG: Final[str] = "LLM_DISPATCH_CONFIG"
-config: LLMDispatchConfig
+config: LLMDispatchSvcConfig
 
 # before configuration is loaded, use the default logger
 logger = logging.getLogger(__name__)
 
 
-def load_config(json_config_full_path: str) -> LLMDispatchConfig:
+def load_config(json_config_full_path: str) -> LLMDispatchSvcConfig:
     """
     Load the configuration from a JSON file and instantiate a LLMDispatchConfig object.
     Parameters:
@@ -36,7 +36,7 @@ def load_config(json_config_full_path: str) -> LLMDispatchConfig:
         Exception: Propagates any exceptions encountered during JSON loading or configuration parsing.
     """
     config = load_config_as_json(json_config_full_path, logger)
-    return LLMDispatchConfig(**config)
+    return LLMDispatchSvcConfig(**config)
 
 
 # async def request_patch(
@@ -72,13 +72,20 @@ async def read_file(file_full_path: str) -> str:
 
 
 async def full_prompt(system_prompt_full_path: str, user_prompt_full_path: str) -> str:
-    _system_prompt = await read_file(system_prompt_full_path)
-    _user_prompt = await read_file(user_prompt_full_path)
+    _system_prompt: Final[str] = await read_file(system_prompt_full_path)
+    _user_prompt: Final[str] = await read_file(user_prompt_full_path)
 
-    _c_program_source_code_to_patch = await read_file(config.devonlyinputfilepath)
-    _separator = "\n---\n"
+    _c_program_source_code_to_patch: Final[str] = await read_file(
+        config.devonlyinputfilepath
+    )
+    _separator: Final[str] = "\n---\n"
 
-    return f"{_system_prompt} {_user_prompt} {_separator} {_c_program_source_code_to_patch}"
+    full_prompt: Final[str] = (
+        f"{_system_prompt} {_user_prompt} {_separator} {_c_program_source_code_to_patch}"
+    )
+    logger.info(f"Full prompt: {full_prompt}")
+
+    return full_prompt
 
 
 async def wrap_raw_response():

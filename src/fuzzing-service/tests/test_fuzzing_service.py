@@ -24,9 +24,9 @@ from fuzzing_service import (
 )
 
 
-def dummy_FuzzSvcConfig() -> FuzzSvcConfig:
-    dummy_config = {
-        "version": "0.4.1-alpha",
+def mock_FuzzSvcConfig() -> FuzzSvcConfig:
+    mock_config = {
+        "version": "0.5.0-alpha",
         "appname": "autopatch.fuzzing-service",
         "logging_config": "config/logging-config.json",
         "concurrency_threshold": 10,
@@ -49,7 +49,7 @@ def dummy_FuzzSvcConfig() -> FuzzSvcConfig:
         "afl_compiler_tool_full_path": "/workspace/AutoPatch-LLM/bin/afl-2.52b/afl-gcc",
         "iconv_tool_timeout": 120,
     }
-    return FuzzSvcConfig(**dummy_config)
+    return FuzzSvcConfig(**mock_config)
 
 
 # A dummy logger to capture logger calls.
@@ -72,7 +72,7 @@ class DummyLogger:
 
 
 @pytest.fixture(autouse=True)
-def fake_message_broker_client(monkeypatch):
+def mock_message_broker_client(monkeypatch):
     class DummyMessageBrokerClient:
         def __init__(self, *args, **kwargs):
             self.client = mock.Mock(spec=mqtt_client.Client)
@@ -110,16 +110,15 @@ def patch_datetime(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def dummy_logger(monkeypatch):
+def mock_logger(monkeypatch):
     logger = DummyLogger()
     monkeypatch.setattr("fuzzing_service.logger", logger)
     return logger
 
 
-def dummy_run_success(*args, **kwargs):
+def mock_run_success(*args, **kwargs):
     # Return an object with stdout and stderr attributes.
-    dummy = SimpleNamespace(stdout="compile ok", stderr="")
-    return dummy
+    return SimpleNamespace(stdout="compile ok", stderr="")
 
 
 # --------------
@@ -130,10 +129,16 @@ def dummy_run_success(*args, **kwargs):
 @pytest.mark.asyncio
 async def test_MapCrashDetailAsCloudEvent():
     """Test that a CrashDetail object is correctly mapped to a CloudEvent."""
+
+    # Assemble
     crash_detail = CrashDetail(
         "test_exe", base64.b64encode(b"crash_data").decode("utf-8"), True
     )
+
+    # Act
     event = await map_crash_detail_as_cloudevent(crash_detail)
+
+    # Assert
     assert event is not None
     assert event["type"] == "autopatch.crashdetail"
     assert event["source"] == "autopatch.fuzzing-service"
@@ -147,38 +152,53 @@ async def test_MapCrashDetailAsCloudEvent():
 
 @pytest.mark.asyncio
 async def test_MapCrashDetailsAsCloudEvents():
-    fuzzing_service.config = dummy_FuzzSvcConfig()
+    # Assemble
+    fuzzing_service.config = mock_FuzzSvcConfig()
     """Test that a list of CrashDetail objects are mapped to CloudEvents asynchronously."""
     crash_details = [
         CrashDetail("test_exe1", base64.b64encode(b"crash1").decode("utf-8"), True),
         CrashDetail("test_exe2", base64.b64encode(b"crash2").decode("utf-8"), False),
     ]
+
+    # Act
     events = await map_crashdetails_as_cloudevents(crash_details)
+
+    # Assert
     assert len(events) == 2
     assert events[0]["subject"] == "test_exe1"
     assert events[1]["subject"] == "test_exe2"
 
 
 @pytest.mark.asyncio
-async def test_produce_output(dummy_logger):
-    fuzzing_service.config = dummy_FuzzSvcConfig()
+async def test_produce_output(mock_logger):
+    # Assemble
+    fuzzing_service.config = mock_FuzzSvcConfig()
     """Test producing output asynchronously, ensuring logger output is correct."""
     crash_details = [
         CrashDetail("test_exe", base64.b64encode(b"crash_data").decode("utf-8"), True)
     ]
+
+    # Act
     await produce_output(crash_details)
-    assert "Producing 1 CloudEvents." in dummy_logger.messages
+
+    # Assert
+    assert "Producing 1 CloudEvents." in mock_logger.messages
 
 
 @pytest.mark.asyncio
-async def test_produce_output_with_multiple_events(dummy_logger):
+async def test_produce_output_with_multiple_events(mock_logger):
     """Test producing multiple CloudEvents asynchronously."""
+    # Assemble
     crash_details = [
         CrashDetail("test_exe1", base64.b64encode(b"crash1").decode("utf-8"), True),
         CrashDetail("test_exe2", base64.b64encode(b"crash2").decode("utf-8"), False),
     ]
+
+    # Act
     await produce_output(crash_details)
-    assert "Producing 2 CloudEvents." in dummy_logger.messages
+
+    # Assert
+    assert "Producing 2 CloudEvents." in mock_logger.messages
 
 
 # --------------
@@ -187,6 +207,7 @@ async def test_produce_output_with_multiple_events(dummy_logger):
 
 
 def test_run_fuzzer_compile_failure(monkeypatch):
+    # Assemble
     # Set up config.
     fuzzing_service.config.compiler_warning_flags = "-w"
     fuzzing_service.config.compiler_feature_flags = "-f"
@@ -209,15 +230,20 @@ def test_run_fuzzer_compile_failure(monkeypatch):
         raise subprocess.CalledProcessError(1, args[0], output="error")
 
     monkeypatch.setattr(subprocess, "run", fake_run_fail)
+
+    # Act
     ret = compile_program_run_fuzzer(
         executable_name, *dummy_args, isInputFromFile=False
     )
+
+    # Assemble
     assert ret is False
 
 
 def test_run_fuzzer_popen_failure(monkeypatch):
+    # Assemble
     # Set up config.
-    fuzzing_service.config = dummy_FuzzSvcConfig()
+    fuzzing_service.config = mock_FuzzSvcConfig()
     fuzzing_service.config.compiler_warning_flags = "-w"
     fuzzing_service.config.compiler_feature_flags = "-f"
     fuzzing_service.config.afl_tool_child_process_memory_limit_mb = 128
@@ -233,16 +259,20 @@ def test_run_fuzzer_popen_failure(monkeypatch):
         10,
     )
     # Let the compile succeed.
-    monkeypatch.setattr(subprocess, "run", dummy_run_success)
+    monkeypatch.setattr(subprocess, "run", mock_run_success)
     # Simulate a failure in the fuzzer run by having Popen raise an Exception.
     monkeypatch.setattr(
         subprocess,
         "Popen",
         lambda *args, **kwargs: (_ for _ in ()).throw(Exception("Popen failed")),
     )
+
+    # Act
     ret = compile_program_run_fuzzer(
         executable_name, *dummy_args, isInputFromFile=False
     )
+
+    # Assert
     assert ret is False
 
 
@@ -252,13 +282,16 @@ def test_run_fuzzer_popen_failure(monkeypatch):
 
 
 def test_extract_crashes_no_directory(monkeypatch):
+    # Assemble
     # Simulate os.listdir raising FileNotFoundError.
     monkeypatch.setattr(
         os, "listdir", lambda path: (_ for _ in ()).throw(FileNotFoundError)
     )
+    # Act
     crashes = extract_crashes(
         "/nonexistent/path", "testprog", timeout=5, isInputFromFile=True
     )
+    # Assert
     assert crashes == []
 
 
@@ -272,6 +305,7 @@ def test_write_crashes_csv_new_file_input_from_file(monkeypatch, tmp_path):
     Test that when the CSV file does not exist, the header is written,
     and when isInputFromFile is True, the crashes (as strings) are written.
     """
+    # Assemble
     csv_path = tmp_path / "crashes.csv"
     executable_name = "test_exe"
     dummy_base64_messages = ["crash1", "crash2"]
@@ -284,9 +318,11 @@ def test_write_crashes_csv_new_file_input_from_file(monkeypatch, tmp_path):
         for base64_message in dummy_base64_messages
     ]
 
+    # Act
     # Call the function (it should create the file and write the header).
     write_crashes_csv(crash_details, str(csv_path))
 
+    # Assert
     # Read back the file.
     content = csv_path.read_text(encoding="utf-8")
     lines = content.splitlines()
@@ -305,6 +341,7 @@ def test_write_crashes_csv_existing_file_no_header(monkeypatch, tmp_path):
     Test that if the CSV file already exists and is non-empty,
     the header is not re-written.
     """
+    # Assemble
     csv_path = tmp_path / "crashes.csv"
     # Create a file with a header already.
     header = "timestamp,executable_name,crash_detail,isInputFromFile\n"
@@ -320,8 +357,10 @@ def test_write_crashes_csv_existing_file_no_header(monkeypatch, tmp_path):
         CrashDetail(executable_name, crash, False) for crash in dummy_base64_messages
     ]
 
+    # Act
     write_crashes_csv(crash_details, str(csv_path))
 
+    # Assert
     content = csv_path.read_text(encoding="utf-8")
     lines = content.splitlines()
 
@@ -340,14 +379,16 @@ def test_write_crashes_csv_empty_crashes(monkeypatch, tmp_path):
     Test that when the crashes list is empty and the file does not exist,
     only the header is written.
     """
+    # Assemble
     csv_path = tmp_path / "crashes.csv"
     crashes = []
 
+    # Act
     write_crashes_csv(crashes, str(csv_path))
 
+    # Assert
     content = csv_path.read_text(encoding="utf-8")
     lines = content.splitlines()
-
     # Only the header should be present.
     assert lines == ["timestamp,executable_name,crash_detail_base64,isInputFromFile"]
 
@@ -378,10 +419,11 @@ def test_write_crashes_csv_creates_directory(monkeypatch, tmp_path):
     assert lines[1] == expected_line
 
 
-def test_write_crashes_csv_logger_called(tmp_path, dummy_logger):
+def test_write_crashes_csv_logger_called(tmp_path, mock_logger):
     """
     Test that logger.info is called for each crash.
     """
+    # Assemble
     csv_path = tmp_path / "crashes.csv"
     executable_name = "test_exe"
     log_crash1_base64 = base64.b64encode(b"log_crash1").decode("utf-8")
@@ -391,8 +433,10 @@ def test_write_crashes_csv_logger_called(tmp_path, dummy_logger):
         CrashDetail(executable_name, crash, True) for crash in dummy_base64_messages
     ]
 
+    # Act
     write_crashes_csv(crash_details, str(csv_path))
 
+    # Assert
     # Verify that a log entry was recorded for each crash.
     expected_messages = [f"  - {crash}" for crash in crash_details]
-    assert dummy_logger.messages == expected_messages
+    assert mock_logger.messages == expected_messages
