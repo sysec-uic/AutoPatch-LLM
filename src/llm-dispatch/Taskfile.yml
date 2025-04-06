@@ -13,7 +13,7 @@ tasks:
     desc: Install AutoPatch LLM-Dispatch
     cmds:
       - echo "Installing AutoPatch LLM-Dispatch"
-      - pip install {{.CLI_ARGS}} $ARGS ./dist/*.whl
+      - pip install -r requirements.txt  --break-system-packages
   uninstall:
     desc: Uninstall AutoPatch LLM-Dispatch
     cmds:

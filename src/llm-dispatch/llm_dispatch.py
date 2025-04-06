@@ -316,6 +316,7 @@ async def main():
         "deepseek/deepseek-r1-zero:free",
         "google/gemini-2.5-pro-exp-03-25:free",
         "meta-llama/llama-3.3-70b-instruct:free",
+        "mistralai/mistral-small-3.1-24b-instruct:free",
     ]
 
     model_router_base_url = os.environ.get("MODEL_ROUTER_BASE_URL", "CHANGE_ME")

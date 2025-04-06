@@ -1,5 +1,7 @@
 # **AutoPatch: LLM Based Automated Memory Safety Bug (CVE) Patching with Fuzzing, Address Sanitization, and Code Property Graphs** <!-- omit in toc -->
 
+Lead Developer: Robert D. Hernandez <https://www.linkedin.com/in/robhernandez5/>
+
 - [CI Status](#ci-status)
 - [Project MetaData](#project-metadata)
 - [Introduction](#introduction)
