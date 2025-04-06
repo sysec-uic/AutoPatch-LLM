@@ -5,14 +5,14 @@ import subprocess
 import sys
 import time
 from collections import deque
-from dataclasses import dataclass
 from datetime import datetime
 from typing import Final, List, Deque
+
+from autopatchdatatypes import CpgScanResult
 from autopatchpubsub import MessageBrokerClient
 from autopatchshared import get_current_timestamp, init_logging, load_config_as_json
 from cloudevents.conversion import to_json
 from cloudevents.http import CloudEvent
-from autopatchdatatypes import CpgScanResult
 from cpg_svc_config import CpgSvcConfig
 
 # this is the name of the environment variable that will be used point to the configuration map file to load
@@ -271,7 +271,6 @@ async def main():
     input_c_programs: Final[List[str]] = os.listdir(config.cpg_svc_input_codebase_path)
 
     scan_results_queue: Deque[List[CpgScanResult]] = deque()
-    scan_results_as_cloud_events_queue: Deque[List[CloudEvent]] = deque()
     len_input_c_programs = len(input_c_programs)
     for i in range(len_input_c_programs):
         fully_qualified_path = os.path.join(
