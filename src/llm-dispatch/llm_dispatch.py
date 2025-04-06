@@ -313,8 +313,8 @@ async def main():
 
     models = [
         "openai/gpt-4o-mini:free",
-        "deepseek/deepseek-r1-zero:free",
         "google/gemini-2.5-pro-exp-03-25:free",
+        "deepseek/deepseek-r1-zero:free",
         "meta-llama/llama-3.3-70b-instruct:free",
         "mistralai/mistral-small-3.1-24b-instruct:free",
     ]
