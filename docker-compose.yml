@@ -3,6 +3,20 @@
 # this file is intended for interactive development only
 
 services:
+  autopatch-llm-dispatch-service:
+    networks:
+      - autopatch-llm_autopatch-docker-network
+    build: ./src/llm-dispatch
+    container_name: autopatch-llm-dispatch-service
+    environment:
+      - LLM_DISPATCH_CONFIG=/app/config/config.json
+    env_file:
+      - ./src/llm-dispatch/.env
+    volumes:
+      - ./src/llm-dispatch/config:/app/config:ro
+      - ./src/llm-dispatch/log:/app/log:rw
+      - ./src/llm-dispatch/data:/app/data:ro
+    working_dir: /app
   autopatch-code-property-graph-generator:
     networks:
       - autopatch-llm_autopatch-docker-network

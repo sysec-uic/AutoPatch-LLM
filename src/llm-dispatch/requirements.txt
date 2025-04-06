@@ -1,2 +1,4 @@
-requests
-openai
+autopatchdatatypes-0.5.0-py3-none-any.whl
+autopatchshared-0.5.0-py3-none-any.whl
+autopatchpubsub-0.5.0-py3-none-any.whl
+openai==1.69.0

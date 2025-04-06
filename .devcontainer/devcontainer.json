@@ -72,6 +72,7 @@
 				"GitHub.vscode-github-actions"
 			],
 			"settings": {
+				"git.enableCommitSigning": true,
 				"[python]": {
 					"editor.formatOnSave": true,
 					"editor.defaultFormatter": "ms-python.black-formatter",
@@ -88,6 +89,9 @@
 	"initializeCommand": ["python3", "assets/create-docker-network.py"],
 	"runArgs": [
 		"--network", "autopatch-llm_autopatch-docker-network"
+	],
+	"mounts": [
+		"source=${env:HOME}/.gnupg,target=/home/vscode/.gnupg,type=bind,consistency=cached"
 	],
 	"postCreateCommand": "task install-devtools",
 	"postStartCommand": "fastfetch && black --version && coverage --version && echo -n 'isort version: ' && isort --version-number && java --version",

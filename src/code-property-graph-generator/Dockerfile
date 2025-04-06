@@ -1,5 +1,4 @@
 # Stage 0: Base
-
 FROM ubuntu:noble AS base
 
 ENV DEBIAN_FRONTEND=noninteractive
