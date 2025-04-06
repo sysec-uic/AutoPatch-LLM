@@ -1,4 +1,5 @@
 {
+    "devonlyinputfilepath": "/workspace/AutoPatch-LLM/src/llm-dispatch/data/prompts/dummy_c_file.c",
     "appName": "autopatch.llm-dispatch",
     "appVersion": "0.1.0",
     "appDescription": "A system for managing and dispatching requests to various language models.",

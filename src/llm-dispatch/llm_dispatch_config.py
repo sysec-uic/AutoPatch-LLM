@@ -4,6 +4,7 @@ from typing import Dict, List
 
 @dataclass
 class LLMDispatchConfig:
+    devonlyinputfilepath: str
     appName: str
     appVersion: str
     appDescription: str

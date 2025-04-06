@@ -75,9 +75,7 @@ async def full_prompt(system_prompt_full_path: str, user_prompt_full_path: str) 
     _system_prompt = await read_file(system_prompt_full_path)
     _user_prompt = await read_file(user_prompt_full_path)
 
-    _c_program_source_code_to_patch = await read_file(
-        "/workspace/AutoPatch-LLM/src/llm-dispatch/data/prompts/dummy_c_file.c"
-    )
+    _c_program_source_code_to_patch = await read_file(config.devonlyinputfilepath)
     _separator = "\n---\n"
 
     return f"{_system_prompt} {_user_prompt} {_separator} {_c_program_source_code_to_patch}"
@@ -320,8 +318,8 @@ async def main():
         "meta-llama/llama-3.3-70b-instruct:free",
     ]
 
-    model_router_base_url = os.environ.get("MODEL_ROUTER_BASE_URL", "")
-    model_router_api_key = os.environ.get("OPENROUTERAI_API_KEY", "")
+    model_router_base_url = os.environ.get("MODEL_ROUTER_BASE_URL", "CHANGE_ME")
+    model_router_api_key = os.environ.get("MODEL_ROUTER_API_KEY", "CHANGE_ME")
 
     client: LLMClient = await init_llm_client(
         models, model_router_api_key, model_router_base_url
