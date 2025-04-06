@@ -1,21 +1,18 @@
-from typing import Final
-import pytest
-from types import SimpleNamespace
-import logging
 from datetime import datetime as real_datetime
 from datetime import timezone
-from unittest import mock
+import logging
+from pathlib import Path
 import pytest
-from unittest.mock import patch, MagicMock
-
+from types import SimpleNamespace
+from typing import Final
+from unittest.mock import MagicMock
+import pytest
 
 import llm_dispatch_svc as llm_dispatch_svc
+from llm_dispatch_svc import full_prompt, init_llm_client, load_config, read_file
 from llm_dispatch_svc_config import LLMDispatchSvcConfig
-import paho.mqtt.client as mqtt_client
-import pytest
-import pytest
-from pathlib import Path
-from llm_dispatch_svc import load_config, read_file, full_prompt, init_llm_client
+
+# import paho.mqtt.client as mqtt_client
 
 llm_dispatch_svc_module_name_str: Final[str] = "llm_dispatch_svc"
 

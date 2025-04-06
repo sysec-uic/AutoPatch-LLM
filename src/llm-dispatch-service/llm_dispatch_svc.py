@@ -31,7 +31,7 @@ def load_config(json_config_full_path: str) -> LLMDispatchSvcConfig:
     Parameters:
         json_config_full_path (str): The full file path to the JSON configuration file.
     Returns:
-        LLMDispatchConfig: An instance of LLMDispatchConfig populated with the loaded configuration.
+        LLMDispatchConfig: An instance of LLMDispatchSvcConfig populated with the loaded configuration.
     Raises:
         Exception: Propagates any exceptions encountered during JSON loading or configuration parsing.
     """
