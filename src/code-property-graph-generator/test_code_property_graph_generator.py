@@ -1,22 +1,18 @@
-import base64
 import logging
-import os
-import subprocess
 from datetime import datetime as real_datetime
 from datetime import timezone
-from types import SimpleNamespace
 from unittest import mock
 
 import code_property_graph_generator as code_property_graph_generator
 import paho.mqtt.client as mqtt_client
 import pytest
-from autopatchdatatypes import CpgScanResult
-from cpg_svc_config import CpgSvcConfig
+# from autopatchdatatypes import CpgScanResult
 
 # Import the function to test from the updated module.
 from code_property_graph_generator import (
     remove_joern_scan_temp_file,
 )
+from cpg_svc_config import CpgSvcConfig
 
 
 def mock_CpgSvcConfig() -> CpgSvcConfig:
@@ -99,6 +95,10 @@ def mock_logger(monkeypatch):
     return logger
 
 
+# --------------
+# tests for remove_joern_scan_temp_file
+# --------------
+
 def test_file_does_not_exist(monkeypatch, mock_logger):
     # Assemble
     monkeypatch.setattr(
@@ -106,7 +106,7 @@ def test_file_does_not_exist(monkeypatch, mock_logger):
     )
 
     # Act
-    code_property_graph_generator.remove_joern_scan_temp_file("fake/path/file.txt")
+    remove_joern_scan_temp_file("fake/path/file.txt")
 
     # Assert
     assert mock_logger.messages == [
@@ -120,7 +120,7 @@ def test_file_deleted_successfully(monkeypatch, mock_logger):
     monkeypatch.setattr(code_property_graph_generator.os, "remove", mock.Mock())
 
     # Act
-    code_property_graph_generator.remove_joern_scan_temp_file("fake/path/file.txt")
+    remove_joern_scan_temp_file("fake/path/file.txt")
 
     # Assert
     assert mock_logger.messages == [
@@ -140,7 +140,7 @@ def test_file_not_found_during_delete(monkeypatch, mock_logger):
     monkeypatch.setattr(code_property_graph_generator.os, "remove", raise_fnf_error)
 
     # Act
-    code_property_graph_generator.remove_joern_scan_temp_file("missing.txt")
+    remove_joern_scan_temp_file("missing.txt")
 
     # Assert
     assert mock_logger.messages == [
@@ -159,7 +159,7 @@ def test_permission_error(monkeypatch, mock_logger):
     monkeypatch.setattr(code_property_graph_generator.os, "remove", raise_perm_error)
 
     # Act
-    code_property_graph_generator.remove_joern_scan_temp_file("secure/file.txt")
+    remove_joern_scan_temp_file("secure/file.txt")
 
     # Assert
     assert mock_logger.messages == [
@@ -178,7 +178,7 @@ def test_generic_exception(monkeypatch, mock_logger):
     monkeypatch.setattr(code_property_graph_generator.os, "remove", raise_generic)
 
     # Act
-    code_property_graph_generator.remove_joern_scan_temp_file("file.txt")
+    remove_joern_scan_temp_file("file.txt")
 
     # Assert
     assert mock_logger.messages == [
@@ -194,7 +194,7 @@ def test_edge_case_empty_path(monkeypatch, mock_logger):
     )
 
     # Act
-    code_property_graph_generator.remove_joern_scan_temp_file("")
+    remove_joern_scan_temp_file("")
 
     # Assert
     assert mock_logger.messages == ["File '' does not exist, no need to delete."]

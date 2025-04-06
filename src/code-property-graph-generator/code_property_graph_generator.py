@@ -1,21 +1,19 @@
-import time
 import asyncio
-from dataclasses import dataclass
 import logging
 import os
 import subprocess
 import sys
+import time
+from collections import deque
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Final, List, Deque
-from collections import deque
-
-from cpg_svc_config import CpgSvcConfig
-
 from autopatchpubsub import MessageBrokerClient
-from autopatchshared import init_logging, load_config_as_json, get_current_timestamp
+from autopatchshared import get_current_timestamp, init_logging, load_config_as_json
 from cloudevents.conversion import to_json
 from cloudevents.http import CloudEvent
 from autopatchdatatypes import CpgScanResult
+from cpg_svc_config import CpgSvcConfig
 
 # this is the name of the environment variable that will be used point to the configuration map file to load
 CONST_CPG_SVC_CONFIG: Final[str] = "CPG_SVC_CONFIG"
