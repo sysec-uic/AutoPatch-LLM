@@ -6,7 +6,7 @@ import sys
 import time
 from collections import deque
 from datetime import datetime
-from typing import Final, List, Deque
+from typing import Deque, Final, List
 
 from autopatchdatatypes import CpgScanResult
 from autopatchpubsub import MessageBrokerClient

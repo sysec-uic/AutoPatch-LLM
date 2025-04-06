@@ -44,7 +44,7 @@ services:
       - ./src/patch-evaluation-service/data:/app/data:rw
       - ./src/patch-evaluation-service/bin:/app/bin:rw
       - ./src/patch-evaluation-service/crash_events:/app/crash_events:rw
-      - ./src/patch-evaluation-service/patched_codes:/app/patched_codes:rw
+      - ./src/patch-evaluation-service/patched_codes:/app/patched_codes:ro
     working_dir: /app
   mosquitto:
     image: eclipse-mosquitto:2.0.20
