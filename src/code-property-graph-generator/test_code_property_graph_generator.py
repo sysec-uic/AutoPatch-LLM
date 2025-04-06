@@ -6,7 +6,6 @@ from unittest import mock
 import code_property_graph_generator as code_property_graph_generator
 import paho.mqtt.client as mqtt_client
 import pytest
-
 from code_property_graph_generator import remove_joern_scan_temp_file
 from cpg_svc_config import CpgSvcConfig
 
