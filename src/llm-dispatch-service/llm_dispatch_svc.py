@@ -12,10 +12,11 @@ from autopatchshared import get_current_timestamp, init_logging, load_config_as_
 # from autopatchdatatypes import PatchRequest
 # from autopatchdatatypes import PatchResponse
 # from autopatchdatatypes import PatchResponseStatus
-# from autopatchpubsub import MessageBrokerClient
-# from cloudevents.http import CloudEvent
+from autopatchpubsub import MessageBrokerClient
+from cloudevents.http import CloudEvent
 from llm_dispatch_svc_config import LLMDispatchSvcConfig
 from openai import OpenAI
+import re
 
 # this is the name of the environment variable that will be used point to the configuration map file to load
 CONST_LLM_DISPATCH_CONFIG: Final[str] = "LLM_DISPATCH_CONFIG"
@@ -78,18 +79,60 @@ async def full_prompt(system_prompt_full_path: str, user_prompt_full_path: str) 
     _c_program_source_code_to_patch: Final[str] = await read_file(
         config.devonlyinputfilepath
     )
-    _separator: Final[str] = "\n---\n"
+    _separator: Final[str] = "---"
 
     full_prompt: Final[str] = (
-        f"{_system_prompt} {_user_prompt} {_separator} {_c_program_source_code_to_patch}"
+        f"{_system_prompt}\n{_user_prompt}\n{_separator}\n{_c_program_source_code_to_patch}"
     )
     logger.info(f"Full prompt: {full_prompt}")
 
     return full_prompt
 
 
-async def wrap_raw_response():
-    pass
+def unwrap_raw_llm_response(raw_llm_response: str) -> str:
+    """
+    Extracts the content enclosed in code fences from a raw LLM response.
+    This function searches for a Markdown code block in the input string, which may optionally begin with a language identifier (e.g., ```python). If such a block is found, the function extracts the content inside the code fences, trims any extra whitespace, and returns it. If no code fence is detected, the function returns the entire input string stripped of whitespace.
+    Parameters:
+        raw_llm_response (str): The raw LLM response that may include output wrapped in Markdown code fences.
+    Returns:
+        str: The extracted code content if a code fence is detected; otherwise, the trimmed raw response.
+    """
+
+    pattern = re.compile(r"```(?:\w+)?\s*([\s\S]*?)\s*```")
+    match = pattern.search(raw_llm_response)
+    if match:
+        response = match.group(1).strip()
+    else:
+        response = raw_llm_response.strip()
+
+    return response
+
+
+def update_diff_filename(diff_str: str, new_filename: str) -> str:
+    """
+    Updates the diff header lines with the new C program filename.
+
+    Parameters:
+        diff_str (str): The input diff text.
+        new_filename (str): The new C program filename to replace in the header.
+
+    Returns:
+        str: The updated diff text with replaced filenames in the first two lines.
+    """
+    # Split the diff text into individual lines.
+    lines = diff_str.splitlines()
+
+    # Check if there are at least two lines to process.
+    if len(lines) >= 2:
+        # Replace the filename in the first two lines.
+        if lines[0].startswith("--- "):
+            lines[0] = "--- " + new_filename
+        if lines[1].startswith("+++ "):
+            lines[1] = "+++ " + new_filename
+
+    # Join the lines back together to form the updated diff text.
+    return "\n".join(lines)
 
 
 def handle_sigterm(signum, frame):
@@ -177,7 +220,7 @@ class ApiLLM(BaseLLM):
             # TODO expand error handling
             logger.error(f"Error returned from Model Router API: {e}")
 
-        logger.info(f"Completion: {completion}")
+        logger.debug(f"Completion: {completion}")
 
         return completion_str if completion_str else "No response"
 
@@ -340,9 +383,14 @@ async def main():
     # Set active strategy at runtime.
     client.set_strategy("api")  # Change to "in_memory" to use the in-memory strategy.
 
+    dummy_filename = "dummy_c_file.c"
+
     responses = await client.generate(prompt)
     for response in responses:
-        logger.info(f"LLM: {response['llm_name']}\nResponse: {response['response']}\n")
+        logger.info("Unwrapped responses:")
+        unwrapped_response = unwrap_raw_llm_response(response["response"])
+        updated_response = update_diff_filename(unwrapped_response, dummy_filename)
+        logger.info(f"LLM: {response['llm_name']}\nResponse:\n{updated_response}\n")
 
     LLM_DISPATCH_END_TIMESTAMP: Final[str] = get_current_timestamp()
     time_delta = datetime.fromisoformat(
