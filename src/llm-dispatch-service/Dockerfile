@@ -33,7 +33,7 @@ COPY --from=python-builder /usr/lib/python3/dist-packages /usr/lib/python3/dist-
 COPY --from=python-builder /usr/local/lib/python3.12/dist-packages /usr/local/lib/python3.12/dist-packages
 
 # Copy application code
-COPY llm_dispatch_config.py .
-COPY llm_dispatch.py .
+COPY llm_dispatch_svc_config.py .
+COPY llm_dispatch_svc.py .
 
-CMD ["python3", "llm_dispatch.py"]
+CMD ["python3", "llm_dispatch_svc.py"]
