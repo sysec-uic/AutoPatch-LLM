@@ -3,7 +3,7 @@ from typing import Dict, List
 
 
 @dataclass
-class LLMDispatchConfig:
+class LLMDispatchSvcConfig:
     devonlyinputfilepath: str
     appName: str
     appVersion: str
@@ -23,14 +23,10 @@ class LLMDispatchConfig:
     message_broker_host: str
     message_broker_port: int
     message_broker_topics: Dict[str, str]
-    api: Dict[str, str]
     model_router_base_url: str
     model_router_fallback_model: str
     model_router_max_concurrent_requests: int
     model_router_retry_attempts: int
     model_router_timeout_ms: int
     model_router_retry_delay_ms: int
-    cache_enabled: bool
-    cache_dir: str
-    cache_expiration: int
     models: List[Dict[str, object]]

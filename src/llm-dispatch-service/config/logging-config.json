@@ -27,7 +27,7 @@
       }
     },
     "loggers": {
-      "autopatch.llm-dispatch": {
+      "autopatch.llm-dispatch-service": {
         "handlers": ["file_debug_handler", "console_err_handler", "console_info_handler"],
         "level": "INFO",
         "propagate": false

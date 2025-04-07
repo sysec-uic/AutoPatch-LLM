@@ -1,11 +1,11 @@
 {
-    "devonlyinputfilepath": "/workspace/AutoPatch-LLM/src/llm-dispatch/data/dummy_c_file.c",
-    "appName": "autopatch.llm-dispatch",
-    "appVersion": "0.1.0",
+    "devonlyinputfilepath": "/workspace/AutoPatch-LLM/src/llm-dispatch-service/data/dummy_c_file.c",
+    "appName": "autopatch.llm-dispatch-service",
+    "appVersion": "0.5.0",
     "appDescription": "A system for managing and dispatching requests to various language models.",
-    "system_prompt_full_path": "/workspace/AutoPatch-LLM/src/llm-dispatch/data/prompts/system_prompt.txt",
-    "user_prompt_full_path": "/workspace/AutoPatch-LLM/src/llm-dispatch/data/prompts/user_prompt.txt",
-    "logging_config" : "/workspace/AutoPatch-LLM/src/llm-dispatch/config/dev-logging-config.json",
+    "system_prompt_full_path": "/workspace/AutoPatch-LLM/src/llm-dispatch-service/data/prompts/system_prompt.txt",
+    "user_prompt_full_path": "/workspace/AutoPatch-LLM/src/llm-dispatch-service/data/prompts/user_prompt.txt",
+    "logging_config" : "/workspace/AutoPatch-LLM/src/llm-dispatch-service/config/dev-logging-config.json",
     "default_model": "gpt-3.5-turbo",
     "default_api_provider": "openai",
     "default_in_memory_provider": "openai",
@@ -22,21 +22,12 @@
         "response": "llm/dispatch/response",
         "error": "llm/dispatch/error"
     },
-    "api": {
-        "base_url": "https://api.llm-dispatch.com/v1",
-        "timeout": 30,
-        "retry_attempts": 3,
-        "retry_delay": 2000
-    },
     "model_router_base_url": "https://openrouter.ai/api/v1",
     "model_router_fallback_model": "google/gemini-2.5-pro-exp-03-25:free",
     "model_router_max_concurrent_requests": 5,
     "model_router_retry_attempts": 3,
     "model_router_timeout_ms": 3000,
     "model_router_retry_delay_ms": 50,
-    "cache_enabled": false,
-    "cache_dir": "/workspace/AutoPatch-LLM/src/llm-dispatch/data/cache",
-    "cache_expiration": 3600,
     "models": [
         {
             "gpt-3.5-turbo": {

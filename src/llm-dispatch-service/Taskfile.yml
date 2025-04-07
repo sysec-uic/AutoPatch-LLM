@@ -1,0 +1,16 @@
+version: '3'
+
+env:
+  ARGS: --break-system-packages # Use this If you are installing packages using the Taskfile Extension for VSCode UI and devcontainer
+
+tasks:
+  install:
+    desc: Install AutoPatch LLM-Dispatch
+    cmds:
+      - echo "Installing AutoPatch LLM-Dispatch"
+      - pip install -r requirements.txt  --break-system-packages
+  test:
+    desc: Test AutoPatch LLM-Dispatch
+    cmds:
+      - echo "Testing AutoPatch LLM-Dispatch"
+      - pytest
