@@ -1,6 +1,6 @@
 [project]
 name = 'autopatchpubsub'
-version = '0.5.0'
+version = '0.6.1'
 description = 'Message Broker Publish Subscribe Facade for the autopatch project'
 authors = [
     { name = 'Robert D. Hernandez', email = 'rherna70@uic.edu' }

@@ -1,6 +1,6 @@
 [project]
 name = 'autopatch.fuzzing-service'
-version = '0.5.0'
+version = '0.6.1'
 requires-python = '>=3.12.3'
 readme = 'README.md'
 authors = [
