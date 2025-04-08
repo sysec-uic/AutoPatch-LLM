@@ -88,7 +88,7 @@ Theory tells us that creating bug-free programs is nearly impossible and proving
 
 1. Clone the repository.  
 2. OUTSIDE the devcontainer
-   1. run the script: `docker compose up` 
+   1. run the script: `docker compose up`
    2. Or assuming you have task installed on your host system: `task run`
 
 ## Devtools
