@@ -1,5 +1,7 @@
 FROM ubuntu:noble AS base
 
+LABEL org.opencontainers.image.description="LLM Dispatch Service"
+
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1
 
@@ -15,9 +17,9 @@ RUN apt-get install -y --no-install-recommends \
 WORKDIR /deps
 
 COPY requirements.txt .
-COPY autopatchshared-0.6.1-py3-none-any.whl .
-COPY autopatchdatatypes-0.6.1-py3-none-any.whl .
-COPY autopatchpubsub-0.6.1-py3-none-any.whl .
+COPY autopatchshared-0.6.2-py3-none-any.whl .
+COPY autopatchdatatypes-0.6.2-py3-none-any.whl .
+COPY autopatchpubsub-0.6.2-py3-none-any.whl .
 
 RUN pip install --break-system-packages --no-cache-dir -r requirements.txt
 
