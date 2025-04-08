@@ -9,6 +9,7 @@ Lead Developer: Robert D. Hernandez <https://www.linkedin.com/in/robhernandez5/>
 - [How It Works](#how-it-works)
 - [Pre-requisites](#pre-requisites)
 - [How to Run](#how-to-run)
+- [Devtools](#devtools)
 - [Versioning Strategy](#versioning-strategy)
 - [Logging](#logging)
 - [Glossary](#glossary)
@@ -19,7 +20,7 @@ This project is funded by [Google](https://google.com/) and the [National Scienc
 
 High level system design diagram:
 
-![High Level System Diagram AutoPatch v0.5.1](./docs/Diagrams/autopatch-v.0.5.1.drawio.png)
+![High Level System Diagram AutoPatch v0.6.1](./docs/Diagrams/autopatch-v.0.6.1.drawio.png)
 
 ## CI Status
 
@@ -86,8 +87,14 @@ Theory tells us that creating bug-free programs is nearly impossible and proving
 ## How to Run
 
 1. Clone the repository.  
-2. Run the script: `docker compose up`
-<!-- 2. Run the script: `python3 main/main.py` -->
+2. OUTSIDE the devcontainer
+   1. run the script: `docker compose up` 
+   2. Or assuming you have task installed on your host system: `task run`
+
+## Devtools
+
+![Developer Experience Diagram AutoPatch v0.6.1](./docs/Diagrams/autopatch-devtools-v.0.6.1.drawio.png)
+
 
 ## Versioning Strategy
 
