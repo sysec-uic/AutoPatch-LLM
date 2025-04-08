@@ -1,7 +1,7 @@
 # .github/workflows/build-and-push-docker-images.yml
 ---
-name: Build and Push Docker Image
-run-name: Build and Push Docker Image by @${{ github.actor }}
+name: Build Docker Image, Push if tagged release
+run-name: Build Docker Image, Push if tagged release by @${{ github.actor }}
 
 on:
   workflow_dispatch:
