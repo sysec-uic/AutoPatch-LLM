@@ -1,6 +1,8 @@
 # Stage 0: Base
 FROM ubuntu:noble AS base
 
+LABEL org.opencontainers.image.description="Code Property Graph Service"
+
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \

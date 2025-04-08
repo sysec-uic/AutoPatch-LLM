@@ -4,6 +4,7 @@
 
 services:
   autopatch-llm-dispatch-service:
+    image: ghcr.io/sysec-uic/autopatch-llm/llm-dispatch-service:0.6.1
     networks:
       - autopatch-llm_autopatch-docker-network
     build: ./src/llm-dispatch-service
@@ -18,6 +19,7 @@ services:
       - ./src/llm-dispatch-service/data:/app/data:ro
     working_dir: /app
   autopatch-code-property-graph-generator:
+    image: ghcr.io/sysec-uic/autopatch-llm/code-property-graph-generator:0.6.1
     networks:
       - autopatch-llm_autopatch-docker-network
     build: ./src/code-property-graph-generator
@@ -31,6 +33,7 @@ services:
       - ./assets/input_codebase:/app/input_codebase:ro
     working_dir: /app
   autopatch-fuzzing-service:
+    image: ghcr.io/sysec-uic/autopatch-llm/fuzzing-service:0.6.1
     networks:
       - autopatch-llm_autopatch-docker-network
     build: ./src/fuzzing-service
@@ -46,6 +49,7 @@ services:
       - ./src/fuzzing-service/seed_input:/app/seed_input:ro
     working_dir: /app
   autopatch-patch-evaluation-service:
+    image: ghcr.io/sysec-uic/autopatch-llm/patch-evaluation-service:0.6.1
     networks:
       - autopatch-llm_autopatch-docker-network
     build: ./src/patch-evaluation-service

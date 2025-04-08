@@ -1,5 +1,7 @@
 FROM ubuntu:noble AS base
 
+LABEL org.opencontainers.image.description="Fuzzing Service"
+
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1
 
