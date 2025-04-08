@@ -1,7 +1,7 @@
 {
     "devonlyinputfilepath": "/app/data/dummy_c_file.c",
     "appName": "autopatch.llm-dispatch-service",
-    "appversion": "0.6.1-alpha",
+    "appVersion": "0.6.1-alpha",
     "appDescription": "A system for managing and dispatching requests to various language models.",
     "system_prompt_full_path": "/app/data/prompts/system_prompt.txt",
     "user_prompt_full_path": "/app/data/prompts/user_prompt.txt",
