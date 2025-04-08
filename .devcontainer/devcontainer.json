@@ -90,9 +90,6 @@
 	"runArgs": [
 		"--network", "autopatch-llm_autopatch-docker-network"
 	],
-	"mounts": [
-		"source=${env:HOME}/.gnupg,target=/home/vscode/.gnupg,type=bind,consistency=cached"
-	],
 	"postCreateCommand": "task install-devtools",
 	"postStartCommand": "fastfetch && black --version && coverage --version && echo -n 'isort version: ' && isort --version-number && java --version",
 	"workspaceMount": "source=${localWorkspaceFolder},target=/workspace/AutoPatch-LLM,type=bind",
