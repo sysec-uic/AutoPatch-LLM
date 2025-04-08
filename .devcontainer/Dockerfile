@@ -5,7 +5,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 RUN rm -f /etc/apt/apt.conf.d/docker-clean && \
     apt-get update && apt-get -y install --no-install-recommends \
-        software-properties-common=0.99.49.1 \
+        software-properties-common=0.99.48 \
         python3=3.12.3-0ubuntu2 \
         python3-pip=24.0+dfsg-1ubuntu1.1 \
         python3-venv=3.12.3-0ubuntu2 \
