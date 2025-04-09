@@ -2,26 +2,22 @@ import asyncio
 import base64
 import logging
 import os
+import re
 import sys
 from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Dict, Final, List
 
+from autopatchdatatypes import PatchResponse, TransformerMetadata
+from autopatchpubsub import MessageBrokerClient
 from autopatchshared import get_current_timestamp, init_logging, load_config_as_json
-
 from cloudevents.conversion import to_json
+from cloudevents.http import CloudEvent
+from openai import OpenAI
+
+from llm_dispatch_svc_config import LLMDispatchSvcConfig
 
 # from autopatchdatatypes import PatchRequest
-# from autopatchdatatypes import PatchResponse
-# from autopatchdatatypes import PatchResponseStatus
-
-from autopatchdatatypes import TransformerMetadata
-from autopatchdatatypes import PatchResponse
-from autopatchpubsub import MessageBrokerClient
-from cloudevents.http import CloudEvent
-from llm_dispatch_svc_config import LLMDispatchSvcConfig
-from openai import OpenAI
-import re
 
 # this is the name of the environment variable that will be used point to the configuration map file to load
 CONST_LLM_DISPATCH_CONFIG: Final[str] = "LLM_DISPATCH_CONFIG"
@@ -97,7 +93,11 @@ async def full_prompt(system_prompt_full_path: str, user_prompt_full_path: str) 
 def unwrap_raw_llm_response(raw_llm_response: str) -> str:
     """
     Extracts the content enclosed in code fences from a raw LLM response.
-    This function searches for a Markdown code block in the input string, which may optionally begin with a language identifier (e.g., ```python). If such a block is found, the function extracts the content inside the code fences, trims any extra whitespace, and returns it. If no code fence is detected, the function returns the entire input string stripped of whitespace.
+        This function searches for a Markdown code block in the input string,
+        which may optionally begin with a language identifier (e.g., ```python).
+        If such a block is found, the function extracts the content inside the code fences,
+        trims any extra whitespace, and returns it. If no code fence is detected,
+        the function returns the entire input string stripped of whitespace.
     Parameters:
         raw_llm_response (str): The raw LLM response that may include output wrapped in Markdown code fences.
     Returns:
