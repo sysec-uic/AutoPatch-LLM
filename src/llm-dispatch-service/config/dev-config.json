@@ -1,7 +1,7 @@
 {
     "devonlyinputfilepath": "/workspace/AutoPatch-LLM/src/llm-dispatch-service/data/dummy_c_file.c",
     "appName": "autopatch.llm-dispatch-service",
-    "appversion": "0.6.1-alpha",
+    "appVersion": "0.6.2-alpha",
     "appDescription": "A system for managing and dispatching requests to various language models.",
     "system_prompt_full_path": "/workspace/AutoPatch-LLM/src/llm-dispatch-service/data/prompts/system_prompt.txt",
     "user_prompt_full_path": "/workspace/AutoPatch-LLM/src/llm-dispatch-service/data/prompts/user_prompt.txt",
@@ -15,7 +15,7 @@
     "default_frequency_penalty": 0,
     "default_presence_penalty": 0,
     "message_broker_client_id": "autopatch-llm-dispatch-client",
-    "message_broker_host": "mqtt",
+    "message_broker_host": "mosquitto",
     "message_broker_port": 1883,
     "message_broker_topics": {
         "request": "llm/dispatch/request",

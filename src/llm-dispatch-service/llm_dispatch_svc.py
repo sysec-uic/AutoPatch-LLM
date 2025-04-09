@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import logging
 import os
 import sys
@@ -8,10 +9,14 @@ from typing import Dict, Final, List
 
 from autopatchshared import get_current_timestamp, init_logging, load_config_as_json
 
-# from cloudevents.conversion import to_json
+from cloudevents.conversion import to_json
+
 # from autopatchdatatypes import PatchRequest
 # from autopatchdatatypes import PatchResponse
 # from autopatchdatatypes import PatchResponseStatus
+
+from autopatchdatatypes import TransformerMetadata
+from autopatchdatatypes import PatchResponse
 from autopatchpubsub import MessageBrokerClient
 from cloudevents.http import CloudEvent
 from llm_dispatch_svc_config import LLMDispatchSvcConfig
@@ -133,6 +138,124 @@ def update_diff_filename(diff_str: str, new_filename: str) -> str:
 
     # Join the lines back together to form the updated diff text.
     return "\n".join(lines)
+
+
+async def map_patchresponse_as_cloudevent(patch_response: PatchResponse) -> CloudEvent:
+    """
+    Maps a PatchRequest instance to a CloudEvent Occurence.
+
+    Parameters:
+        patch (PatchResponse): The patch response to be mapped.
+
+    Returns:
+        CloudEvent: The corresponding CloudEvent Occurence.
+    """
+    if patch_response is None or any(
+        value is None
+        for value in [
+            patch_response.executable_name,
+            patch_response.patch_snippet_base64,
+            patch_response.TransformerMetadata,
+            patch_response.status,
+        ]
+    ):
+        logger.error("Invalid patch_response object or one of its values is None.")
+        logger.debug(f"PatchResponse: {PatchResponse}")
+        raise ValueError("Invalid patch_response object or one of its values is None.")
+
+    metadata: TransformerMetadata = patch_response.TransformerMetadata
+    if metadata is None or any(
+        value is None
+        for value in [
+            metadata.llm_name,
+            metadata.llm_version,
+            metadata.llm_flavor,
+        ]
+    ):
+        logger.error(
+            "Invalid transformer_metadata object or one of its values is None."
+        )
+        logger.debug(f"TransformerMetadata: {metadata}")
+        raise ValueError(
+            "Invalid transformer_metadata object or one of its values is None."
+        )
+
+    attributes = {
+        "type": "autopatch.patchresponse",
+        "source": "autopatch.llm-dispatch-service",
+        "subject": patch_response.executable_name,
+        "time": get_current_timestamp(),
+    }
+
+    metadata = patch_response.TransformerMetadata
+
+    data = {
+        "executable_name": patch_response.executable_name,
+        "patch_snippet_base64": patch_response.patch_snippet_base64,
+        "TransformerMetadata": {
+            "llm_name": metadata.llm_name,
+            "llm_version": metadata.llm_version,
+            "llm_flavor": metadata.llm_flavor,
+        },
+        "status": patch_response.status,
+    }
+
+    event = CloudEvent(attributes, data)
+    return event
+
+
+async def map_patchresponses_as_cloudevents(
+    patch_responses: List[PatchResponse],
+    concurrency_threshold: int = 10,
+) -> List[CloudEvent]:
+    """
+    Map PatchResponse objects to CloudEvent objects.
+    Parameters:
+        patch_response (List[PatchResponse]): List of PatchResponse objects to be mapped.
+    Returns:
+        List[CloudEvent]: List of CloudEvent objects created from the PatchResponse objects.
+    """
+    if len(patch_responses) > concurrency_threshold:
+        # Run in parallel
+        tasks = [map_patchresponse_as_cloudevent(i) for i in patch_responses]
+        results = await asyncio.gather(*tasks)
+    else:
+        # Run sequentially
+        results = [await map_patchresponse_as_cloudevent(i) for i in patch_responses]
+
+    return results
+
+
+async def produce_output(
+    patch_response_output_topic: str,
+    patch_responses: List[PatchResponse],
+    concurrency_threshold: int = 10,
+) -> None:
+
+    async def produce_event(event: CloudEvent) -> None:
+        # flake8 flags the following as F821 because it doesn't recognize the global variable
+        logger.debug(f"Producing on Topic: {patch_response_output_topic}")  # noqa: F821
+        logger.debug(f"Producing CloudEvent: {event}")
+        message_broker_client.publish(
+            patch_response_output_topic, to_json(event).decode("utf-8")  # noqa: F821
+        )
+
+    patch_response_cloud_events: List[CloudEvent] = (
+        await map_patchresponses_as_cloudevents(patch_responses)
+    )
+    message_broker_client: Final[MessageBrokerClient] = MessageBrokerClient(
+        config.message_broker_host, config.message_broker_port, logger
+    )
+
+    logger.info(f"Producing {len(patch_response_cloud_events)} CloudEvents.")
+    if len(patch_response_cloud_events) > concurrency_threshold:
+        # Run in parallel using asyncio.gather
+        tasks = [produce_event(event) for event in patch_response_cloud_events]
+        await asyncio.gather(*tasks)
+    else:
+        # Run sequentially
+        for event in patch_response_cloud_events:
+            await produce_event(event)
 
 
 def handle_sigterm(signum, frame):
@@ -345,6 +468,23 @@ async def init_llm_client(
     return client
 
 
+def create_patch_request(
+    executable_name: str,
+    patch_snippet_base64: str,
+    transformer_metadata: TransformerMetadata,
+    status: str,
+) -> PatchResponse:
+    """
+    Create a PatchRequest object.
+    """
+    return PatchResponse(
+        executable_name=executable_name,
+        patch_snippet_base64=patch_snippet_base64,
+        TransformerMetadata=transformer_metadata,
+        status=status,
+    )
+
+
 async def main():
     global config, logger
 
@@ -386,11 +526,34 @@ async def main():
     dummy_filename = "dummy_c_file.c"
 
     responses = await client.generate(prompt)
+    # for response in responses:
+    #     logger.info("Unwrapped responses:")
+    #     unwrapped_response = unwrap_raw_llm_response(response["response"])
+    #     updated_response = update_diff_filename(unwrapped_response, dummy_filename)
+    #     logger.info(f"LLM: {response['llm_name']}\nResponse:\n{updated_response}\n")
+
+    patch_responses = []
     for response in responses:
-        logger.info("Unwrapped responses:")
         unwrapped_response = unwrap_raw_llm_response(response["response"])
         updated_response = update_diff_filename(unwrapped_response, dummy_filename)
-        logger.info(f"LLM: {response['llm_name']}\nResponse:\n{updated_response}\n")
+        _llm_name = response["llm_name"][
+            response["llm_name"].index("/") + 1 : response["llm_name"].index(":")
+        ]
+        _llm_flavor = response["llm_name"][: response["llm_name"].index("/")]
+        metadata: TransformerMetadata = TransformerMetadata(
+            llm_name=_llm_name, llm_flavor=_llm_flavor, llm_version="not available"
+        )
+        patch_response = create_patch_request(
+            executable_name=dummy_filename,
+            patch_snippet_base64=base64.b64encode(
+                updated_response.encode("utf-8")
+            ).decode("utf-8"),
+            transformer_metadata=metadata,
+            status="success",
+        )
+        patch_responses.append(patch_response)
+
+    await produce_output(config.message_broker_topics["response"], patch_responses)
 
     LLM_DISPATCH_END_TIMESTAMP: Final[str] = get_current_timestamp()
     time_delta = datetime.fromisoformat(
