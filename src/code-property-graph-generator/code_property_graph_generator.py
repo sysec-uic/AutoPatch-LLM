@@ -185,7 +185,7 @@ async def produce_output(
         # flake8 flags the following as F821 because it doesn't recognize the global variable
         logger.debug(f"Producing on Topic: {output_topic}")  # noqa: F821
         logger.debug(f"Producing CloudEvent: {event}")
-        message_broker_client.publish(
+        await message_broker_client.publish(
             output_topic, to_json(event).decode("utf-8")  # noqa: F821
         )
 
