@@ -10,7 +10,6 @@ class PatchResponse:
 
     Attributes:
         executable_name (str): The name of the executable to be patched.
-        crash_detail (CrashDetail): Details about the crash that occurred.
         bug_static_context (str): Static context of the bug.
         unsafe_source_snippet (str): Unsafe source code snippet related to the bug.
         # retrieval_vectors (str): Retrieval vectors for the patch request.
