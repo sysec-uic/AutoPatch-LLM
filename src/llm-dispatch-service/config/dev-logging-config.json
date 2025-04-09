@@ -11,7 +11,7 @@
         "class": "logging.FileHandler",
         "level": "DEBUG",
         "formatter": "standard",
-        "filename": "/workspace/AutoPatch-LLM/src/llm-dispatch/log/autopatch.llm-dispatch.debug.log"
+        "filename": "/workspace/AutoPatch-LLM/src/llm-dispatch-service/log/autopatch.llm-dispatch.debug.log"
       },
       "console_err_handler": {
         "class": "logging.StreamHandler",

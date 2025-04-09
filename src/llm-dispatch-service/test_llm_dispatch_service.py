@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import datetime as real_datetime
 from datetime import timezone
 from pathlib import Path
@@ -8,7 +9,14 @@ from unittest.mock import MagicMock
 
 import llm_dispatch_svc
 import pytest
-from llm_dispatch_svc import full_prompt, init_llm_client, load_config, read_file
+from llm_dispatch_svc import (
+    full_prompt,
+    init_llm_client,
+    load_config,
+    read_file,
+    unwrap_raw_llm_response,
+    update_diff_filename,
+)
 from llm_dispatch_svc_config import LLMDispatchSvcConfig
 
 # import paho.mqtt.client as mqtt_client
@@ -181,6 +189,133 @@ def test_load_config_exception(monkeypatch):
 
 
 # -------------------------------------
+# Tests for unwrap_raw_llm_response
+# -------------------------------------
+
+
+def test_basic_code_fence():
+    input_str = "```python\nprint('Hello, world!')\n```"
+    expected = "print('Hello, world!')"
+    assert unwrap_raw_llm_response(input_str) == expected
+
+
+def test_code_fence_no_language():
+    input_str = "```\nprint('No language')\n```"
+    expected = "print('No language')"
+    assert unwrap_raw_llm_response(input_str) == expected
+
+
+def test_no_code_fence():
+    input_str = "This is plain text without any code fence."
+    expected = "This is plain text without any code fence."
+    assert unwrap_raw_llm_response(input_str) == expected
+
+
+def test_code_with_extra_whitespace():
+    input_str = "```python\n\n    def foo():\n        return 42\n\n```"
+    expected = "def foo():\n        return 42"
+    assert unwrap_raw_llm_response(input_str) == expected
+
+
+def test_multiple_code_blocks_returns_first():
+    input_str = (
+        "```python\nprint('First')\n```\nSome text\n```python\nprint('Second')\n```"
+    )
+    expected = "print('First')"
+    assert unwrap_raw_llm_response(input_str) == expected
+
+
+def test_empty_string():
+    assert unwrap_raw_llm_response("") == ""
+
+
+def test_code_fence_with_only_whitespace():
+    input_str = "```\n   \n  \n```"
+    expected = ""
+    assert unwrap_raw_llm_response(input_str) == expected
+
+
+def test_code_fence_with_inner_backticks():
+    input_str = "```python\nprint('\\`\\`\\`nested\\`\\`\\`')\n```"
+    expected = "print('\\`\\`\\`nested\\`\\`\\`')"
+    assert unwrap_raw_llm_response(input_str) == expected
+
+
+def test_monkeypatched_re(monkeypatch):
+    # Monkeypatch re.compile to simulate unexpected behavior
+    def mock_compile(pattern):
+        class MockPattern:
+            def search(self, text):
+                return None
+
+        return MockPattern()
+
+    monkeypatch.setattr(re, "compile", mock_compile)
+    assert unwrap_raw_llm_response("```python\nx = 1\n```") == "```python\nx = 1\n```"
+
+
+# -------------------------------------
+# Tests for update_diff_filename
+# -------------------------------------
+
+
+def test_normal_diff_update():
+    diff_str = "--- oldfile.c\n+++ oldfile.c\n@@ -1,4 +1,4 @@\n int main() {"
+    new_filename = "newfile.c"
+    expected = "--- newfile.c\n+++ newfile.c\n@@ -1,4 +1,4 @@\n int main() {"
+    result = update_diff_filename(diff_str, new_filename)
+    assert result == expected
+
+
+def test_missing_prefixes():
+    diff_str = "oldfile.c\noldfile.c\n@@ -1 +1 @@\n int main()"
+    new_filename = "newfile.c"
+    # Should remain unchanged as lines don't start with --- or +++
+    assert update_diff_filename(diff_str, new_filename) == diff_str
+
+
+def test_insufficient_lines():
+    diff_str = "--- oldfile.c"  # Only one line
+    new_filename = "newfile.c"
+    expected = "--- oldfile.c"  # No change should occur
+    assert update_diff_filename(diff_str, new_filename) == expected
+
+
+def test_empty_diff():
+    diff_str = ""
+    new_filename = "newfile.c"
+    assert update_diff_filename(diff_str, new_filename) == ""
+
+
+def test_only_prefix_line_updated():
+    diff_str = "--- oldfile.c\n unchanged line"
+    new_filename = "newfile.c"
+    expected = "--- newfile.c\n unchanged line"
+    assert update_diff_filename(diff_str, new_filename) == expected
+
+
+def test_filename_with_spaces():
+    diff_str = "--- old file.c\n+++ old file.c\n@@ -1 +1 @@\n int main()"
+    new_filename = "new file.c"
+    expected = "--- new file.c\n+++ new file.c\n@@ -1 +1 @@\n int main()"
+    assert update_diff_filename(diff_str, new_filename) == expected
+
+
+def test_new_filename_is_empty():
+    diff_str = "--- oldfile.c\n+++ oldfile.c\n"
+    new_filename = ""
+    expected = "--- \n+++ "
+    assert update_diff_filename(diff_str, new_filename) == expected
+
+
+def test_multiline_no_change():
+    diff_str = "not a diff\n@@ -1 +1 @@\n int x;"
+    new_filename = "newfile.c"
+    # No --- or +++, so nothing should change
+    assert update_diff_filename(diff_str, new_filename) == diff_str
+
+
+# -------------------------------------
 # Tests for read_file
 # -------------------------------------
 
@@ -290,7 +425,7 @@ async def test_full_prompt_normal(monkeypatch, tmp_path):
 
     # Act
     result = await full_prompt(str(system_file), str(user_file))
-    expected = "System User \n---\n C code"
+    expected = "System\nUser\n---\nC code"
 
     # Assert
     assert result == expected
@@ -320,7 +455,7 @@ async def test_full_prompt_empty_files(monkeypatch, tmp_path):
     result = await full_prompt(str(system_file), str(user_file))
 
     # Assert
-    assert result == "  \n---\n "
+    assert result == "\n\n---\n"
 
 
 @pytest.mark.asyncio

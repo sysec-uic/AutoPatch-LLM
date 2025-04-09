@@ -7,7 +7,7 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         python3=3.12.3-0ubuntu2
 
-FROM base as python-builder
+FROM base AS python-builder
 
 RUN apt-get install -y --no-install-recommends \
         python3-pip=24.0+dfsg-1ubuntu1.1
@@ -16,9 +16,9 @@ WORKDIR /deps
 
 COPY requirements.txt .
 
-COPY autopatchdatatypes-0.6.2-py3-none-any.whl .
-COPY autopatchshared-0.6.2-py3-none-any.whl .
-COPY autopatchpubsub-0.6.2-py3-none-any.whl .
+COPY autopatchdatatypes-0.7.0-py3-none-any.whl .
+COPY autopatchshared-0.7.0-py3-none-any.whl .
+COPY autopatchpubsub-0.7.2-py3-none-any.whl .
 
 RUN pip install --break-system-packages --no-cache-dir -r requirements.txt
 

@@ -284,7 +284,7 @@ async def produce_output(crash_details: List[CrashDetail]) -> None:
             f"Producing on Topic: {config.fuzz_svc_output_topic}"  # noqa: F821
         )
         logger.debug(f"Producing CloudEvent: {event}")
-        message_broker_client.publish(
+        await message_broker_client.publish(
             config.fuzz_svc_output_topic, to_json(event).decode("utf-8")  # noqa: F821
         )
 

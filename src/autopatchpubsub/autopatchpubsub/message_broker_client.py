@@ -109,7 +109,7 @@ class MessageBrokerClient:
         client.connect(self.message_broker_host, self.message_broker_port)
         return client
 
-    def publish(self, topic: str, message: str) -> None:
+    async def publish(self, topic: str, message: str) -> str:
         """
         Publish a message to the specified topic.
         """
@@ -119,10 +119,11 @@ class MessageBrokerClient:
             self.logger.error(
                 f"{self.__class__.__name__} - Failed to send message to topic {topic}"
             )
-            return
+            return "Failed to send message"
         self.logger.info(
             f"{self.__class__.__name__} - Published message to topic {topic}"
         )
+        return "Message sent successfully"
 
     def consume(self, topic: str, func) -> None:
         """

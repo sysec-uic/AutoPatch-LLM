@@ -1,21 +1,22 @@
 import asyncio
+import base64
 import logging
 import os
+import re
 import sys
 from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Dict, Final, List
 
+from autopatchdatatypes import PatchResponse, TransformerMetadata
+from autopatchpubsub import MessageBrokerClient
 from autopatchshared import get_current_timestamp, init_logging, load_config_as_json
-
-# from cloudevents.conversion import to_json
-# from autopatchdatatypes import PatchRequest
-# from autopatchdatatypes import PatchResponse
-# from autopatchdatatypes import PatchResponseStatus
-# from autopatchpubsub import MessageBrokerClient
-# from cloudevents.http import CloudEvent
+from cloudevents.conversion import to_json
+from cloudevents.http import CloudEvent
 from llm_dispatch_svc_config import LLMDispatchSvcConfig
 from openai import OpenAI
+
+# from autopatchdatatypes import PatchRequest
 
 # this is the name of the environment variable that will be used point to the configuration map file to load
 CONST_LLM_DISPATCH_CONFIG: Final[str] = "LLM_DISPATCH_CONFIG"
@@ -78,18 +79,182 @@ async def full_prompt(system_prompt_full_path: str, user_prompt_full_path: str) 
     _c_program_source_code_to_patch: Final[str] = await read_file(
         config.devonlyinputfilepath
     )
-    _separator: Final[str] = "\n---\n"
+    _separator: Final[str] = "---"
 
     full_prompt: Final[str] = (
-        f"{_system_prompt} {_user_prompt} {_separator} {_c_program_source_code_to_patch}"
+        f"{_system_prompt}\n{_user_prompt}\n{_separator}\n{_c_program_source_code_to_patch}"
     )
     logger.info(f"Full prompt: {full_prompt}")
 
     return full_prompt
 
 
-async def wrap_raw_response():
-    pass
+def unwrap_raw_llm_response(raw_llm_response: str) -> str:
+    """
+    Extracts the content enclosed in code fences from a raw LLM response.
+        This function searches for a Markdown code block in the input string,
+        which may optionally begin with a language identifier (e.g., ```python).
+        If such a block is found, the function extracts the content inside the code fences,
+        trims any extra whitespace, and returns it. If no code fence is detected,
+        the function returns the entire input string stripped of whitespace.
+    Parameters:
+        raw_llm_response (str): The raw LLM response that may include output wrapped in Markdown code fences.
+    Returns:
+        str: The extracted code content if a code fence is detected; otherwise, the trimmed raw response.
+    """
+
+    pattern = re.compile(r"```(?:\w+)?\s*([\s\S]*?)\s*```")
+    match = pattern.search(raw_llm_response)
+    if match:
+        response = match.group(1).strip()
+    else:
+        response = raw_llm_response.strip()
+
+    return response
+
+
+def update_diff_filename(diff_str: str, new_filename: str) -> str:
+    """
+    Updates the diff header lines with the new C program filename.
+
+    Parameters:
+        diff_str (str): The input diff text.
+        new_filename (str): The new C program filename to replace in the header.
+
+    Returns:
+        str: The updated diff text with replaced filenames in the first two lines.
+    """
+    # Split the diff text into individual lines.
+    lines = diff_str.splitlines()
+
+    # Check if there are at least two lines to process.
+    if len(lines) >= 2:
+        # Replace the filename in the first two lines.
+        if lines[0].startswith("--- "):
+            lines[0] = "--- " + new_filename
+        if lines[1].startswith("+++ "):
+            lines[1] = "+++ " + new_filename
+
+    # Join the lines back together to form the updated diff text.
+    return "\n".join(lines)
+
+
+async def map_patchresponse_as_cloudevent(patch_response: PatchResponse) -> CloudEvent:
+    """
+    Maps a PatchRequest instance to a CloudEvent Occurence.
+
+    Parameters:
+        patch (PatchResponse): The patch response to be mapped.
+
+    Returns:
+        CloudEvent: The corresponding CloudEvent Occurence.
+    """
+    if patch_response is None or any(
+        value is None
+        for value in [
+            patch_response.executable_name,
+            patch_response.patch_snippet_base64,
+            patch_response.TransformerMetadata,
+            patch_response.status,
+        ]
+    ):
+        logger.error("Invalid patch_response object or one of its values is None.")
+        logger.debug(f"PatchResponse: {PatchResponse}")
+        raise ValueError("Invalid patch_response object or one of its values is None.")
+
+    metadata: TransformerMetadata = patch_response.TransformerMetadata
+    if metadata is None or any(
+        value is None
+        for value in [
+            metadata.llm_name,
+            metadata.llm_version,
+            metadata.llm_flavor,
+        ]
+    ):
+        logger.error(
+            "Invalid transformer_metadata object or one of its values is None."
+        )
+        logger.debug(f"TransformerMetadata: {metadata}")
+        raise ValueError(
+            "Invalid transformer_metadata object or one of its values is None."
+        )
+
+    attributes = {
+        "type": "autopatch.patchresponse",
+        "source": "autopatch.llm-dispatch-service",
+        "subject": patch_response.executable_name,
+        "time": get_current_timestamp(),
+    }
+
+    metadata = patch_response.TransformerMetadata
+
+    data = {
+        "executable_name": patch_response.executable_name,
+        "patch_snippet_base64": patch_response.patch_snippet_base64,
+        "TransformerMetadata": {
+            "llm_name": metadata.llm_name,
+            "llm_version": metadata.llm_version,
+            "llm_flavor": metadata.llm_flavor,
+        },
+        "status": patch_response.status,
+    }
+
+    event = CloudEvent(attributes, data)
+    return event
+
+
+async def map_patchresponses_as_cloudevents(
+    patch_responses: List[PatchResponse],
+    concurrency_threshold: int = 10,
+) -> List[CloudEvent]:
+    """
+    Map PatchResponse objects to CloudEvent objects.
+    Parameters:
+        patch_response (List[PatchResponse]): List of PatchResponse objects to be mapped.
+    Returns:
+        List[CloudEvent]: List of CloudEvent objects created from the PatchResponse objects.
+    """
+    if len(patch_responses) > concurrency_threshold:
+        # Run in parallel
+        tasks = [map_patchresponse_as_cloudevent(i) for i in patch_responses]
+        results = await asyncio.gather(*tasks)
+    else:
+        # Run sequentially
+        results = [await map_patchresponse_as_cloudevent(i) for i in patch_responses]
+
+    return results
+
+
+async def produce_output(
+    patch_response_output_topic: str,
+    patch_responses: List[PatchResponse],
+    concurrency_threshold: int = 10,
+) -> None:
+
+    async def produce_event(event: CloudEvent) -> None:
+        # flake8 flags the following as F821 because it doesn't recognize the global variable
+        logger.debug(f"Producing on Topic: {patch_response_output_topic}")  # noqa: F821
+        logger.debug(f"Producing CloudEvent: {event}")
+        await message_broker_client.publish(
+            patch_response_output_topic, to_json(event).decode("utf-8")  # noqa: F821
+        )
+
+    patch_response_cloud_events: List[CloudEvent] = (
+        await map_patchresponses_as_cloudevents(patch_responses)
+    )
+    message_broker_client: Final[MessageBrokerClient] = MessageBrokerClient(
+        config.message_broker_host, config.message_broker_port, logger
+    )
+
+    logger.info(f"Producing {len(patch_response_cloud_events)} CloudEvents.")
+    if len(patch_response_cloud_events) > concurrency_threshold:
+        # Run in parallel using asyncio.gather
+        tasks = [produce_event(event) for event in patch_response_cloud_events]
+        await asyncio.gather(*tasks)
+    else:
+        # Run sequentially
+        for event in patch_response_cloud_events:
+            await produce_event(event)
 
 
 def handle_sigterm(signum, frame):
@@ -177,7 +342,7 @@ class ApiLLM(BaseLLM):
             # TODO expand error handling
             logger.error(f"Error returned from Model Router API: {e}")
 
-        logger.info(f"Completion: {completion}")
+        logger.debug(f"Completion: {completion}")
 
         return completion_str if completion_str else "No response"
 
@@ -218,8 +383,8 @@ class ApiLLMStrategy(LLMStrategy):
         responses = []
         for llm in self.llms:
             responses.append(await llm.generate(prompt))
-            logger.info("Waiting for 0.1 seconds to avoid triggering API rate limits.")
-            await asyncio.sleep(0.1)
+            logger.info("Waiting for 1.0 seconds to avoid triggering API rate limits.")
+            await asyncio.sleep(1.0)
         return responses
 
 
@@ -260,7 +425,7 @@ class LLMClient:
         else:
             raise ValueError(f"Strategy '{name}' is not registered.")
 
-    async def generate(self, prompt: str) -> List[Dict]:
+    async def generate(self, prompt: str) -> List[Dict[str, str]]:
         """
         Dispatch the prompt to the active strategy and return the structured responses.
         """
@@ -302,6 +467,73 @@ async def init_llm_client(
     return client
 
 
+async def create_patch_responses(
+    raw_responses: List[Dict[str, str]],
+    source_filename_or_program_name_under_consideration_unique_id: List[str],
+    concurrency_threshold: int = 10,
+) -> List[PatchResponse]:
+    """
+    Creates patch responses from the provided raw responses and their associated unique identifiers.
+    Parameters:
+        raw_responses (List[Dict[str, str]]): A list of dictionaries containing raw response data.
+        source_filename_or_program_name_under_consideration_unique_id (List[str]):
+            A list of unique identifiers corresponding to each raw response, such as source filenames
+            or program names.
+        concurrency_threshold (int, optional): The maximum number of raw responses to process
+            sequentially. If the number of raw responses exceeds this threshold, processing is
+            executed in parallel. Defaults to 10.
+    Returns:
+        List[PatchResponse]: A list of patch responses generated from the raw responses.
+    """
+    if len(raw_responses) > concurrency_threshold:
+        # Run in parallel
+        tasks = [
+            create_patch_response(x[0], x[1])
+            for x in zip(
+                raw_responses,
+                source_filename_or_program_name_under_consideration_unique_id,
+            )
+        ]
+        results = await asyncio.gather(*tasks)
+    else:
+        # Run sequentially
+        results = [
+            await create_patch_response(x[0], x[1])
+            for x in zip(
+                raw_responses,
+                source_filename_or_program_name_under_consideration_unique_id,
+            )
+        ]
+
+    return results
+
+
+async def create_patch_response(
+    raw_response: Dict[str, str],
+    source_filename_or_program_name_under_consideration_unique_id: str,
+) -> PatchResponse:
+    """
+    Create a PatchRequest objects from the raw response.
+    """
+    name_id_str = source_filename_or_program_name_under_consideration_unique_id
+
+    unwrapped_response = unwrap_raw_llm_response(raw_response["response"])
+    updated_response = update_diff_filename(unwrapped_response, name_id_str)
+    _llm_name = raw_response["llm_name"][
+        raw_response["llm_name"].index("/") + 1 : raw_response["llm_name"].index(":")
+    ]
+    _llm_flavor = raw_response["llm_name"][: raw_response["llm_name"].index("/")]
+    metadata: TransformerMetadata = TransformerMetadata(
+        llm_name=_llm_name, llm_flavor=_llm_flavor, llm_version="not available"
+    )
+    return PatchResponse(
+        name_id_str,
+        base64.b64encode(updated_response.encode("utf-8")).decode("utf-8"),
+        metadata,
+        status="success",
+    )
+
+
 async def main():
     global config, logger
 
@@ -340,9 +572,13 @@ async def main():
     # Set active strategy at runtime.
     client.set_strategy("api")  # Change to "in_memory" to use the in-memory strategy.
 
+    dummy_filename = "dummy_c_file.c"
+
     responses = await client.generate(prompt)
-    for response in responses:
-        logger.info(f"LLM: {response['llm_name']}\nResponse: {response['response']}\n")
+    patch_responses: List[PatchResponse] = await create_patch_responses(
+        responses, [dummy_filename] * len(responses)
+    )
+    await produce_output(config.message_broker_topics["response"], patch_responses)
 
     LLM_DISPATCH_END_TIMESTAMP: Final[str] = get_current_timestamp()
     time_delta = datetime.fromisoformat(

@@ -58,7 +58,8 @@ def test_connect_message_broker_failure(monkeypatch, mocked_logger):
     )
 
 
-def test_publish_success(monkeypatch, mocked_logger):
+@pytest.mark.asyncio
+async def test_publish_success(monkeypatch, mocked_logger):
     # Create a mock client and simulate a successful publish.
     mock_client = mock.Mock()
     mock_result = mock.Mock()
@@ -71,7 +72,7 @@ def test_publish_success(monkeypatch, mocked_logger):
     client = MessageBrokerClient("localhost", 1883, mocked_logger)
     # Override the internal client with our mock.
     client.client = mock_client
-    client.publish("test/topic", "test message")
+    await client.publish("test/topic", "test message")
 
     mock_client.publish.assert_called_with("test/topic", "test message", qos=1)
     mocked_logger.info.assert_any_call(
@@ -79,7 +80,8 @@ def test_publish_success(monkeypatch, mocked_logger):
     )
 
 
-def test_publish_failure(monkeypatch, mocked_logger):
+@pytest.mark.asyncio
+async def test_publish_failure(monkeypatch, mocked_logger):
     # Create a mock client that simulates a failed publish.
     mock_client = mock.Mock()
     mock_result = mock.Mock()
@@ -90,7 +92,7 @@ def test_publish_failure(monkeypatch, mocked_logger):
 
     client = MessageBrokerClient("localhost", 1883, mocked_logger)
     client.client = mock_client
-    client.publish("test/topic", "test message")
+    await client.publish("test/topic", "test message")
 
     mock_client.publish.assert_called_with("test/topic", "test message", qos=1)
     mocked_logger.error.assert_called_with(
@@ -137,7 +139,8 @@ def test_on_message(monkeypatch, mocked_logger):
         assert client.client._client_id.decode() == expected_id
 
 
-def test_publish_with_empty_topic(monkeypatch, mocked_logger):
+@pytest.mark.asyncio
+async def test_publish_with_empty_topic(monkeypatch, mocked_logger):
     """
     Edge case: Publishing with an empty topic.
     Instead of raising a ValueError, the publish method logs an error when publish fails.
@@ -152,7 +155,7 @@ def test_publish_with_empty_topic(monkeypatch, mocked_logger):
     client = MessageBrokerClient("localhost", 1883, mocked_logger)
     client.client = mock_client
 
-    client.publish("", "test message")
+    await client.publish("", "test message")
 
     mock_client.publish.assert_called_with("", "test message", qos=1)
     mocked_logger.error.assert_called_with(
