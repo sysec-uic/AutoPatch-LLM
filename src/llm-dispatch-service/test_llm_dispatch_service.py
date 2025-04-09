@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import datetime as real_datetime
 from datetime import timezone
 from pathlib import Path
@@ -6,9 +7,16 @@ from types import SimpleNamespace
 from typing import Final
 from unittest.mock import MagicMock
 
-import llm_dispatch_svc
 import pytest
-from llm_dispatch_svc import full_prompt, init_llm_client, load_config, read_file
+
+import llm_dispatch_svc
+from llm_dispatch_svc import (
+    full_prompt,
+    init_llm_client,
+    load_config,
+    read_file,
+    unwrap_raw_llm_response,
+)
 from llm_dispatch_svc_config import LLMDispatchSvcConfig
 
 # import paho.mqtt.client as mqtt_client
@@ -178,6 +186,72 @@ def test_load_config_exception(monkeypatch):
     with pytest.raises(Exception, match="mock failure"):
         # Act
         load_config("invalid/path.json")
+
+
+# -------------------------------------
+# Tests for unwrap_raw_llm_response
+# -------------------------------------
+
+
+def test_basic_code_fence():
+    input_str = "```python\nprint('Hello, world!')\n```"
+    expected = "print('Hello, world!')"
+    assert unwrap_raw_llm_response(input_str) == expected
+
+
+def test_code_fence_no_language():
+    input_str = "```\nprint('No language')\n```"
+    expected = "print('No language')"
+    assert unwrap_raw_llm_response(input_str) == expected
+
+
+def test_no_code_fence():
+    input_str = "This is plain text without any code fence."
+    expected = "This is plain text without any code fence."
+    assert unwrap_raw_llm_response(input_str) == expected
+
+
+def test_code_with_extra_whitespace():
+    input_str = "```python\n\n    def foo():\n        return 42\n\n```"
+    expected = "def foo():\n        return 42"
+    assert unwrap_raw_llm_response(input_str) == expected
+
+
+def test_multiple_code_blocks_returns_first():
+    input_str = (
+        "```python\nprint('First')\n```\nSome text\n```python\nprint('Second')\n```"
+    )
+    expected = "print('First')"
+    assert unwrap_raw_llm_response(input_str) == expected
+
+
+def test_empty_string():
+    assert unwrap_raw_llm_response("") == ""
+
+
+def test_code_fence_with_only_whitespace():
+    input_str = "```\n   \n  \n```"
+    expected = ""
+    assert unwrap_raw_llm_response(input_str) == expected
+
+
+def test_code_fence_with_inner_backticks():
+    input_str = "```python\nprint('\\`\\`\\`nested\\`\\`\\`')\n```"
+    expected = "print('\\`\\`\\`nested\\`\\`\\`')"
+    assert unwrap_raw_llm_response(input_str) == expected
+
+
+def test_monkeypatched_re(monkeypatch):
+    # Monkeypatch re.compile to simulate unexpected behavior
+    def mock_compile(pattern):
+        class MockPattern:
+            def search(self, text):
+                return None
+
+        return MockPattern()
+
+    monkeypatch.setattr(re, "compile", mock_compile)
+    assert unwrap_raw_llm_response("```python\nx = 1\n```") == "```python\nx = 1\n```"
 
 
 # -------------------------------------
