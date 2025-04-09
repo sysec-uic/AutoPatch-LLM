@@ -109,7 +109,7 @@ class MessageBrokerClient:
         client.connect(self.message_broker_host, self.message_broker_port)
         return client
 
-    def publish(self, topic: str, message: str) -> None:
+    async def publish(self, topic: str, message: str) -> None:
         """
         Publish a message to the specified topic.
         """

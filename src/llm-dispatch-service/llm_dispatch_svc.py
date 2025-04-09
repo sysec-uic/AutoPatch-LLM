@@ -236,7 +236,7 @@ async def produce_output(
         # flake8 flags the following as F821 because it doesn't recognize the global variable
         logger.debug(f"Producing on Topic: {patch_response_output_topic}")  # noqa: F821
         logger.debug(f"Producing CloudEvent: {event}")
-        message_broker_client.publish(
+        await message_broker_client.publish(
             patch_response_output_topic, to_json(event).decode("utf-8")  # noqa: F821
         )
 
@@ -384,8 +384,8 @@ class ApiLLMStrategy(LLMStrategy):
         responses = []
         for llm in self.llms:
             responses.append(await llm.generate(prompt))
-            logger.info("Waiting for 0.1 seconds to avoid triggering API rate limits.")
-            await asyncio.sleep(0.1)
+            logger.info("Waiting for 1.0 seconds to avoid triggering API rate limits.")
+            await asyncio.sleep(1.0)
         return responses
 
 
@@ -426,7 +426,7 @@ class LLMClient:
         else:
             raise ValueError(f"Strategy '{name}' is not registered.")
 
-    async def generate(self, prompt: str) -> List[Dict]:
+    async def generate(self, prompt: str) -> List[Dict[str, str]]:
         """
         Dispatch the prompt to the active strategy and return the structured responses.
         """
@@ -468,20 +468,70 @@ async def init_llm_client(
     return client
 
 
-def create_patch_request(
-    executable_name: str,
-    patch_snippet_base64: str,
-    transformer_metadata: TransformerMetadata,
-    status: str,
+async def create_patch_responses(
+    raw_responses: List[Dict[str, str]],
+    source_filename_or_program_name_under_consideration_unique_id: List[str],
+    concurrency_threshold: int = 10,
+) -> List[PatchResponse]:
+    """
+    Creates patch responses from the provided raw responses and their associated unique identifiers.
+    Parameters:
+        raw_responses (List[Dict[str, str]]): A list of dictionaries containing raw response data.
+        source_filename_or_program_name_under_consideration_unique_id (List[str]):
+            A list of unique identifiers corresponding to each raw response, such as source filenames
+            or program names.
+        concurrency_threshold (int, optional): The maximum number of raw responses to process
+            sequentially. If the number of raw responses exceeds this threshold, processing is
+            executed in parallel. Defaults to 10.
+    Returns:
+        List[PatchResponse]: A list of patch responses generated from the raw responses.
+    """
+    if len(raw_responses) > concurrency_threshold:
+        # Run in parallel
+        tasks = [
+            create_patch_response(x[0], x[1])
+            for x in zip(
+                raw_responses,
+                source_filename_or_program_name_under_consideration_unique_id,
+            )
+        ]
+        results = await asyncio.gather(*tasks)
+    else:
+        # Run sequentially
+        results = [
+            await create_patch_response(x[0], x[1])
+            for x in zip(
+                raw_responses,
+                source_filename_or_program_name_under_consideration_unique_id,
+            )
+        ]
+
+    return results
+
+
+async def create_patch_response(
+    raw_response: Dict[str, str],
+    source_filename_or_program_name_under_consideration_unique_id: str,
 ) -> PatchResponse:
     """
-    Create a PatchRequest object.
+    Create a PatchRequest objects from the raw response.
     """
+    name_id_str = source_filename_or_program_name_under_consideration_unique_id
+
+    unwrapped_response = unwrap_raw_llm_response(raw_response["response"])
+    updated_response = update_diff_filename(unwrapped_response, name_id_str)
+    _llm_name = raw_response["llm_name"][
+        raw_response["llm_name"].index("/") + 1 : raw_response["llm_name"].index(":")
+    ]
+    _llm_flavor = raw_response["llm_name"][: raw_response["llm_name"].index("/")]
+    metadata: TransformerMetadata = TransformerMetadata(
+        llm_name=_llm_name, llm_flavor=_llm_flavor, llm_version="not available"
+    )
     return PatchResponse(
-        executable_name=executable_name,
-        patch_snippet_base64=patch_snippet_base64,
-        TransformerMetadata=transformer_metadata,
-        status=status,
+        name_id_str,
+        base64.b64encode(updated_response.encode("utf-8")).decode("utf-8"),
+        metadata,
+        status="success",
     )
 
 
@@ -526,28 +576,9 @@ async def main():
     dummy_filename = "dummy_c_file.c"
 
     responses = await client.generate(prompt)
-
-    patch_responses = []
-    for response in responses:
-        unwrapped_response = unwrap_raw_llm_response(response["response"])
-        updated_response = update_diff_filename(unwrapped_response, dummy_filename)
-        _llm_name = response["llm_name"][
-            response["llm_name"].index("/") + 1 : response["llm_name"].index(":")
-        ]
-        _llm_flavor = response["llm_name"][: response["llm_name"].index("/")]
-        metadata: TransformerMetadata = TransformerMetadata(
-            llm_name=_llm_name, llm_flavor=_llm_flavor, llm_version="not available"
-        )
-        patch_response = create_patch_request(
-            executable_name=dummy_filename,
-            patch_snippet_base64=base64.b64encode(
-                updated_response.encode("utf-8")
-            ).decode("utf-8"),
-            transformer_metadata=metadata,
-            status="success",
-        )
-        patch_responses.append(patch_response)
-
+    patch_responses: List[PatchResponse] = await create_patch_responses(
+        responses, [dummy_filename] * len(responses)
+    )
     await produce_output(config.message_broker_topics["response"], patch_responses)
 
     LLM_DISPATCH_END_TIMESTAMP: Final[str] = get_current_timestamp()
