@@ -1,4 +1,4 @@
-autopatchdatatypes-0.6.2-py3-none-any.whl
-autopatchshared-0.6.2-py3-none-any.whl
-autopatchpubsub-0.6.2-py3-none-any.whl
+autopatchdatatypes-0.7.0-py3-none-any.whl
+autopatchshared-0.7.0-py3-none-any.whl
+autopatchpubsub-0.7.0-py3-none-any.whl
 openai==1.69.0
