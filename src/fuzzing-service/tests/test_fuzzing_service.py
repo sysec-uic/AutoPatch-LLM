@@ -77,7 +77,7 @@ def mock_message_broker_client(monkeypatch):
         def __init__(self, *args, **kwargs):
             self.client = mock.Mock(spec=mqtt_client.Client)
 
-        def publish(self, topic, message):
+        async def publish(self, topic, message) -> str:
             # Optionally, record calls or simply do nothing.
             # self.client.publish(topic, message)
             pass
@@ -189,6 +189,7 @@ async def test_produce_output(mock_logger):
 async def test_produce_output_with_multiple_events(mock_logger):
     """Test producing multiple CloudEvents asynchronously."""
     # Assemble
+    fuzzing_service.config = mock_FuzzSvcConfig()
     crash_details = [
         CrashDetail("test_exe1", base64.b64encode(b"crash1").decode("utf-8"), True),
         CrashDetail("test_exe2", base64.b64encode(b"crash2").decode("utf-8"), False),
