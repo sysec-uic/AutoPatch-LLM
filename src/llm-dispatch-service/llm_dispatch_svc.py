@@ -526,11 +526,6 @@ async def main():
     dummy_filename = "dummy_c_file.c"
 
     responses = await client.generate(prompt)
-    # for response in responses:
-    #     logger.info("Unwrapped responses:")
-    #     unwrapped_response = unwrap_raw_llm_response(response["response"])
-    #     updated_response = update_diff_filename(unwrapped_response, dummy_filename)
-    #     logger.info(f"LLM: {response['llm_name']}\nResponse:\n{updated_response}\n")
 
     patch_responses = []
     for response in responses:
