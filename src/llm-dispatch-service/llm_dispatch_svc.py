@@ -13,9 +13,9 @@ from autopatchpubsub import MessageBrokerClient
 from autopatchshared import get_current_timestamp, init_logging, load_config_as_json
 from cloudevents.conversion import to_json
 from cloudevents.http import CloudEvent
+from llm_dispatch_svc_config import LLMDispatchSvcConfig
 from openai import OpenAI
 
-from llm_dispatch_svc_config import LLMDispatchSvcConfig
 
 # from autopatchdatatypes import PatchRequest
 
