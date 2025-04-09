@@ -18,9 +18,9 @@
     "message_broker_host": "mosquitto",
     "message_broker_port": 1883,
     "message_broker_topics": {
-        "request": "llm/dispatch/request",
-        "response": "llm/dispatch/response",
-        "error": "llm/dispatch/error"
+        "request": "autopatch/llm-dispatch/request",
+        "response": "autopatch/llm-dispatch/response",
+        "error": "autopatch/llm-dispatch/error"
     },
     "model_router_base_url": "https://openrouter.ai/api/v1",
     "model_router_fallback_model": "google/gemini-2.5-pro-exp-03-25:free",
