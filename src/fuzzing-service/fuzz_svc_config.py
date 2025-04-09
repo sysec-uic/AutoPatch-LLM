@@ -24,4 +24,5 @@ class FuzzSvcConfig:
     afl_tool_child_process_memory_limit_mb: int
     afl_tool_compiled_binary_executables_output_path: str
     afl_compiler_tool_full_path: str
+    make_tool_full_path: str
     iconv_tool_timeout: int

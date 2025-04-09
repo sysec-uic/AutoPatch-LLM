@@ -15,7 +15,7 @@ from fuzz_svc_config import FuzzSvcConfig
 
 # Import the function to test from the updated module.
 from fuzzing_service import (
-    compile_program_run_fuzzer,
+    compile_program,
     extract_crashes,
     map_crash_detail_as_cloudevent,
     map_crashdetails_as_cloudevents,
@@ -233,9 +233,7 @@ def test_run_fuzzer_compile_failure(monkeypatch):
     monkeypatch.setattr(subprocess, "run", fake_run_fail)
 
     # Act
-    ret = compile_program_run_fuzzer(
-        executable_name, *dummy_args, isInputFromFile=False
-    )
+    ret = compile_program(executable_name, *dummy_args, isInputFromFile=False)
 
     # Assemble
     assert ret is False
@@ -269,9 +267,7 @@ def test_run_fuzzer_popen_failure(monkeypatch):
     )
 
     # Act
-    ret = compile_program_run_fuzzer(
-        executable_name, *dummy_args, isInputFromFile=False
-    )
+    ret = compile_program(executable_name, *dummy_args, isInputFromFile=False)
 
     # Assert
     assert ret is False
