@@ -290,7 +290,7 @@ async def test_full_prompt_normal(monkeypatch, tmp_path):
 
     # Act
     result = await full_prompt(str(system_file), str(user_file))
-    expected = "System User \n---\n C code"
+    expected = "System\nUser\n---\nC code"
 
     # Assert
     assert result == expected
@@ -320,7 +320,7 @@ async def test_full_prompt_empty_files(monkeypatch, tmp_path):
     result = await full_prompt(str(system_file), str(user_file))
 
     # Assert
-    assert result == "  \n---\n "
+    assert result == "\n\n---\n"
 
 
 @pytest.mark.asyncio
