@@ -63,21 +63,32 @@ async def map_crash_detail_as_cloudevent(crash_detail: CrashDetail) -> CloudEven
     return event
 
 
-def compile_program(
-    program_source_fully_qualified_path: str,
-    output_executable_fully_qualified_path: str,
+def compile_program_run_fuzzer(
+    program_name: str,
+    input_codebase_path: str,
+    program_path: str,
+    fuzzer_compatible_executables_output_directory_path: str,
     fuzzer_compiler_full_path: str,
-    timeout: int,
+    fuzzer_full_path: str,
+    fuzzer_seed_input_path: str,
+    fuzzer_output_path: str,
+    fuzzer_timeout: int,
+    isInputFromFile: bool,
 ) -> bool:
     """
     Compile the C source file for AFL fuzzing and run the fuzzer.
     Returns True if the fuzzer appears to have started successfully.
     """
+    src_path = os.path.join(input_codebase_path, program_path)
 
+    # Name of the executable that was compiled with the fuzzer's version of GCC
+    executable_name = os.path.join(
+        fuzzer_compatible_executables_output_directory_path, program_name + ".afl"
+    )
     # Compile using AFL's compiler
     warn_flags = config.compiler_warning_flags
     feature_flags = config.compiler_feature_flags
-    compile_command = f"{fuzzer_compiler_full_path} {warn_flags} {feature_flags} {program_source_fully_qualified_path} -o {output_executable_fully_qualified_path}"
+    compile_command = f"{fuzzer_compiler_full_path} {warn_flags} {feature_flags} {src_path} -o {executable_name}"
     logger.debug(f"Compile command: {compile_command}")
     try:
         result = subprocess.run(
@@ -85,12 +96,11 @@ def compile_program(
             stderr=subprocess.PIPE,
             stdout=subprocess.PIPE,
             universal_newlines=True,
-            timeout=timeout,
+            timeout=fuzzer_timeout,
             shell=True,
             check=True,
         )
         logger.debug(f"Fuzzer compile output: {result.stdout + result.stderr}")
-        return True
     except (OSError, subprocess.CalledProcessError) as e:
         return_code = getattr(e, "returncode", "N/A")
         output = getattr(e, "output", "N/A")
@@ -101,20 +111,10 @@ def compile_program(
         logger.error(f"Error running fuzzer: {e}")
         return False
 
-
-def run_fuzzer(
-    fuzzer_full_path: str,
-    fuzzer_seed_input_path: str,
-    fuzzer_timeout: int,
-    isInputFromFile: bool,
-    fully_qualified_fuzzer_tool_output_path: str,
-    output_executable_fully_qualified_path: str,
-) -> bool:
     # Prepare the fuzzing command
-
     fuzz_command = (
-        f"{fuzzer_full_path} -m {config.afl_tool_child_process_memory_limit_mb} -i {fuzzer_seed_input_path} -o {fully_qualified_fuzzer_tool_output_path} "
-        f"-t {fuzzer_timeout} {output_executable_fully_qualified_path}"
+        f"{fuzzer_full_path} -m {config.afl_tool_child_process_memory_limit_mb} -i {fuzzer_seed_input_path} -o {fuzzer_output_path}/{program_name} "
+        f"-t {fuzzer_timeout} {executable_name}"
     )
 
     if isInputFromFile:
@@ -284,7 +284,7 @@ async def produce_output(crash_details: List[CrashDetail]) -> None:
             f"Producing on Topic: {config.fuzz_svc_output_topic}"  # noqa: F821
         )
         logger.debug(f"Producing CloudEvent: {event}")
-        await message_broker_client.publish(
+        message_broker_client.publish(
             config.fuzz_svc_output_topic, to_json(event).decode("utf-8")  # noqa: F821
         )
 
@@ -312,50 +312,6 @@ async def produce_output(crash_details: List[CrashDetail]) -> None:
 def load_config(json_config_full_path: str) -> FuzzSvcConfig:
     config = load_config_as_json(json_config_full_path, logger)
     return FuzzSvcConfig(**config)
-
-
-# def compile_program(
-#     program_source_fully_qualified_path: str,
-#     output_executable_fully_qualified_path: str,
-#     fuzzer_compiler_full_path: str,
-#     timeout: int,
-# ) -> bool:
-
-
-def make_compile(
-    project_directory_full_path: str,
-    output_executable_fully_qualified_path: str,
-    fuzzer_compiler_full_path: str,
-) -> bool:
-
-    compile_command = (
-        f"{config.make_tool_full_path} -C {project_directory_full_path} compile-afl "
-    )
-    compile_command += f"AFL_CC_PATH={fuzzer_compiler_full_path} "
-    compile_command += f"AFL_EXEC_PATH={output_executable_fully_qualified_path}"
-
-    with subprocess.Popen(
-        compile_command,
-        stderr=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        universal_newlines=True,
-        shell=True,
-    ) as compile_process:
-        try:
-            stdout, stderr = compile_process.communicate(timeout=10)
-        except subprocess.TimeoutExpired as e:
-            compile_process.kill()
-            stdout, stderr = compile_process.communicate()
-            logger.error(f"Compilation failed with {e}")
-            return False
-        if compile_process.returncode != 0:
-            logger.error(
-                f"Compilation failed with return code {compile_process.returncode}"
-            )
-            logger.error(f"stderr {stderr}")
-            logger.error(f"stdout {stdout}")
-            return False
-        return True
 
 
 async def main():
@@ -397,119 +353,50 @@ async def main():
     logger.info(
         f"Found {len(_source_files)} source files in {_fuzz_svc_input_codebase_path}"
     )
-
-    # changes to make: need to check if it's a directory
-    # within the directory, check for makefile
-    # for afl compilation: need to source the afl compiler path
-    # for fuzz target run: need to source the afl fuzzer path, the input and output directories
-    # put the executable in assets instead of bin?
-
-    # for regular compilation: source the compiler, plus for execution need to source the input of the crashes althoguth this is
-    # maybe just acquired from the crash detail object?
-
-    for file_name in _source_files:
-
-        file_name_fully_qualified_path = os.path.join(
-            _fuzz_svc_input_codebase_path, file_name
-        )
-        logger.info(f"Processing project: {file_name_fully_qualified_path}")
-
-        if not os.path.isdir(file_name_fully_qualified_path):
-            isInputFromFile = file_name.endswith("_f")
-            ## put in logic to send to original functions
-            # Step 1: Run the AFL fuzzer
-            executable_name = file_name[:-2]
-            output_executable_directory_path = os.path.join(
-                _afl_tool_compiled_binary_executables_output_path, executable_name
-            )
-            os.makedirs(output_executable_directory_path, exist_ok=True)
-
-            output_executable_fully_qualified_path = os.path.join(
-                output_executable_directory_path,
-                executable_name + ".afl",
-            )
-            compiled_program = compile_program(
-                file_name_fully_qualified_path,
-                output_executable_fully_qualified_path,
-                _afl_compiler_tool_full_path,
-                10,
-            )
-            if not compiled_program:
-                logger.info(f"File {executable_name} failed to compile.")
-                continue
-
-            fully_qualified_fuzzer_tool_output_path = os.path.join(
-                _afl_tool_output_path, executable_name
-            )
-            os.makedirs(fully_qualified_fuzzer_tool_output_path, exist_ok=True)
-
-            fuzzer_started = run_fuzzer(
-                _afl_tool_full_path,
-                _afl_tool_seed_input_path,
-                30,
-                False,
-                fully_qualified_fuzzer_tool_output_path,
-                output_executable_fully_qualified_path,
-            )
-
-            if fuzzer_started:
-                logger.info(f"Fuzzer started for {file_name}.")
-            else:
-                logger.info(f"Fuzzer did not start properly for {file_name}.")
-
-            continue
-            # Step 2: Extract crash inputs (if any)
-            logger.info("Entering step 2: extract crash inputs")
-            crash_details = extract_crashes(
-                _afl_tool_output_path,
-                executable_name,
-                config.iconv_tool_timeout,
-                isInputFromFile,
-            )
-
-            # Process the crash outputs
-            if crash_details:
-                logger.info(f"Found {len(crash_details)} crash(es) for {file_name}:")
-                await produce_output(crash_details)
-            else:
-                logger.info(f"No crashes found for {file_name}.")
+    for source_file in _source_files:
+        if not source_file.endswith(".c"):
             continue
 
-        executable_name = file_name
-        output_executable_directory_path = os.path.join(
-            _afl_tool_compiled_binary_executables_output_path, executable_name
+        logger.info(
+            f"Processing: {os.path.join(_fuzz_svc_input_codebase_path, source_file)}"
         )
-        os.makedirs(output_executable_directory_path, exist_ok=True)
+        executable_name = os.path.splitext(source_file)[0]
+        # Optionally, decide if the target takes input from a file (e.g. based on naming convention)
+        isInputFromFile = executable_name.endswith("_f")
 
-        output_executable_fully_qualified_path = os.path.join(
-            output_executable_directory_path,
-            executable_name + ".afl",
-        )
-
-        make_compiled = make_compile(
-            file_name_fully_qualified_path,
-            output_executable_fully_qualified_path,
+        # Step 1: Run the AFL fuzzer
+        fuzzer_started = compile_program_run_fuzzer(
+            executable_name,
+            _fuzz_svc_input_codebase_path,
+            source_file,
+            _afl_tool_compiled_binary_executables_output_path,
             _afl_compiler_tool_full_path,
-        )
-        if not make_compiled:
-            logger.info(f"Project {executable_name} did not compile using Make.")
-            continue
-        fully_qualified_fuzzer_tool_output_path = os.path.join(
-            _afl_tool_output_path, executable_name
-        )
-        os.makedirs(fully_qualified_fuzzer_tool_output_path, exist_ok=True)
-        run_program = run_fuzzer(
             _afl_tool_full_path,
             _afl_tool_seed_input_path,
-            240,
-            False,
-            fully_qualified_fuzzer_tool_output_path,
-            output_executable_fully_qualified_path,
+            _afl_tool_output_path,
+            _fuzzer_tool_timeout_seconds,
+            isInputFromFile,
+        )
+        if fuzzer_started:
+            logger.info(f"Fuzzer started for {source_file}.")
+        else:
+            logger.info(f"Fuzzer did not start properly for {source_file}.")
+
+        # Step 2: Extract crash inputs (if any)
+        logger.info("Entering step 2: extract crash inputs")
+        crash_details = extract_crashes(
+            _afl_tool_output_path,
+            executable_name,
+            config.iconv_tool_timeout,
+            isInputFromFile,
         )
 
-        if not make_compiled:
-            logger.info(f"Compilation for project {file_name} failed.")
-            continue
+        # Process the crash outputs
+        if crash_details:
+            logger.info(f"Found {len(crash_details)} crash(es) for {source_file}:")
+            await produce_output(crash_details)
+        else:
+            logger.info(f"No crashes found for {source_file}.")
 
     FUZZ_SVC_END_TIMESTAMP: Final[str] = get_current_timestamp()
     time_delta = datetime.fromisoformat(
