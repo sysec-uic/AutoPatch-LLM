@@ -16,7 +16,6 @@ from cloudevents.http import CloudEvent
 from llm_dispatch_svc_config import LLMDispatchSvcConfig
 from openai import OpenAI
 
-
 # from autopatchdatatypes import PatchRequest
 
 # this is the name of the environment variable that will be used point to the configuration map file to load

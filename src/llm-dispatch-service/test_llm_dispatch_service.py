@@ -7,9 +7,8 @@ from types import SimpleNamespace
 from typing import Final
 from unittest.mock import MagicMock
 
-import pytest
-
 import llm_dispatch_svc
+import pytest
 from llm_dispatch_svc import (
     full_prompt,
     init_llm_client,
