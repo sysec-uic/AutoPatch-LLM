@@ -5,6 +5,7 @@ run-name: Build Docker Image, Push if tagged release by @${{ github.actor }}
 
 on:
   workflow_dispatch:
+
   pull_request:
     branches:
       - main
