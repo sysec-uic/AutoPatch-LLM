@@ -93,7 +93,7 @@ Theory tells us that creating bug-free programs is nearly impossible and proving
 
 ## Devtools
 
-![Developer Experience Diagram AutoPatch v0.6.1](./docs/Diagrams/autopatch-devtools-v.0.6.1.drawio.png)
+![Developer Experience Diagram AutoPatch v0.6.1](./docs/Diagrams/autopatch-devtools-v.0.6.1.drawio.svg)
 
 
 ## Versioning Strategy
