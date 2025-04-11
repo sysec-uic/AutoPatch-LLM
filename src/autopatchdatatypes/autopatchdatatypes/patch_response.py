@@ -16,6 +16,6 @@ class PatchResponse:
     """
 
     executable_name: str
-    patch_snippet_base64: str 
+    patch_snippet_base64: str
     TransformerMetadata: TransformerMetadata
     status: str
