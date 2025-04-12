@@ -6,7 +6,6 @@ import os
 import re
 import sys
 from abc import ABC, abstractmethod
-from datetime import datetime
 from typing import Dict, Final, List
 
 from autopatchdatatypes import CpgScanResult, PatchResponse, TransformerMetadata
