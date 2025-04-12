@@ -59,7 +59,7 @@ async def map_cloud_event_as_cpg_scan_result(
 
 
 async def process_cpg_scan_result(cpg_scan_result: CpgScanResult) -> None:
-    logger.info(f"Processing crash {cpg_scan_result}")
+    logger.info(f"Processing cpg scan result: {cpg_scan_result}")
     # TODO evaluate if we can remove this check
     # if the crash executable is not in our executables base, then skip it
     if cpg_scan_result.executable_name not in executable_name_to_cpg_scan_result_map:
