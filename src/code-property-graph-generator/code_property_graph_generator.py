@@ -4,9 +4,8 @@ import os
 import subprocess
 import sys
 import time
-from collections import deque
 from datetime import datetime
-from typing import Deque, Final, List
+from typing import Final, List
 
 from autopatchdatatypes import CpgScanResult
 from autopatchpubsub import MessageBrokerClient
