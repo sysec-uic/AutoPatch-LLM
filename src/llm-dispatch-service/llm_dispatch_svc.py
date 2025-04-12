@@ -1,20 +1,25 @@
 import asyncio
 import base64
+import json
 import logging
 import os
 import re
 import sys
 from abc import ABC, abstractmethod
-from datetime import datetime
 from typing import Dict, Final, List
 
-from autopatchdatatypes import PatchResponse, TransformerMetadata
+from autopatchdatatypes import CpgScanResult, PatchResponse, TransformerMetadata
 from autopatchpubsub import MessageBrokerClient
 from autopatchshared import get_current_timestamp, init_logging, load_config_as_json
 from cloudevents.conversion import to_json
 from cloudevents.http import CloudEvent
 from llm_dispatch_svc_config import LLMDispatchSvcConfig
 from openai import OpenAI
+
+# Global variables for the async queue and event loop.
+async_cpg_scan_results_queue = asyncio.Queue()
+event_loop: asyncio.AbstractEventLoop  # This will be set in main().
+
 
 # from autopatchdatatypes import PatchRequest
 
@@ -24,6 +29,69 @@ config: LLMDispatchSvcConfig
 
 # before configuration is loaded, use the default logger
 logger = logging.getLogger(__name__)
+
+executable_name_to_cpg_scan_result_map: Dict[str, CpgScanResult] = {}
+
+
+async def map_cloud_event_as_cpg_scan_result(
+    cpg_scan_result_cloud_event_str: str,
+) -> CpgScanResult:
+    """
+    Maps a CloudEvent JSON string to a CpgScanResult object.
+
+    Parameters:
+        cloud_event (str): The CloudEvent JSON string.
+
+    Returns:
+        CpgScanResult: The mapped cpg scan result.
+    """
+    cloud_event: Dict = json.loads(cpg_scan_result_cloud_event_str)
+
+    data = cloud_event.get("data", {})
+
+    return CpgScanResult(
+        executable_name=data.get("executable_name", ""),
+        vulnerability_severity=data.get("vulnerability_severity", None),
+        vulnerable_line_number=data.get("vulnerable_line_number", None),
+        vulnerable_function=data.get("vulnerable_function", ""),
+        vulnerability_description=data.get("vulnerability_description", ""),
+    )
+
+
+async def process_cpg_scan_result(cpg_scan_result: CpgScanResult) -> None:
+    logger.info(f"Processing cpg scan result: {cpg_scan_result}")
+    # TODO evaluate if we can remove this check
+    # if the crash executable is not in our executables base, then skip it
+    if cpg_scan_result.executable_name not in executable_name_to_cpg_scan_result_map:
+        logger.info(
+            f"{cpg_scan_result.executable_name} not in set of compiled executables to process.. adding to map"
+        )
+        executable_name_to_cpg_scan_result_map[cpg_scan_result.executable_name] = (
+            cpg_scan_result
+        )
+        logger.info(
+            f"Current executable_name_cpg_scan_result_map: {executable_name_to_cpg_scan_result_map.items()}"
+        )
+
+
+async def process_item(item):
+    """Asynchronously process an item."""
+    cpg_scan_result = await map_cloud_event_as_cpg_scan_result(item)
+    await process_cpg_scan_result(cpg_scan_result)
+
+
+async def cpg_scan_result_consumer():
+    """Continuously consume items from the async queue."""
+    """
+        this consumer coroutine waits for items from the asyncio.Queue
+        and processes each with process_item(). This runs continuously in the event loop.
+    """
+    while True:
+        item = await async_cpg_scan_results_queue.get()
+        try:
+            await process_item(item)
+        finally:
+            async_cpg_scan_results_queue.task_done()
 
 
 def load_config(json_config_full_path: str) -> LLMDispatchSvcConfig:
@@ -225,9 +293,26 @@ async def map_patchresponses_as_cloudevents(
     return results
 
 
+def on_consume_cpg_scan_result(cloud_event_str: str) -> None:
+    """
+    This is synchronous function that’s called from non‑async code.
+    It uses the globally stored event_loop to schedule a call to
+    async_queue.put_nowait in a thread‑safe manner.
+    """
+    logger.info(f"in on_consume_cpg_scan_result received {cloud_event_str}")
+    # Schedule adding the event to the async queue.
+    # Use call_soon_threadsafe so that this function can be safely called
+    # from threads outside the event loop.
+    global event_loop
+    event_loop.call_soon_threadsafe(
+        async_cpg_scan_results_queue.put_nowait, cloud_event_str
+    )
+
+
 async def produce_output(
     patch_response_output_topic: str,
     patch_responses: List[PatchResponse],
+    message_broker_client: MessageBrokerClient,
     concurrency_threshold: int = 10,
 ) -> None:
 
@@ -241,9 +326,6 @@ async def produce_output(
 
     patch_response_cloud_events: List[CloudEvent] = (
         await map_patchresponses_as_cloudevents(patch_responses)
-    )
-    message_broker_client: Final[MessageBrokerClient] = MessageBrokerClient(
-        config.message_broker_host, config.message_broker_port, logger
     )
 
     logger.info(f"Producing {len(patch_response_cloud_events)} CloudEvents.")
@@ -534,8 +616,25 @@ async def create_patch_response(
     )
 
 
+def init_message_broker(
+    message_broker_host: str, message_broker_port: int, logger: logging.Logger
+) -> MessageBrokerClient:
+    """
+    Initialize a MessageBrokerClient instance with the configured host, port, and logger settings.
+    Returns:
+        MessageBrokerClient: The configured MessageBrokerClient ready for use.
+    """
+    message_broker_client: Final[MessageBrokerClient] = MessageBrokerClient(
+        message_broker_host,
+        message_broker_port,
+        logger,
+    )
+    return message_broker_client
+
+
 async def main():
     global config, logger
+    global event_loop
 
     config_full_path = os.environ.get(CONST_LLM_DISPATCH_CONFIG)
 
@@ -548,7 +647,7 @@ async def main():
     config = load_config(config_full_path)
     logger = init_logging(config.logging_config, config.appName)
 
-    LLM_DISPATCH_START_TIMESTAMP: Final[str] = get_current_timestamp()
+    # LLM_DISPATCH_START_TIMESTAMP: Final[str] = get_current_timestamp()
 
     models = [
         "openai/gpt-4o-mini:free",
@@ -574,19 +673,40 @@ async def main():
 
     dummy_filename = "dummy_c_file.c"
 
+    event_loop = asyncio.get_running_loop()
+
+    # Start the consumer coroutine as a background task.
+    asyncio.create_task(cpg_scan_result_consumer())
+
+    message_broker_client: Final[MessageBrokerClient] = init_message_broker(
+        config.message_broker_host,
+        config.message_broker_port,
+        logger,
+    )
+
+    # subscribe to topic
+    message_broker_client.consume(
+        config.cpg_scan_result_input_topic, on_consume_cpg_scan_result
+    )
+
     responses = await client.generate(prompt)
     patch_responses: List[PatchResponse] = await create_patch_responses(
         responses, [dummy_filename] * len(responses)
     )
-    await produce_output(config.message_broker_topics["response"], patch_responses)
+    await produce_output(
+        config.message_broker_topics["response"], patch_responses, message_broker_client
+    )
 
-    LLM_DISPATCH_END_TIMESTAMP: Final[str] = get_current_timestamp()
-    time_delta = datetime.fromisoformat(
-        LLM_DISPATCH_END_TIMESTAMP
-    ) - datetime.fromisoformat(LLM_DISPATCH_START_TIMESTAMP)
-    logger.info(f"Total Processing Time Elapsed: {time_delta}")
-    logger.info("Processing complete, exiting.")
-    exit(0)
+    # LLM_DISPATCH_END_TIMESTAMP: Final[str] = get_current_timestamp()
+    # time_delta = datetime.fromisoformat(
+    #     LLM_DISPATCH_END_TIMESTAMP
+    # ) - datetime.fromisoformat(LLM_DISPATCH_START_TIMESTAMP)
+    # logger.info(f"Total Processing Time Elapsed: {time_delta}")
+    # logger.info("Processing complete, exiting.")
+
+    # TODO finish making event driven
+    # Keep the program running indefinitely, waiting for more events.
+    await asyncio.Future()  # This future will never complete.
 
 
 if __name__ == "__main__":
