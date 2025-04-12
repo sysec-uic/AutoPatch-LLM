@@ -1,4 +1,5 @@
 {
+    "cpg_scan_result_input_topic" : "autopatch/cpg-scan-result",
     "devonlyinputfilepath": "/workspace/AutoPatch-LLM/src/llm-dispatch-service/data/dummy_c_file.c",
     "appName": "autopatch.llm-dispatch-service",
     "appVersion": "0.7.0-alpha",

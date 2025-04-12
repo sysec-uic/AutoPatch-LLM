@@ -196,11 +196,6 @@ async def produce_output(
         config.message_broker_host, config.message_broker_port, logger
     )
 
-    def consume_callback(message: str) -> None:
-        logger.info(f"Message received: {message}")
-
-    message_broker_client.consume(output_topic, consume_callback)
-
     logger.info(f"Producing {len(cpg_scan_results_cloud_events)} CloudEvents.")
     if len(cpg_scan_results_cloud_events) > config.concurrency_threshold:
         # Run in parallel using asyncio.gather
@@ -270,7 +265,6 @@ async def main():
     # severity, executable name, line number, and function name# c
     input_c_programs: Final[List[str]] = os.listdir(config.cpg_svc_input_codebase_path)
 
-    scan_results_queue: Deque[List[CpgScanResult]] = deque()
     len_input_c_programs = len(input_c_programs)
     for i in range(len_input_c_programs):
         fully_qualified_path = os.path.join(
@@ -279,15 +273,11 @@ async def main():
         scan_results: List[CpgScanResult] = scan_cpg(
             config.scan_tool_full_path, fully_qualified_path
         )
+        await produce_output(scan_results, config.cpg_svc_scan_result_output_topic)
+
         if not scan_results:
             logger.info(f"No scan results for {input_c_programs[i]}")
             continue
-        scan_results_queue.append(scan_results)
-
-    while scan_results_queue:
-        scan_results: List[CpgScanResult] = scan_results_queue.popleft()
-        await produce_output(scan_results, config.cpg_svc_scan_result_output_topic)
-        logger.info(f"Produced {len(scan_results)} scan results.")
 
     CPG_SVC_END_TIMESTAMP: Final[str] = get_current_timestamp()
     time_delta = datetime.fromisoformat(CPG_SVC_END_TIMESTAMP) - datetime.fromisoformat(
