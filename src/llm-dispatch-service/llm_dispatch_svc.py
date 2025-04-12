@@ -647,7 +647,7 @@ async def main():
     config = load_config(config_full_path)
     logger = init_logging(config.logging_config, config.appName)
 
-    LLM_DISPATCH_START_TIMESTAMP: Final[str] = get_current_timestamp()
+    # LLM_DISPATCH_START_TIMESTAMP: Final[str] = get_current_timestamp()
 
     models = [
         "openai/gpt-4o-mini:free",
