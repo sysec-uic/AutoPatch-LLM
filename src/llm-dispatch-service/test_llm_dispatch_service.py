@@ -26,6 +26,7 @@ llm_dispatch_svc_module_name_str: Final[str] = "llm_dispatch_svc"
 
 def mock_LLMDispatchSvcConfig() -> LLMDispatchSvcConfig:
     mock_config = {
+        "cpg_scan_result_input_topic": "autopatch/cpg-scan-result",
         "devonlyinputfilepath": "/workspace/AutoPatch-LLM/src/llm-dispatch/data/dummy_c_file.c",
         "appName": "autopatch.llm-dispatch",
         "appVersion": "0.5.0-alpha",
