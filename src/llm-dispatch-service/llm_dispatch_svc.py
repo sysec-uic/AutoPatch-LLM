@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Dict, Final, List
 
-from autopatchdatatypes import PatchResponse, TransformerMetadata, CpgScanResult
+from autopatchdatatypes import CpgScanResult, PatchResponse, TransformerMetadata
 from autopatchpubsub import MessageBrokerClient
 from autopatchshared import get_current_timestamp, init_logging, load_config_as_json
 from cloudevents.conversion import to_json
