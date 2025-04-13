@@ -137,18 +137,18 @@ def run_fuzzer(
         # Check if process started successfully
         if process.poll() is not None:
             logger.error("Fuzzer subprocess failed to start.")
-        else:
-            logger.info(
-                f"Fuzzer process started with PID: {process.pid}. Waiting for it to finish."
-            )
-            # Wait for process to complete or timeout
-            stdout, stderr = process.communicate(timeout=fuzzer_timeout)
-            logger.debug(f"Fuzzer command output: {stdout} {stderr}")
-            # Kill the entire process group to ensure that all subprocesses are terminated.
-            logger.info("Killing the fuzzer process group.")
-            os.killpg(os.getpgid(process.pid), signal.SIGTERM)
-            stdout, stderr = process.communicate()
-            logger.debug(f"Closed subprocess group output: {stdout} {stderr}")
+
+        logger.info(
+            f"Fuzzer process started with PID: {process.pid}. Waiting for it to finish."
+        )
+        # Wait for process to complete or timeout
+        stdout, stderr = process.communicate(timeout=fuzzer_timeout)
+        logger.debug(f"Fuzzer command output: {stdout} {stderr}")
+        # Kill the entire process group to ensure that all subprocesses are terminated.
+        # logger.info("Killing the fuzzer process group.")
+        # os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+        # stdout, stderr = process.communicate()
+        # logger.debug(f"Closed subprocess group output: {stdout} {stderr}")
     except subprocess.TimeoutExpired:
         logger.info(f"Fuzzer run timed out after {fuzzer_timeout} seconds as expected.")
         # Kill the entire process group to ensure that all subprocesses are terminated.
@@ -428,12 +428,14 @@ async def main():
                 output_executable_directory_path,
                 executable_name + ".afl",
             )
+            # compile the program
             compiled_program = compile_program(
                 file_name_fully_qualified_path,
                 output_executable_fully_qualified_path,
                 _afl_compiler_tool_full_path,
                 10,
             )
+            # if fail then move on to next input
             if not compiled_program:
                 logger.info(f"File {executable_name} failed to compile.")
                 continue
@@ -456,6 +458,7 @@ async def main():
                 logger.info(f"Fuzzer started for {file_name}.")
             else:
                 logger.info(f"Fuzzer did not start properly for {file_name}.")
+        # if the source code is directoried
         else:
 
             executable_name = file_name
@@ -468,7 +471,7 @@ async def main():
                 output_executable_directory_path,
                 executable_name + ".afl",
             )
-
+            # compile
             make_compiled = make_compile(
                 file_name_fully_qualified_path,
                 output_executable_fully_qualified_path,
