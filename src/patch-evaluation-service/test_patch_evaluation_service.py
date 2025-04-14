@@ -132,6 +132,7 @@ async def test_run_file_file_input_async_success(monkeypatch):
 
 
 @pytest.mark.asyncio
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnhandledThreadExceptionWarning")
 async def test_run_file_async_timeout(monkeypatch):
     # Assemble
     # Create a dummy process that delays its response to trigger a timeout.

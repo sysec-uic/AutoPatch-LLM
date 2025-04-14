@@ -100,6 +100,9 @@ async def test_publish_failure(monkeypatch, mocked_logger):
     )
 
 
+# Suppress PytestUnhandledThreadExceptionWarning because the test intentionally triggers
+# thread-related behavior that is expected and does not affect the test outcome.
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnhandledThreadExceptionWarning")
 def test_on_disconnect_reconnect(monkeypatch, mocked_logger):
     # Create a mock client that fails its first reconnect attempt then succeeds.
     mock_client = mock.Mock()

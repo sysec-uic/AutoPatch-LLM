@@ -15,7 +15,7 @@ from fuzz_svc_config import FuzzSvcConfig
 
 # Import the function to test from the updated module.
 from fuzzing_service import (
-    compile_program_run_fuzzer,
+    compile_program,
     extract_crashes,
     map_crash_detail_as_cloudevent,
     map_crashdetails_as_cloudevents,
@@ -26,7 +26,7 @@ from fuzzing_service import (
 
 def mock_FuzzSvcConfig() -> FuzzSvcConfig:
     mock_config = {
-        "version": "0.5.0-alpha",
+        "version": "0.7.0-alpha",
         "appname": "autopatch.fuzzing-service",
         "logging_config": "config/logging-config.json",
         "concurrency_threshold": 10,
@@ -40,21 +40,23 @@ def mock_FuzzSvcConfig() -> FuzzSvcConfig:
         "compiler_feature_flags": "-m32 -fno-stack-protector -O1 -fsanitize=address",
         "fuzzer_tool_name": "afl",
         "fuzzer_tool_timeout_seconds": 120,
-        "fuzzer_tool_version": "2.52b",
-        "afl_tool_full_path": "bin/afl-2.52b/afl-fuzz",
+        "fuzzer_tool_version": "afl-fuzz++4.09c",
+        "afl_tool_full_path": "/usr/bin/afl-fuzz",
         "afl_tool_seed_input_path": "seed_input",
         "afl_tool_output_path": "data/afl_tool_output",
         "afl_tool_child_process_memory_limit_mb": 6000,
         "afl_tool_compiled_binary_executables_output_path": "bin",
-        "afl_compiler_tool_full_path": "/workspace/AutoPatch-LLM/bin/afl-2.52b/afl-gcc",
+        "afl_compiler_tool_full_path": "/usr/bin/afl-gcc",
+        "make_tool_full_path": "/usr/bin/make",
         "iconv_tool_timeout": 120,
     }
     return FuzzSvcConfig(**mock_config)
 
 
 # A dummy logger to capture logger calls.
-class DummyLogger:
+class DummyLogger(logging.Logger):
     def __init__(self):
+        super().__init__(name="dummy")
         self.messages = []
         self.level = logging.DEBUG  # Add the level attribute
 
@@ -203,26 +205,22 @@ async def test_produce_output_with_multiple_events(mock_logger):
 
 
 # --------------
-# Tests for compile_program_run_fuzzer
+# Tests for compile_program
 # --------------
 
 
-def test_run_fuzzer_compile_failure(monkeypatch):
+def test_compile_failure(monkeypatch):
     # Assemble
     # Set up config.
+    fuzzing_service.config = mock_FuzzSvcConfig()
     fuzzing_service.config.compiler_warning_flags = "-w"
     fuzzing_service.config.compiler_feature_flags = "-f"
     fuzzing_service.config.afl_tool_child_process_memory_limit_mb = 128
 
-    executable_name = "failprog"
     dummy_args = (
-        "/dummy",
         "failprog.c",
         "/dummy/compiled",
         "/dummy/compiler",
-        "/dummy/fuzzer",
-        "/dummy/seed",
-        "/dummy/output",
         10,
     )
 
@@ -233,47 +231,9 @@ def test_run_fuzzer_compile_failure(monkeypatch):
     monkeypatch.setattr(subprocess, "run", fake_run_fail)
 
     # Act
-    ret = compile_program_run_fuzzer(
-        executable_name, *dummy_args, isInputFromFile=False
-    )
+    ret = compile_program(*dummy_args)
 
     # Assemble
-    assert ret is False
-
-
-def test_run_fuzzer_popen_failure(monkeypatch):
-    # Assemble
-    # Set up config.
-    fuzzing_service.config = mock_FuzzSvcConfig()
-    fuzzing_service.config.compiler_warning_flags = "-w"
-    fuzzing_service.config.compiler_feature_flags = "-f"
-    fuzzing_service.config.afl_tool_child_process_memory_limit_mb = 128
-    executable_name = "failprog"
-    dummy_args = (
-        "/dummy",
-        "failprog.c",
-        "/dummy/compiled",
-        "/dummy/compiler",
-        "/dummy/fuzzer",
-        "/dummy/seed",
-        "/dummy/output",
-        10,
-    )
-    # Let the compile succeed.
-    monkeypatch.setattr(subprocess, "run", mock_run_success)
-    # Simulate a failure in the fuzzer run by having Popen raise an Exception.
-    monkeypatch.setattr(
-        subprocess,
-        "Popen",
-        lambda *args, **kwargs: (_ for _ in ()).throw(Exception("Popen failed")),
-    )
-
-    # Act
-    ret = compile_program_run_fuzzer(
-        executable_name, *dummy_args, isInputFromFile=False
-    )
-
-    # Assert
     assert ret is False
 
 

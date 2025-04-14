@@ -321,12 +321,21 @@ def prep_executables_for_evaluation(
     executables = set()
     results: Dict[str, Dict[str, int]] = dict()
     # iterate through the patched codes directory
+    # this will be replaced with a message broker subscription
     for file_name in os.listdir(patched_codes_directory_path):
-        file_path = os.path.join(patched_codes_directory_path, file_name)
+        fully_qualified_file_path = os.path.join(
+            patched_codes_directory_path, file_name
+        )
+        if os.path.isdir(fully_qualified_file_path):
+            logger.info(
+                "Patch Evaluation Service does not yet support complex project directories."
+            )
+            logger.info(f"Skipping directory: {fully_qualified_file_path}")
+            continue
         # compile the file
-        logger.info(f"Compiling: {file_path}")
+        logger.info(f"Compiling: {fully_qualified_file_path}")
         executable_name = compile_file(
-            file_path,
+            fully_qualified_file_path,
             file_name,
             executables_full_path,
             compiler_tool_full_path,
