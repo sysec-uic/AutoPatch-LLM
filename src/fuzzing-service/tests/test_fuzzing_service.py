@@ -217,7 +217,6 @@ def test_compile_failure(monkeypatch):
     fuzzing_service.config.compiler_feature_flags = "-f"
     fuzzing_service.config.afl_tool_child_process_memory_limit_mb = 128
 
-    executable_name = "failprog"
     dummy_args = (
         "failprog.c",
         "/dummy/compiled",
