@@ -12,7 +12,12 @@ from typing import Final, List
 
 from autopatchdatatypes import CrashDetail
 from autopatchpubsub import MessageBrokerClient
-from autopatchshared import get_current_timestamp, init_logging, load_config_as_json
+from autopatchshared import (
+    get_current_timestamp,
+    init_logging,
+    load_config_as_json,
+    make_compile,
+)
 from cloudevents.conversion import to_json
 from cloudevents.http import CloudEvent
 from fuzz_svc_config import FuzzSvcConfig
@@ -144,11 +149,6 @@ def run_fuzzer(
         # Wait for process to complete or timeout
         stdout, stderr = process.communicate(timeout=fuzzer_timeout)
         logger.debug(f"Fuzzer command output: {stdout} {stderr}")
-        # Kill the entire process group to ensure that all subprocesses are terminated.
-        # logger.info("Killing the fuzzer process group.")
-        # os.killpg(os.getpgid(process.pid), signal.SIGTERM)
-        # stdout, stderr = process.communicate()
-        # logger.debug(f"Closed subprocess group output: {stdout} {stderr}")
     except subprocess.TimeoutExpired:
         logger.info(f"Fuzzer run timed out after {fuzzer_timeout} seconds as expected.")
         # Kill the entire process group to ensure that all subprocesses are terminated.
@@ -314,48 +314,40 @@ def load_config(json_config_full_path: str) -> FuzzSvcConfig:
     return FuzzSvcConfig(**config)
 
 
-# def compile_program(
-#     program_source_fully_qualified_path: str,
+# def make_compile(
+#     project_directory_full_path: str,
 #     output_executable_fully_qualified_path: str,
-#     fuzzer_compiler_full_path: str,
-#     timeout: int,
+#     compiler_tool_full_path: str,
 # ) -> bool:
 
+#     compile_command = (
+#         f"{config.make_tool_full_path} -C {project_directory_full_path} compile "
+#     )
+#     compile_command += f"CC_PATH={compiler_tool_full_path} "
+#     compile_command += f"EXEC_PATH={output_executable_fully_qualified_path}"
 
-def make_compile(
-    project_directory_full_path: str,
-    output_executable_fully_qualified_path: str,
-    fuzzer_compiler_full_path: str,
-) -> bool:
-
-    compile_command = (
-        f"{config.make_tool_full_path} -C {project_directory_full_path} compile-afl "
-    )
-    compile_command += f"AFL_CC_PATH={fuzzer_compiler_full_path} "
-    compile_command += f"AFL_EXEC_PATH={output_executable_fully_qualified_path}"
-
-    with subprocess.Popen(
-        compile_command,
-        stderr=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        universal_newlines=True,
-        shell=True,
-    ) as compile_process:
-        try:
-            stdout, stderr = compile_process.communicate(timeout=10)
-        except subprocess.TimeoutExpired as e:
-            compile_process.kill()
-            stdout, stderr = compile_process.communicate()
-            logger.error(f"Compilation failed with {e}")
-            return False
-        if compile_process.returncode != 0:
-            logger.error(
-                f"Compilation failed with return code {compile_process.returncode}"
-            )
-            logger.error(f"stderr {stderr}")
-            logger.error(f"stdout {stdout}")
-            return False
-        return True
+#     with subprocess.Popen(
+#         compile_command,
+#         stderr=subprocess.PIPE,
+#         stdout=subprocess.PIPE,
+#         universal_newlines=True,
+#         shell=True,
+#     ) as compile_process:
+#         try:
+#             stdout, stderr = compile_process.communicate(timeout=10)
+#         except subprocess.TimeoutExpired as e:
+#             compile_process.kill()
+#             stdout, stderr = compile_process.communicate()
+#             logger.error(f"Compilation failed with {e}")
+#             return False
+#         if compile_process.returncode != 0:
+#             logger.error(
+#                 f"Compilation failed with return code {compile_process.returncode}"
+#             )
+#             logger.error(f"stderr {stderr}")
+#             logger.error(f"stdout {stdout}")
+#             return False
+#         return True
 
 
 async def main():
@@ -384,6 +376,7 @@ async def main():
         config.afl_tool_output_path, FUZZ_SVC_START_TIMESTAMP
     )
     _afl_compiler_tool_full_path: Final[str] = config.afl_compiler_tool_full_path
+    _make_tool_full_path: Final[str] = config.make_tool_full_path
 
     logger.info("AppVersion: " + config.version)
     logger.info("Fuzzer tool name: " + config.fuzzer_tool_name)
@@ -476,6 +469,8 @@ async def main():
                 file_name_fully_qualified_path,
                 output_executable_fully_qualified_path,
                 _afl_compiler_tool_full_path,
+                _make_tool_full_path,
+                logger,
             )
             if not make_compiled:
                 logger.info(f"Project {executable_name} did not compile using Make.")
@@ -525,7 +520,7 @@ async def main():
             fully_qualified_crash_directory_path,
             executable_name,
             config.iconv_tool_timeout,
-            isInputFromFile,
+            inputFromFile,
         )
 
         # Process the crash outputs

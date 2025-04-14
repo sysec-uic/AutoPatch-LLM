@@ -1,0 +1,7 @@
+timestamp,executable_name,crash_detail_base64,isInputFromFile
+2025-01-01T12:00:00Z,test_exe,Y3Jhc2hfZGF0YQ==,True
+2025-01-01T12:00:00Z,test_exe1,Y3Jhc2gx,True
+2025-01-01T12:00:00Z,test_exe2,Y3Jhc2gy,False
+2025-01-01T12:00:00Z,test_exe,Y3Jhc2hfZGF0YQ==,True
+2025-01-01T12:00:00Z,test_exe1,Y3Jhc2gx,True
+2025-01-01T12:00:00Z,test_exe2,Y3Jhc2gy,False
