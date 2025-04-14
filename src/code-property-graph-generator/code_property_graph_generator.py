@@ -271,7 +271,7 @@ async def main():
         )
         if os.path.isdir(fully_qualified_path):
             logger.info(
-                f"Code Property Graph Generator does not yet support directories."
+                "Code Property Graph Generator does not yet support directories."
             )
             logger.info(f"Skipping directory: {fully_qualified_path}")
             continue
