@@ -1,4 +1,4 @@
-This is an extract from the cyber grand challenge. README.cgc.md has a descriptions of the program and vulnerabilities.
+This is an extract from the cyber grand challenge. README.cgc.md has a description of the program and vulnerabilities.
 This version has been modified so that it runs on Linux not DECREE, the custom OS the challenge was designed for.
 
 There are two\* vulnerabilities in this program. The first is easily accessible.
