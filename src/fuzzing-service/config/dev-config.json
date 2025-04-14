@@ -7,7 +7,7 @@
     "message_broker_port": 1883,
     "message_broker_protocol": "mqtt",
     "fuzz_svc_output_topic": "autopatch/crash_detail",
-    "fuzz_svc_input_codebase_path": "/workspace/AutoPatch-LLM/assets/directoried_codebase",
+    "fuzz_svc_input_codebase_path": "/workspace/AutoPatch-LLM/assets/input_codebase",
     "fuzz_svc_output_path": "/workspace/AutoPatch-LLM/src/fuzzing-service/data",
     "compiler_warning_flags": "-Wall -Wextra -Wformat -Wshift-overflow -Wcast-align -Wstrict-overflow",
     "compiler_feature_flags": "-m32 -fno-stack-protector -O1 -fsanitize=address",

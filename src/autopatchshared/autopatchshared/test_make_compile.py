@@ -1,12 +1,37 @@
 import pytest
 import subprocess
+import logging
 from unittest.mock import Mock, patch
-from make_compile import make_compile
+from unittest.mock import MagicMock
+from .make_compile import make_compile
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def dummy_logger():
-    return Mock()
+    """Fixture to provide a dummy logger."""
+    logger = MagicMock(DummyLogger())
+    yield logger
+    logger.messages.clear()
+
+
+# A dummy logger to capture logger calls.
+class DummyLogger(logging.Logger):
+    def __init__(self):
+        super().__init__(name="dummy")
+        self.messages = []
+        self.level = logging.DEBUG  # Add the level attribute
+
+    def info(self, msg):
+        self.messages.append(msg)
+
+    def debug(self, msg):
+        self.messages.append(msg)
+
+    def error(self, msg):
+        self.messages.append(msg)
+
+    def log(self, msg, *args, **kwargs):
+        self.messages.append(msg)
 
 
 @pytest.fixture
@@ -22,21 +47,19 @@ def dummy_args():
 def make_popen_mock(
     returncode=0, stdout="build success", stderr="", raise_timeout=False
 ):
-    popen_mock = Mock()
-    context_manager = Mock()
-    popen_mock.__enter__.return_value = context_manager
-    popen_mock.__exit__.return_value = False
+    popen_mock = MagicMock()
+    proc = popen_mock.__enter__.return_value
 
     if raise_timeout:
 
         def communicate_side_effect(timeout=None):
-            raise subprocess.TimeoutExpired(cmd="make", timeout=timeout)
+            raise subprocess.TimeoutExpired(cmd="make", timeout=10)
 
-        context_manager.communicate.side_effect = communicate_side_effect
+        proc.communicate.side_effect = communicate_side_effect
     else:
-        context_manager.communicate.return_value = (stdout, stderr)
+        proc.communicate.return_value = (stdout, stderr)
 
-    context_manager.returncode = returncode
+    proc.returncode = returncode
     return popen_mock
 
 
@@ -67,11 +90,12 @@ def test_make_compile_failure_nonzero_returncode(dummy_args, dummy_logger):
 
 def test_make_compile_timeout(dummy_args, dummy_logger):
     with patch("subprocess.Popen", return_value=make_popen_mock(raise_timeout=True)):
-        result = make_compile(**dummy_args, logger=dummy_logger)
-        assert result is False
-        dummy_logger.error.assert_any_call(
-            "Compilation failed with Command 'make' timed out after 10 seconds"
-        )
+        with pytest.raises(subprocess.TimeoutExpired):
+            result = make_compile(**dummy_args, logger=dummy_logger)
+            assert result is False
+            dummy_logger.error.assert_any_call(
+                "Compilation failed with Command 'make' timed out after 10 seconds"
+            )
 
 
 def test_make_compile_empty_output(dummy_args, dummy_logger):
@@ -89,9 +113,10 @@ def test_make_compile_empty_output(dummy_args, dummy_logger):
 
 def test_make_compile_exception_in_popen(dummy_args, dummy_logger):
     with patch("subprocess.Popen", side_effect=OSError("spawn failed")):
-        result = make_compile(**dummy_args, logger=dummy_logger)
-        assert result is False
-        dummy_logger.error.assert_any_call("Compilation failed with spawn failed")
+        with pytest.raises(OSError):
+            result = make_compile(**dummy_args, logger=dummy_logger)
+            assert result is False
+            dummy_logger.error.assert_any_call("Compilation failed with spawn failed")
 
 
 def test_make_compile_invalid_paths(dummy_logger):

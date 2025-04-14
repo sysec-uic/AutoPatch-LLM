@@ -19,7 +19,7 @@ RUN apt-get install -y --no-install-recommends \
 WORKDIR /deps
 
 COPY requirements.txt .
-COPY autopatchshared-0.7.0-py3-none-any.whl .
+COPY autopatchshared-0.8.0-py3-none-any.whl .
 COPY autopatchdatatypes-0.7.0-py3-none-any.whl .
 COPY autopatchpubsub-0.7.2-py3-none-any.whl .
 

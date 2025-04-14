@@ -269,6 +269,12 @@ async def main():
         fully_qualified_path = os.path.join(
             config.cpg_svc_input_codebase_path, input_c_programs[i]
         )
+        if os.path.isdir(fully_qualified_path):
+            logger.info(
+                f"Code Property Graph Generator does not yet support directories."
+            )
+            logger.info(f"Skipping directory: {fully_qualified_path}")
+            continue
         scan_results: List[CpgScanResult] = scan_cpg(
             config.scan_tool_full_path, fully_qualified_path
         )

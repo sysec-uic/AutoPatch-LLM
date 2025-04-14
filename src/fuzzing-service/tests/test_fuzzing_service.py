@@ -54,8 +54,9 @@ def mock_FuzzSvcConfig() -> FuzzSvcConfig:
 
 
 # A dummy logger to capture logger calls.
-class DummyLogger:
+class DummyLogger(logging.Logger):
     def __init__(self):
+        super().__init__(name="dummy")
         self.messages = []
         self.level = logging.DEBUG  # Add the level attribute
 
