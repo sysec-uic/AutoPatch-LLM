@@ -1,8 +1,7 @@
 import pytest
 import subprocess
 import logging
-from unittest.mock import Mock, patch
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from .make_compile import make_compile
 
 
