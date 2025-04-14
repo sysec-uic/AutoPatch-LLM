@@ -328,7 +328,7 @@ def prep_executables_for_evaluation(
         )
         if os.path.isdir(fully_qualified_file_path):
             logger.info(
-                f"Patch Evaluation Service does not yet support complex project directories."
+                "Patch Evaluation Service does not yet support complex project directories."
             )
             logger.info(f"Skipping directory: {fully_qualified_file_path}")
             continue
