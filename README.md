@@ -51,7 +51,7 @@ Theory tells us that creating bug-free programs is nearly impossible and proving
 
 ### Features  
 
-- **Automated Bug Detection:** detects and identifies syntactic errors, runtime crashes and semantic inconsistencies.  
+- **Automated Bug Detection:** detects and identifies runtime crashes and semantic inconsistencies.  
 - **Patch Generation:** uses GPT to generate targeted fixes while preserving the program's intended functionality.  
 - **Iterative Testing:** retests patched code to ensure bugs are resolved.
 
