@@ -13,6 +13,7 @@ from autopatchpubsub import MessageBrokerClient
 from autopatchshared import get_current_timestamp, init_logging, load_config_as_json
 from cloudevents.conversion import to_json
 from cloudevents.http import CloudEvent
+import openai
 from llm_dispatch_svc_config import LLMDispatchSvcConfig
 from openai import OpenAI
 
@@ -400,17 +401,22 @@ class ApiLLM(BaseLLM):
         _api_key = api_key
         client = OpenAI(base_url=base_url, api_key=_api_key)
 
-        completion = client.chat.completions.create(
-            model=model,
-            temperature=temperature,
-            top_p=top_p,
-            messages=[
-                {
-                    "role": "user",
-                    "content": user_prompt,
-                }
-            ],
-        )
+        try:
+            completion = client.chat.completions.create(
+                model=model,
+                temperature=temperature,
+                top_p=top_p,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": user_prompt,
+                    }
+                ],
+            )
+        except openai.NotFoundError as e:
+            # Models sometimes get deprecated
+            logger.error(f"Route provider for Model not found: {model}. Error: {e}")
+            return "No response"
 
         # TODO handle out of quota errors here
 
