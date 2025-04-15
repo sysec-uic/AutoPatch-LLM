@@ -1,7 +1,7 @@
 import logging
 import time
 import uuid
-from typing import Final
+from typing import Callable, Dict, Final, Optional
 
 import paho.mqtt.client as mqtt_client
 import paho.mqtt.enums as mqtt_enums
@@ -16,7 +16,7 @@ class MessageBrokerClient:
     ):
         self.message_broker_host = message_broker_host
         self.message_broker_port = message_broker_port
-        self.message_callback = None
+        self.topic_to_message_callback_map: Dict[str, Callable] = {}
         self.logger = logger
         _client = self.connect_message_broker()
         self.client = _client
@@ -88,7 +88,10 @@ class MessageBrokerClient:
             print("Message received on topic: " + message.topic)
             print("Message received: ", message.payload.decode("utf-8"))
 
-            self.trigger_event(message.payload.decode("utf-8"))
+            self.trigger_event(
+                self.topic_to_message_callback_map.get(message.topic, None),
+                message.payload.decode("utf-8"),
+            )
 
         def generate_uuid() -> str:
             return str(uuid.uuid4())
@@ -125,22 +128,26 @@ class MessageBrokerClient:
         )
         return "Message sent successfully"
 
-    def consume(self, topic: str, func) -> None:
+    def consume(self, topic: str, callback_function: Optional[Callable]) -> None:
         """
         Consume messages from the specified topic.
 
         The provided callback function will be called with the message payload as a string.
         """
         self.client.subscribe(topic)
-        if callable(func):
-            self.message_callback = func
+        if callable(callback_function):
+            self.logger.info(f"{self.__class__.__name__} - Subscribed to topic {topic}")
+            self.logger.info(
+                f"{self.__class__.__name__} - Setting callback function for topic {topic} to {callback_function.__name__}"
+            )
+            self.topic_to_message_callback_map[topic] = callback_function
         else:
             error_message: Final[str] = "Callback function must be callable"
             self.logger.error(error_message)
             raise ValueError(error_message)
 
-    def trigger_event(self, *args, **kwargs):
-        if self.message_callback:
-            return self.message_callback(*args, **kwargs)
+    def trigger_event(self, message_callback: Optional[Callable], *args, **kwargs):
+        if message_callback:
+            return message_callback(*args, **kwargs)
         else:
             self.logger.info("No callback function set.")

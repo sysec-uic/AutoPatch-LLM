@@ -20,9 +20,6 @@ from openai import OpenAI
 async_cpg_scan_results_queue = asyncio.Queue()
 event_loop: asyncio.AbstractEventLoop  # This will be set in main().
 
-
-# from autopatchdatatypes import PatchRequest
-
 # this is the name of the environment variable that will be used point to the configuration map file to load
 CONST_LLM_DISPATCH_CONFIG: Final[str] = "LLM_DISPATCH_CONFIG"
 config: LLMDispatchSvcConfig
@@ -521,6 +518,21 @@ class LLMClient:
 async def init_llm_client(
     models: List[str], model_router_api_key: str, model_router_base_url
 ) -> LLMClient:
+    """
+    Initialize and configure an LLMClient with API and in-memory strategies.
+    This asynchronous function sets up an LLMClient by creating instances of both API and in-memory
+    strategies. It registers each model provided in the `models` list with the API strategy using the
+    specified API key and endpoint. Additionally, a placeholder in-memory model is registered with the
+    in-memory strategy which provides for forward compatibility with future implementations.
+
+    Parameters:
+        models (List[str]): A list of model names to be registered with the API strategy.
+        model_router_api_key (str): The API key for accessing the model router service.
+        model_router_base_url (str): The base URL for the model router service endpoint.
+    Returns:
+        LLMClient: A configured LLMClient instance with the registered strategies.
+    """
+
     client = LLMClient()
 
     # Create strategy instances.

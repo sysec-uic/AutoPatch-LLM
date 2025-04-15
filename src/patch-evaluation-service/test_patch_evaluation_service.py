@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import subprocess
+from typing import Dict
 from unittest import mock
 
 import paho.mqtt.client as mqtt_client
@@ -37,9 +38,9 @@ class DummyProcess:
         self.returncode = -1
 
 
-def dummy_PatchEvalConfig() -> PatchEvalConfig:
-    dummy_config = {
-        "version": "0.4.1-alpha",
+def dummy_config_content() -> Dict:
+    return {
+        "version": "0.7.3-alpha",
         "appname": "autopatch.patch-evaluation-service",
         "logging_config": "/workspace/AutoPatch-LLM/src/patch-evaluation-service/config/dev-logging-config.json",
         "patch_eval_results_full_path": "/workspace/AutoPatch-LLM/src/patch-evaluation-service/data",
@@ -53,8 +54,12 @@ def dummy_PatchEvalConfig() -> PatchEvalConfig:
         "message_broker_host": "mosquitto",
         "message_broker_port": 1883,
         "autopatch_crash_detail_input_topic": "autopatch/crash_detail",
+        "autopatch_patch_response_input_topic": "autopatch/patch_response",
     }
 
+
+def dummy_PatchEvalConfig() -> PatchEvalConfig:
+    dummy_config: Dict = dummy_config_content()
     return PatchEvalConfig(**dummy_config)
 
 
@@ -367,7 +372,8 @@ def test_load_config(monkeypatch):
             "patch_eval_results_full_path": "/dummy/results",
             "message_broker_host": "localhost",
             "message_broker_port": 1883,
-            "autopatch_crash_detail_input_topic": "dummy_topic",
+            "autopatch_crash_detail_input_topic": "autopatch/crash_detail",
+            "autopatch_patch_response_input_topic": "autopatch/patch_response",
         }
 
     # Assemble
@@ -553,30 +559,11 @@ async def test_main(monkeypatch, tmp_path):
 
     # Assemble
     dummy_config_path = str(tmp_path / "config.json")
-    dummy_config_content = json.dumps(
-        {
-            "logging_config": {},
-            "appname": "dummy_app",
-            "version": "1.0",
-            "executables_full_path": str(tmp_path / "executables"),
-            "patched_codes_path": str(tmp_path / "patches"),
-            "compiler_tool_full_path": "gcc",
-            "compiler_warning_flags": "-Wall",
-            "compiler_feature_flags": "-std=c99",
-            "compile_timeout": 5,
-            "run_timeout": 5,
-            "patch_eval_results_full_path": str(tmp_path / "results"),
-            "message_broker_host": "localhost",
-            "message_broker_port": 1883,
-            "autopatch_crash_detail_input_topic": "dummy_topic",
-        }
-    )
-    with open(dummy_config_path, "w") as f:
-        f.write(dummy_config_content)
+
     monkeypatch.setenv("PATCH_EVAL_SVC_CONFIG", dummy_config_path)
 
     # Prepare a dummy config object.
-    dummy_config = PatchEvalConfig(**json.loads(dummy_config_content))
+    dummy_config = PatchEvalConfig(**json.loads(json.dumps(dummy_config_content())))
     monkeypatch.setattr(
         patch_evaluation_service, "load_config", lambda path, logger: dummy_config
     )
