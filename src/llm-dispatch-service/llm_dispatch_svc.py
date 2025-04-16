@@ -8,12 +8,12 @@ import sys
 from abc import ABC, abstractmethod
 from typing import Dict, Final, List
 
+import openai
 from autopatchdatatypes import CpgScanResult, PatchResponse, TransformerMetadata
 from autopatchpubsub import MessageBrokerClient
 from autopatchshared import get_current_timestamp, init_logging, load_config_as_json
 from cloudevents.conversion import to_json
 from cloudevents.http import CloudEvent
-import openai
 from llm_dispatch_svc_config import LLMDispatchSvcConfig
 from openai import OpenAI
 
