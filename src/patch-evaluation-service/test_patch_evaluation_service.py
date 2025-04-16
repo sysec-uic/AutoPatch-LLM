@@ -563,7 +563,7 @@ async def test_main(monkeypatch, tmp_path):
     monkeypatch.setenv("PATCH_EVAL_SVC_CONFIG", dummy_config_path)
 
     # Prepare a dummy config object.
-    dummy_config = PatchEvalConfig(**json.loads(json.dumps(dummy_config_content())))
+    dummy_config = PatchEvalConfig(**dummy_config_content())
     monkeypatch.setattr(
         patch_evaluation_service, "load_config", lambda path, logger: dummy_config
     )
