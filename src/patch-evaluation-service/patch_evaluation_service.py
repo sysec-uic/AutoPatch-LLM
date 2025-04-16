@@ -532,7 +532,6 @@ async def main():
     # log some info, make the directories if they DNE
     logger.info("AppVersion: " + config.version)
     logger.info("Creating executables directory: " + config.executables_full_path)
-    os.makedirs(config.executables_full_path, exist_ok=True)
 
     # list of files successfully compiled and a dict for the results of each
     executables_to_process, results = prep_executables_for_evaluation(
