@@ -2,14 +2,13 @@ import asyncio
 import base64
 import json
 import logging
-import logging.config
 import os
 import subprocess
 import sys
 import tempfile
 from typing import Dict, Final, Tuple
 
-from autopatchdatatypes import CrashDetail
+from autopatchdatatypes import CrashDetail, PatchResponse, TransformerMetadata
 from autopatchpubsub import MessageBrokerClient
 from autopatchshared import get_current_timestamp, init_logging, load_config_as_json
 from patch_eval_config import PatchEvalConfig
@@ -22,7 +21,9 @@ logger = logging.getLogger(__name__)
 
 # Global variables for the async queue and event loop.
 async_crash_details_queue = asyncio.Queue()
+async_patch_response_queue = asyncio.Queue()
 event_loop: asyncio.AbstractEventLoop  # This will be set in main().
+
 
 executables_to_process: set[str]
 config: PatchEvalConfig
@@ -250,14 +251,54 @@ def log_results(results: dict, results_path: str) -> None:
                 total_crashes += total
                 total_patched_crashes += patched
 
-            # if total crashes == 0, then none of the crashes were associated with any of the executables, or the results dict was empty, return
             if total_crashes == 0:
+                # none of the crashes were associated with any of the executables
+                # or the results dict was empty
                 return
             # get the total success rate, log in markdown file
             total_success_rate = round(total_patched_crashes / total_crashes * 100, 2)
             line = f"\n ### Total success rate of {len(results.keys())} files is {total_patched_crashes} / {total_crashes}, or {total_success_rate}%.\n"
             log.write(line)
             logger.info(f"Success of evaluation: {total_success_rate}%.")
+
+
+async def map_cloud_event_as_patch_response(
+    patch_response_cloud_event_str: str,
+) -> PatchResponse:
+    """
+    Maps a CloudEvent JSON string to a PatchResponse object.
+
+    Parameters:
+        cloud_event (str): The CloudEvent JSON string.
+
+    Returns:
+        PatchResponse: The mapped patch response.
+    """
+    cloud_event: Dict = json.loads(patch_response_cloud_event_str)
+
+    data = cloud_event.get("data", {})
+
+    _transformer_metadata = data.get("TransformerMetadata", {})
+
+    return PatchResponse(
+        executable_name=data.get("executable_name", ""),
+        patch_snippet_base64=data.get("patch_snippet_base64", ""),
+        TransformerMetadata=TransformerMetadata(
+            llm_name=_transformer_metadata.get("llm_name", ""),
+            llm_flavor=_transformer_metadata.get("llm_flavor", ""),
+            llm_version=_transformer_metadata.get("llm_version", ""),
+        ),
+        status=data.get("status", ""),
+    )
+
+
+async def process_patch_response(patch_response_str: str):
+    """Asynchronously process an item."""
+    patch_response: PatchResponse = await map_cloud_event_as_patch_response(
+        patch_response_str
+    )
+    logger.info(f"Not implemented yet: process_patch_response {patch_response}")
+    # await process_patch_response(patch_response)
 
 
 async def map_cloud_event_as_crash_detail(
@@ -291,6 +332,22 @@ def load_config(
     """
     _config = load_config_as_json(patch_eval_svc_config_full_path, logger)
     return PatchEvalConfig(**_config)
+
+
+def on_consume_patch_response(patch_response_str: str) -> None:
+    """
+    This is synchronous function that’s called from non‑async code.
+    It uses the globally stored event_loop to schedule a call to
+    async_queue.put_nowait in a thread‑safe manner.
+    """
+    logger.info(f"in on_consume_patch_response received {patch_response_str}")
+    # Schedule adding the event to the async queue.
+    # Use call_soon_threadsafe so that this function can be safely called
+    # from threads outside the event loop.
+    global event_loop
+    event_loop.call_soon_threadsafe(
+        async_patch_response_queue.put_nowait, patch_response_str
+    )
 
 
 def on_consume_crash_detail(cloud_event_str: str) -> None:
@@ -406,6 +463,20 @@ async def process_crash_detail(crash_detail: CrashDetail) -> None:
     logger.info("Results: " + str(results))
 
 
+async def patch_response_consumer():
+    """Continuously consume items from the async queue."""
+    """
+        this consumer coroutine waits for items from the asyncio.Queue
+        and processes each with process_item(). This runs continuously in the event loop.
+    """
+    while True:
+        item = await async_patch_response_queue.get()
+        try:
+            await process_patch_response(item)
+        finally:
+            async_patch_response_queue.task_done()
+
+
 async def crash_detail_consumer():
     """Continuously consume items from the async queue."""
     """
@@ -461,7 +532,6 @@ async def main():
     # log some info, make the directories if they DNE
     logger.info("AppVersion: " + config.version)
     logger.info("Creating executables directory: " + config.executables_full_path)
-    os.makedirs(config.executables_full_path, exist_ok=True)
 
     # list of files successfully compiled and a dict for the results of each
     executables_to_process, results = prep_executables_for_evaluation(
@@ -477,6 +547,7 @@ async def main():
 
     # Start the consumer coroutine as a background task.
     asyncio.create_task(crash_detail_consumer())
+    asyncio.create_task(patch_response_consumer())
 
     message_broker_client: Final[MessageBrokerClient] = init_message_broker(
         config.message_broker_host,
@@ -485,6 +556,9 @@ async def main():
     )
 
     # subscribe to topic
+    message_broker_client.consume(
+        config.autopatch_patch_response_input_topic, on_consume_patch_response
+    )
     message_broker_client.consume(
         config.autopatch_crash_detail_input_topic, on_consume_crash_detail
     )

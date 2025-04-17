@@ -1,6 +1,6 @@
 paho-mqtt==2.1.0
 autopatchdatatypes-0.7.0-py3-none-any.whl
 autopatchshared-0.8.0-py3-none-any.whl
-autopatchpubsub-0.7.2-py3-none-any.whl
+autopatchpubsub-0.7.3-py3-none-any.whl
 openai==1.69.0
 cloudevents==1.11.0

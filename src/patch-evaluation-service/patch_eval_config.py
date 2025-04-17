@@ -14,6 +14,7 @@ class PatchEvalConfig:
     compiler_feature_flags: str
     compile_timeout: int
     run_timeout: int
+    autopatch_patch_response_input_topic: str
     autopatch_crash_detail_input_topic: str
     message_broker_host: str
     message_broker_port: int = 1833

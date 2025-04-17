@@ -20,7 +20,7 @@
     "message_broker_port": 1883,
     "message_broker_topics": {
         "request": "autopatch/llm-dispatch/request",
-        "response": "autopatch/llm-dispatch/response",
+        "response": "autopatch/patch_response",
         "error": "autopatch/llm-dispatch/error"
     },
     "model_router_base_url": "https://openrouter.ai/api/v1",
