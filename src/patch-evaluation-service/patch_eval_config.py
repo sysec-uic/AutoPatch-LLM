@@ -17,5 +17,5 @@ class PatchEvalConfig:
     autopatch_patch_response_input_topic: str
     autopatch_crash_detail_input_topic: str
     message_broker_host: str
-    message_broker_port: int = 1833
     make_tool_full_path: str
+    message_broker_port: int = 1833
