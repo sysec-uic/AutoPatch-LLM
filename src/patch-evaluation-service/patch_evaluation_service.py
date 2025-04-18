@@ -390,17 +390,12 @@ def prep_executables_for_evaluation(
             patched_codes_directory_path, file_name
         )
         if os.path.isdir(fully_qualified_file_path):
-            logger.info("Directory found: printing test values for feature.")
+            logger.info(f"Compiling project directory: {fully_qualified_file_path}")
 
             output_executable_fully_qualified_path = os.path.join(
                 executables_full_path, file_name
             )
-            logger.info(
-                f"output executable fully qualified path: {output_executable_fully_qualified_path}"
-            )
-            logger.info(f"fully qualified file path: {fully_qualified_file_path}")
-            logger.info(f"compiler tool full path: {compiler_tool_full_path}")
-            logger.info(f"make tool full path: {make_tool_full_path}")
+
             compiled = make_compile(
                 fully_qualified_file_path,
                 output_executable_fully_qualified_path,
@@ -408,20 +403,25 @@ def prep_executables_for_evaluation(
                 make_tool_full_path,
                 logger,
             )
-            logger.info(f"compilation result: {compiled}")
+            if not compiled:
+                logger.error(
+                    f"Make compilation of project directory {fully_qualified_file_path} failed."
+                )
+                continue
+            executable_name = file_name
+        else:
+            # compile the file
+            logger.info(f"Compiling: {fully_qualified_file_path}")
+            executable_name = compile_file(
+                fully_qualified_file_path,
+                file_name,
+                executables_full_path,
+                compiler_tool_full_path,
+                compiler_warning_flags,
+                compiler_feature_flags,
+                compile_timeout,
+            )
 
-            continue
-        # compile the file
-        logger.info(f"Compiling: {fully_qualified_file_path}")
-        executable_name = compile_file(
-            fully_qualified_file_path,
-            file_name,
-            executables_full_path,
-            compiler_tool_full_path,
-            compiler_warning_flags,
-            compiler_feature_flags,
-            compile_timeout,
-        )
         # if the compilation was successful, then add the executable path to the list of executables to run
         if executable_name != "":
             executables.add(executable_name)
