@@ -20,9 +20,18 @@ CONST_PATCH_EVAL_SVC_CONFIG: Final[str] = "PATCH_EVAL_SVC_CONFIG"
 logger = logging.getLogger(__name__)
 
 # Global variables for the async queue and event loop.
-async_crash_details_queue = asyncio.Queue()
-async_patch_response_queue = asyncio.Queue()
+async_crash_details_cloud_events_queue = asyncio.Queue()
+async_patch_response_cloud_events_queue = asyncio.Queue()
+
+async_crash_details_ready_queue = asyncio.Queue()
+async_patch_response_ready_queue = asyncio.Queue()
+
 event_loop: asyncio.AbstractEventLoop  # This will be set in main().
+
+crashdetails_map: Dict[str, CrashDetail] = {}  # uid → crash detail
+patchresponses_map: Dict[str, Dict[str, PatchResponse]] = {}  # uid → llm_name → patch
+
+processed_pairs = set()  # (uid, llm_name)
 
 
 executables_to_process: set[str]
@@ -292,13 +301,55 @@ async def map_cloud_event_as_patch_response(
     )
 
 
-async def process_patch_response(patch_response_str: str):
+async def handle_ready(
+    uid: str, crash_detail: CrashDetail, patch_response: PatchResponse
+) -> None:
+    logger.info(f"[READY] {uid} → crash: {crash_detail}, patch: {patch_response}")
+    # There is where we will move the run file and evaluation logic to
+
+
+async def map_updater():
+    while True:
+        done, _ = await asyncio.wait(
+            [
+                asyncio.create_task(async_crash_details_ready_queue.get()),
+                asyncio.create_task(async_patch_response_ready_queue.get()),
+            ],
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+
+        for task in done:
+            uid = task.result()
+
+            if uid not in crashdetails_map:
+                continue  # still waiting for crash detail
+
+            if uid not in patchresponses_map:
+                continue  # no patches at all yet
+
+            for llm_name, patch in patchresponses_map[uid].items():
+                key = (uid, llm_name)
+                if key not in processed_pairs:
+                    await handle_ready(uid, crashdetails_map[uid], patch)
+                    processed_pairs.add(key)
+
+
+async def patch_response_ready_producer(patch_response_str: str):
     """Asynchronously process an item."""
     patch_response: PatchResponse = await map_cloud_event_as_patch_response(
         patch_response_str
     )
-    logger.info(f"Not implemented yet: process_patch_response {patch_response}")
-    # await process_patch_response(patch_response)
+    if patch_response.executable_name not in patchresponses_map:
+        patchresponses_map[patch_response.executable_name] = {}
+    patchresponses_map[patch_response.executable_name][
+        patch_response.TransformerMetadata.llm_name
+    ] = patch_response
+
+    global event_loop
+    event_loop.call_soon_threadsafe(
+        async_patch_response_ready_queue.put_nowait,
+        patch_response.executable_name,
+    )
 
 
 async def map_cloud_event_as_crash_detail(
@@ -334,35 +385,41 @@ def load_config(
     return PatchEvalConfig(**_config)
 
 
-def on_consume_patch_response(patch_response_str: str) -> None:
+def on_consume_patch_response(patch_response_as_cloud_event_str: str) -> None:
     """
     This is synchronous function that’s called from non‑async code.
     It uses the globally stored event_loop to schedule a call to
     async_queue.put_nowait in a thread‑safe manner.
     """
-    logger.info(f"in on_consume_patch_response received {patch_response_str}")
+    logger.info(
+        f"in on_consume_patch_response received {patch_response_as_cloud_event_str}"
+    )
     # Schedule adding the event to the async queue.
     # Use call_soon_threadsafe so that this function can be safely called
     # from threads outside the event loop.
     global event_loop
     event_loop.call_soon_threadsafe(
-        async_patch_response_queue.put_nowait, patch_response_str
+        async_patch_response_cloud_events_queue.put_nowait,
+        patch_response_as_cloud_event_str,
     )
 
 
-def on_consume_crash_detail(cloud_event_str: str) -> None:
+def on_consume_crash_detail(crash_detail_as_cloud_event_str: str) -> None:
     """
     This is synchronous function that’s called from non‑async code.
     It uses the globally stored event_loop to schedule a call to
     async_queue.put_nowait in a thread‑safe manner.
     """
-    logger.info(f"in on_consume_crash_detail received {cloud_event_str}")
+    logger.info(
+        f"in on_consume_crash_detail received {crash_detail_as_cloud_event_str}"
+    )
     # Schedule adding the event to the async queue.
     # Use call_soon_threadsafe so that this function can be safely called
     # from threads outside the event loop.
     global event_loop
     event_loop.call_soon_threadsafe(
-        async_crash_details_queue.put_nowait, cloud_event_str
+        async_crash_details_cloud_events_queue.put_nowait,
+        crash_detail_as_cloud_event_str,
     )
 
 
@@ -409,12 +466,26 @@ def prep_executables_for_evaluation(
     return (executables, results)
 
 
-async def process_item(item):
+async def process_crash_detail_item(item):
     """Asynchronously process an item."""
     crash_detail = await map_cloud_event_as_crash_detail(item)
-    await process_crash_detail(crash_detail)
+    await crash_detail_ready_producer(crash_detail)
+    # TODO this is the run file and evaluation logic hook that will need to move into handle_ready
+    # await process_crash_detail(crash_detail)
 
 
+async def crash_detail_ready_producer(
+    crash_detail: CrashDetail,
+) -> None:
+    crashdetails_map[crash_detail.executable_name] = crash_detail
+    global event_loop
+    event_loop.call_soon_threadsafe(
+        async_crash_details_ready_queue.put_nowait,
+        crash_detail.executable_name,
+    )
+
+
+# TODO this is the run file and evaluation logic hook that will need to move into handle_ready
 async def process_crash_detail(crash_detail: CrashDetail) -> None:
     logger.info(f"Processing crash {crash_detail}")
     # TODO evaluate if we can remove this check
@@ -470,11 +541,11 @@ async def patch_response_consumer():
         and processes each with process_item(). This runs continuously in the event loop.
     """
     while True:
-        item = await async_patch_response_queue.get()
+        item = await async_patch_response_cloud_events_queue.get()
         try:
-            await process_patch_response(item)
+            await patch_response_ready_producer(item)
         finally:
-            async_patch_response_queue.task_done()
+            async_patch_response_cloud_events_queue.task_done()
 
 
 async def crash_detail_consumer():
@@ -484,11 +555,11 @@ async def crash_detail_consumer():
         and processes each with process_item(). This runs continuously in the event loop.
     """
     while True:
-        item = await async_crash_details_queue.get()
+        item = await async_crash_details_cloud_events_queue.get()
         try:
-            await process_item(item)
+            await process_crash_detail_item(item)
         finally:
-            async_crash_details_queue.task_done()
+            async_crash_details_cloud_events_queue.task_done()
 
 
 def init_message_broker(
@@ -546,8 +617,8 @@ async def main():
     event_loop = asyncio.get_running_loop()
 
     # Start the consumer coroutine as a background task.
-    asyncio.create_task(crash_detail_consumer())
-    asyncio.create_task(patch_response_consumer())
+    # asyncio.create_task(crash_detail_consumer())
+    # asyncio.create_task(patch_response_consumer())
 
     message_broker_client: Final[MessageBrokerClient] = init_message_broker(
         config.message_broker_host,
@@ -563,8 +634,14 @@ async def main():
         config.autopatch_crash_detail_input_topic, on_consume_crash_detail
     )
 
+    await asyncio.gather(
+        crash_detail_consumer(),
+        patch_response_consumer(),
+        map_updater(),
+    )
+
     # Keep the program running indefinitely, waiting for more events.
-    await asyncio.Future()  # This future will never complete.
+    # await asyncio.Future()  # This future will never complete.
 
 
 if __name__ == "__main__":

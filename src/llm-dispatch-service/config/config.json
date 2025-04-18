@@ -1,6 +1,6 @@
 {
     "cpg_scan_result_input_topic" : "autopatch/cpg-scan-result",
-    "devonlyinputfilepath": "/app/data/dummy_c_file.c",
+    "input_codebase_full_path": "/app/input_codebase",
     "appName": "autopatch.llm-dispatch-service",
     "appVersion": "0.7.0-alpha",
     "appDescription": "A system for managing and dispatching requests to various language models.",
