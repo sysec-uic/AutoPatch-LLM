@@ -378,6 +378,7 @@ def prep_executables_for_evaluation(
     compiler_warning_flags: str,
     compiler_feature_flags: str,
     compile_timeout: int,
+    make_tool_full_path: str,
 ) -> Tuple[set[str], Dict[str, Dict[str, int]]]:
     # list of files successfully compiled and a dict for the results of each
     executables = set()
@@ -389,10 +390,25 @@ def prep_executables_for_evaluation(
             patched_codes_directory_path, file_name
         )
         if os.path.isdir(fully_qualified_file_path):
-            logger.info(
-                "Patch Evaluation Service does not yet support complex project directories."
+            logger.info("Directory found: printing test values for feature.")
+
+            output_executable_fully_qualified_path = os.path.join(
+                executables_full_path, file_name
             )
-            logger.info(f"Skipping directory: {fully_qualified_file_path}")
+            logger.info(
+                f"output executable fully qualified path: {output_executable_fully_qualified_path}"
+            )
+            logger.info(f"fully qualified file path: {fully_qualified_file_path}")
+            logger.info(f"compiler tool full path: {compiler_tool_full_path}")
+            logger.info(f"make tool full path: {make_tool_full_path}")
+            # compiled = make_compile(
+            #     fully_qualified_file_path,
+            #     output_executable_fully_qualified_path,
+            #     compiler_tool_full_path,
+            #     make_tool_full_path,
+            #     logger,
+            # )
+
             continue
         # compile the file
         logger.info(f"Compiling: {fully_qualified_file_path}")
@@ -546,6 +562,7 @@ async def main():
         config.compiler_warning_flags,
         config.compiler_feature_flags,
         config.compile_timeout,
+        config.make_tool_full_path,
     )
 
     event_loop = asyncio.get_running_loop()
