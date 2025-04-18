@@ -14,7 +14,7 @@ RUN rm -f /etc/apt/apt.conf.d/docker-clean && \
         libc6-dev-i386=2.39-0ubuntu8.4 && \
     add-apt-repository ppa:zhangsongcui3371/fastfetch && \
     apt-get update && apt-get -y install --no-install-recommends \
-        fastfetch=2.39.1 && \
+        fastfetch=2.41.0 && \
     apt-get autoremove -y && apt-get clean -y && rm -rf /var/lib/apt/lists/* && \
     wget https://github.com/joernio/joern/releases/download/v4.0.247/joern-install.sh && \
     chmod +x ./joern-install.sh && \

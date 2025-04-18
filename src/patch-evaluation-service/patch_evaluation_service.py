@@ -10,7 +10,12 @@ from typing import Dict, Final, Tuple
 
 from autopatchdatatypes import CrashDetail, PatchResponse, TransformerMetadata
 from autopatchpubsub import MessageBrokerClient
-from autopatchshared import get_current_timestamp, init_logging, load_config_as_json
+from autopatchshared import (
+    get_current_timestamp,
+    init_logging,
+    load_config_as_json,
+    make_compile,
+)
 from patch_eval_config import PatchEvalConfig
 
 # this is the name of the environment variable that will be used point to the configuration map file to load
@@ -373,6 +378,7 @@ def prep_executables_for_evaluation(
     compiler_warning_flags: str,
     compiler_feature_flags: str,
     compile_timeout: int,
+    make_tool_full_path: str,
 ) -> Tuple[set[str], Dict[str, Dict[str, int]]]:
     # list of files successfully compiled and a dict for the results of each
     executables = set()
@@ -384,22 +390,38 @@ def prep_executables_for_evaluation(
             patched_codes_directory_path, file_name
         )
         if os.path.isdir(fully_qualified_file_path):
-            logger.info(
-                "Patch Evaluation Service does not yet support complex project directories."
+            logger.info(f"Compiling project directory: {fully_qualified_file_path}")
+
+            output_executable_fully_qualified_path = os.path.join(
+                executables_full_path, file_name
             )
-            logger.info(f"Skipping directory: {fully_qualified_file_path}")
-            continue
-        # compile the file
-        logger.info(f"Compiling: {fully_qualified_file_path}")
-        executable_name = compile_file(
-            fully_qualified_file_path,
-            file_name,
-            executables_full_path,
-            compiler_tool_full_path,
-            compiler_warning_flags,
-            compiler_feature_flags,
-            compile_timeout,
-        )
+
+            compiled = make_compile(
+                fully_qualified_file_path,
+                output_executable_fully_qualified_path,
+                compiler_tool_full_path,
+                make_tool_full_path,
+                logger,
+            )
+            if not compiled:
+                logger.error(
+                    f"Make compilation of project directory {fully_qualified_file_path} failed."
+                )
+                continue
+            executable_name = file_name
+        else:
+            # compile the file
+            logger.info(f"Compiling: {fully_qualified_file_path}")
+            executable_name = compile_file(
+                fully_qualified_file_path,
+                file_name,
+                executables_full_path,
+                compiler_tool_full_path,
+                compiler_warning_flags,
+                compiler_feature_flags,
+                compile_timeout,
+            )
+
         # if the compilation was successful, then add the executable path to the list of executables to run
         if executable_name != "":
             executables.add(executable_name)
@@ -541,6 +563,7 @@ async def main():
         config.compiler_warning_flags,
         config.compiler_feature_flags,
         config.compile_timeout,
+        config.make_tool_full_path,
     )
 
     event_loop = asyncio.get_running_loop()
