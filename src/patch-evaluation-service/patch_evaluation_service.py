@@ -401,13 +401,14 @@ def prep_executables_for_evaluation(
             logger.info(f"fully qualified file path: {fully_qualified_file_path}")
             logger.info(f"compiler tool full path: {compiler_tool_full_path}")
             logger.info(f"make tool full path: {make_tool_full_path}")
-            # compiled = make_compile(
-            #     fully_qualified_file_path,
-            #     output_executable_fully_qualified_path,
-            #     compiler_tool_full_path,
-            #     make_tool_full_path,
-            #     logger,
-            # )
+            compiled = make_compile(
+                fully_qualified_file_path,
+                output_executable_fully_qualified_path,
+                compiler_tool_full_path,
+                make_tool_full_path,
+                logger,
+            )
+            logger.info(f"compilation result: {compiled}")
 
             continue
         # compile the file
