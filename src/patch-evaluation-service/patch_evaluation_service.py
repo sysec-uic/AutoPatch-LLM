@@ -6,7 +6,7 @@ import os
 import subprocess
 import sys
 import tempfile
-from typing import Dict, Final, Tuple
+from typing import Dict, Final, Set, Tuple
 
 from autopatchdatatypes import CrashDetail, PatchResponse, TransformerMetadata
 from autopatchpubsub import MessageBrokerClient
@@ -31,15 +31,14 @@ event_loop: asyncio.AbstractEventLoop  # This will be set in main().
 crashdetails_map: Dict[str, CrashDetail] = {}  # uid → crash detail
 patchresponses_map: Dict[str, Dict[str, PatchResponse]] = {}  # uid → llm_name → patch
 
-processed_pairs = set()  # (uid, llm_name)
-
-
 executables_to_process: set[str]
 config: PatchEvalConfig
 results: Dict[str, Dict[str, int]]
 
 # Dictionary to store locks per CSV file
 file_locks: Dict[str, asyncio.Lock] = {}
+
+CONST_NO_RESPONSE: Final[str] = "No response"
 
 
 async def run_file_async(
@@ -305,33 +304,56 @@ async def handle_ready(
     uid: str, crash_detail: CrashDetail, patch_response: PatchResponse
 ) -> None:
     logger.info(f"[READY] {uid} → crash: {crash_detail}, patch: {patch_response}")
+    if patch_response.status == CONST_NO_RESPONSE:
+        logger.info(f"Patch response for {uid} is empty, skipping.")
+        return
+
     # There is where we will move the run file and evaluation logic to
 
 
 async def map_updater():
+    processed_pairs: Set[Tuple[str, str]] = set()  # (uid, llm_name)
+    pending_uids: Set[str] = set()
+
     while True:
-        done, _ = await asyncio.wait(
-            [
-                asyncio.create_task(async_crash_details_ready_queue.get()),
-                asyncio.create_task(async_patch_response_ready_queue.get()),
-            ],
-            return_when=asyncio.FIRST_COMPLETED,
-        )
+        if not pending_uids:
+            done, _ = await asyncio.wait(
+                [
+                    asyncio.create_task(async_crash_details_ready_queue.get()),
+                    asyncio.create_task(async_patch_response_ready_queue.get()),
+                ],
+                return_when=asyncio.FIRST_COMPLETED,
+            )
 
-        for task in done:
-            uid = task.result()
+            for task in done:
+                uid = task.result()
+                logger.info(f"[map_updater] Received UID: {uid}")
+                pending_uids.add(uid)
 
-            if uid not in crashdetails_map:
-                continue  # still waiting for crash detail
+        # copy to avoid modifying set during iteration
+        for uid in list(pending_uids):
+            crash_ready = uid in crashdetails_map
+            patch_ready = uid in patchresponses_map
+            logger.info(
+                f"[map_updater] UID={uid} | crash_ready={crash_ready}, patch_ready={patch_ready}"
+            )
 
-            if uid not in patchresponses_map:
-                continue  # no patches at all yet
+            if not (crash_ready and patch_ready):
+                continue
 
             for llm_name, patch in patchresponses_map[uid].items():
                 key = (uid, llm_name)
                 if key not in processed_pairs:
+                    logger.info(
+                        f"[map_updater] Processing (uid={uid}, llm_name={llm_name})"
+                    )
                     await handle_ready(uid, crashdetails_map[uid], patch)
                     processed_pairs.add(key)
+
+            pending_uids.remove(uid)
+
+        # Give other tasks a chance, and retry any incomplete UIDs
+        await asyncio.sleep(3.0)
 
 
 async def patch_response_ready_producer(patch_response_str: str):
@@ -339,13 +361,13 @@ async def patch_response_ready_producer(patch_response_str: str):
     patch_response: PatchResponse = await map_cloud_event_as_patch_response(
         patch_response_str
     )
+    logger.info(f"Adding {patch_response.executable_name} to patchresponses_map")
     if patch_response.executable_name not in patchresponses_map:
         patchresponses_map[patch_response.executable_name] = {}
     patchresponses_map[patch_response.executable_name][
         patch_response.TransformerMetadata.llm_name
     ] = patch_response
 
-    global event_loop
     event_loop.call_soon_threadsafe(
         async_patch_response_ready_queue.put_nowait,
         patch_response.executable_name,
@@ -397,7 +419,6 @@ def on_consume_patch_response(patch_response_as_cloud_event_str: str) -> None:
     # Schedule adding the event to the async queue.
     # Use call_soon_threadsafe so that this function can be safely called
     # from threads outside the event loop.
-    global event_loop
     event_loop.call_soon_threadsafe(
         async_patch_response_cloud_events_queue.put_nowait,
         patch_response_as_cloud_event_str,
@@ -416,7 +437,6 @@ def on_consume_crash_detail(crash_detail_as_cloud_event_str: str) -> None:
     # Schedule adding the event to the async queue.
     # Use call_soon_threadsafe so that this function can be safely called
     # from threads outside the event loop.
-    global event_loop
     event_loop.call_soon_threadsafe(
         async_crash_details_cloud_events_queue.put_nowait,
         crash_detail_as_cloud_event_str,
@@ -477,8 +497,8 @@ async def process_crash_detail_item(item):
 async def crash_detail_ready_producer(
     crash_detail: CrashDetail,
 ) -> None:
+    logger.info(f"Adding {crash_detail.executable_name} to crashdetails_map")
     crashdetails_map[crash_detail.executable_name] = crash_detail
-    global event_loop
     event_loop.call_soon_threadsafe(
         async_crash_details_ready_queue.put_nowait,
         crash_detail.executable_name,
@@ -604,21 +624,7 @@ async def main():
     logger.info("AppVersion: " + config.version)
     logger.info("Creating executables directory: " + config.executables_full_path)
 
-    # list of files successfully compiled and a dict for the results of each
-    executables_to_process, results = prep_executables_for_evaluation(
-        config.executables_full_path,
-        config.patched_codes_path,
-        config.compiler_tool_full_path,
-        config.compiler_warning_flags,
-        config.compiler_feature_flags,
-        config.compile_timeout,
-    )
-
     event_loop = asyncio.get_running_loop()
-
-    # Start the consumer coroutine as a background task.
-    # asyncio.create_task(crash_detail_consumer())
-    # asyncio.create_task(patch_response_consumer())
 
     message_broker_client: Final[MessageBrokerClient] = init_message_broker(
         config.message_broker_host,
@@ -633,6 +639,16 @@ async def main():
     message_broker_client.consume(
         config.autopatch_crash_detail_input_topic, on_consume_crash_detail
     )
+
+    # list of files successfully compiled and a dict for the results of each
+    # executables_to_process, results = prep_executables_for_evaluation(
+    #     config.executables_full_path,
+    #     config.patched_codes_path,
+    #     config.compiler_tool_full_path,
+    #     config.compiler_warning_flags,
+    #     config.compiler_feature_flags,
+    #     config.compile_timeout,
+    # )
 
     await asyncio.gather(
         crash_detail_consumer(),

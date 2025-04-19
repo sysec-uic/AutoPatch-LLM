@@ -17,6 +17,7 @@ services:
       - ./src/llm-dispatch-service/config:/app/config:ro
       - ./src/llm-dispatch-service/log:/app/log:rw
       - ./src/llm-dispatch-service/data:/app/data:ro
+      - ./assets/input_codebase:/app/input_codebase:ro
     working_dir: /app
   autopatch-code-property-graph-generator:
     image: ghcr.io/sysec-uic/autopatch-llm/code-property-graph-generator:0.7.0

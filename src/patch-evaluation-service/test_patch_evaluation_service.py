@@ -411,7 +411,10 @@ def test_on_consume_crash_detail(monkeypatch):
     assert len(calls) == 1
     callback, arg = calls[0]
     # Ensure that the callback is the put_nowait method of the async queue.
-    assert callback == patch_evaluation_service.async_crash_details_queue.put_nowait
+    assert (
+        callback
+        == patch_evaluation_service.async_crash_details_cloud_events_queue.put_nowait
+    )
     assert arg == cloud_event_str
 
 
@@ -529,7 +532,9 @@ async def test_crash_detail_consumer(monkeypatch):
             }
         }
     )
-    patch_evaluation_service.async_crash_details_queue.put_nowait(dummy_event)
+    patch_evaluation_service.async_crash_details_cloud_events_queue.put_nowait(
+        dummy_event
+    )
 
     # Act
     # Run the consumer briefly.

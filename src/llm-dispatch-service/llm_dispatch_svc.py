@@ -29,6 +29,8 @@ config: LLMDispatchSvcConfig
 logger = logging.getLogger(__name__)
 
 executable_name_to_cpg_scan_result_map: Dict[str, CpgScanResult] = {}
+CONST_NO_RESPONSE: Final[str] = "No response"
+unreachable_models = set()
 
 
 async def map_cloud_event_as_cpg_scan_result(
@@ -403,7 +405,8 @@ class ApiLLM(BaseLLM):
         except openai.NotFoundError as e:
             # Models sometimes get deprecated
             logger.error(f"Route provider for Model not found: {model}. Error: {e}")
-            return "No response"
+            unreachable_models.add(model)
+            return CONST_NO_RESPONSE
 
         # TODO handle out of quota errors here
 
@@ -416,7 +419,7 @@ class ApiLLM(BaseLLM):
 
         logger.debug(f"Completion: {completion}")
 
-        return completion_str if completion_str else "No response"
+        return completion_str if completion_str else CONST_NO_RESPONSE
 
 
 class InMemoryLLM(BaseLLM):
@@ -454,9 +457,12 @@ class ApiLLMStrategy(LLMStrategy):
     async def generate(self, prompt: str) -> List[Dict]:
         responses = []
         for llm in self.llms:
-            responses.append(await llm.generate(prompt))
-            logger.info("Waiting for 1.0 seconds to avoid triggering API rate limits.")
-            await asyncio.sleep(1.0)
+            if llm.name not in unreachable_models:
+                responses.append(await llm.generate(prompt))
+                logger.info(
+                    "Waiting for 1.0 seconds to avoid triggering API rate limits."
+                )
+                await asyncio.sleep(1.0)
         return responses
 
 
@@ -597,12 +603,12 @@ async def create_patch_responses(
 
 async def create_patch_response(
     raw_response: Dict[str, str],
-    source_filename_or_program_name_under_consideration_unique_id: str,
+    program_name_under_consideration_uid: str,
 ) -> PatchResponse:
     """
     Create a PatchRequest objects from the raw response.
     """
-    name_id_str = source_filename_or_program_name_under_consideration_unique_id
+    name_id_str = program_name_under_consideration_uid.removesuffix(".c")
 
     unwrapped_response = unwrap_raw_llm_response(raw_response["response"])
     updated_response = update_diff_filename(unwrapped_response, name_id_str)
@@ -617,7 +623,7 @@ async def create_patch_response(
         name_id_str,
         base64.b64encode(updated_response.encode("utf-8")).decode("utf-8"),
         metadata,
-        status="success",
+        status="success" if updated_response != CONST_NO_RESPONSE else "fail",
     )
 
 
@@ -654,8 +660,8 @@ async def main():
 
     # LLM_DISPATCH_START_TIMESTAMP: Final[str] = get_current_timestamp()
 
+    # removed from openrouter "openai/gpt-4o-mini:free",
     models = [
-        "openai/gpt-4o-mini:free",
         "google/gemini-2.5-pro-exp-03-25:free",
         "deepseek/deepseek-r1-zero:free",
         "meta-llama/llama-3.3-70b-instruct:free",
@@ -701,18 +707,27 @@ async def main():
             message_broker_client,
         )
 
+    filenames: List[str] = []
+    for filename in os.listdir(config.input_codebase_full_path):
+        if not filename.endswith(".c"):
+            # only fuzzing service yet supports makefile projects
+            logger.info(
+                f"{config.appName} does not yet support makefile projects, Skipping directory: {filename}"
+            )
+            continue
+        filenames.append(filename)
+
     tasks = [
         process_file(filename, config, client, message_broker_client)
-        for filename in os.listdir(config.input_codebase_full_path)
+        for filename in filenames
     ]
     await asyncio.gather(*tasks)
 
     # or run sequentially
-    _ = [
-        await process_file(filename, config, client, message_broker_client)
-        for filename in os.listdir(config.input_codebase_full_path)
-    ]
-
+    # _ = [
+    #     await process_file(filename, config, client, message_broker_client)
+    #     for filename in os.listdir(config.input_codebase_full_path)
+    # ]
 
     # LLM_DISPATCH_END_TIMESTAMP: Final[str] = get_current_timestamp()
     # time_delta = datetime.fromisoformat(
