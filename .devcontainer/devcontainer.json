@@ -69,7 +69,8 @@
 				"bierner.markdown-mermaid",
 				"bpruitt-goddard.mermaid-markdown-syntax-highlighting",
 				"MS-vsliveshare.vsliveshare",
-				"GitHub.vscode-github-actions"
+				"GitHub.vscode-github-actions",
+				"ryanluker.vscode-coverage-gutters"
 			],
 			"settings": {
 				"git.enableCommitSigning": true,
