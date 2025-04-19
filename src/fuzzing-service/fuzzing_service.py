@@ -346,9 +346,6 @@ async def main():
     logger.info("Fuzzer tool name: " + config.fuzzer_tool_name)
     logger.info("Fuzzer tool version: " + config.fuzzer_tool_version)
 
-    logger.info("Creating AFL output directory: " + _afl_tool_output_path)
-    os.makedirs(_afl_tool_output_path, exist_ok=True)
-
     # Process each C source file in the codebase directory
     _source_files = os.listdir(_fuzz_svc_input_codebase_path)
     logger.info(
@@ -452,7 +449,7 @@ async def main():
                     os.path.join(file_name_fully_qualified_path, "config.json"), "r"
                 ) as project_config:
                     project_config_vals = json.load(project_config)
-                    inputFromFile = project_config_vals["inputFromFile"]
+                    isInputFromFile = project_config_vals["inputFromFile"]
             except Exception as e:
                 logger.error(f"Problem loading the project config file: {e}")
                 logger.info(
@@ -465,7 +462,7 @@ async def main():
                 _afl_tool_full_path,
                 _afl_tool_seed_input_path,
                 _fuzzer_tool_timeout_seconds,
-                inputFromFile,
+                isInputFromFile,
                 fully_qualified_fuzzer_tool_output_path,
                 output_executable_fully_qualified_path,
             )
@@ -484,7 +481,7 @@ async def main():
             fully_qualified_crash_directory_path,
             executable_name,
             config.iconv_tool_timeout,
-            inputFromFile,
+            isInputFromFile,
         )
 
         # Process the crash outputs

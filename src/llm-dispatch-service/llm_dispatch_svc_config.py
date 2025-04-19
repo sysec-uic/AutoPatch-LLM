@@ -5,7 +5,7 @@ from typing import Dict, List
 @dataclass
 class LLMDispatchSvcConfig:
     cpg_scan_result_input_topic: str
-    devonlyinputfilepath: str
+    input_codebase_full_path: str
     appName: str
     appVersion: str
     appDescription: str

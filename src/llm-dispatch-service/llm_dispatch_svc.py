@@ -6,7 +6,7 @@ import os
 import re
 import sys
 from abc import ABC, abstractmethod
-from typing import Dict, Final, List
+from typing import Dict, Final, List, Set
 
 import openai
 from autopatchdatatypes import CpgScanResult, PatchResponse, TransformerMetadata
@@ -29,6 +29,8 @@ config: LLMDispatchSvcConfig
 logger = logging.getLogger(__name__)
 
 executable_name_to_cpg_scan_result_map: Dict[str, CpgScanResult] = {}
+CONST_NO_RESPONSE: Final[str] = "No response"
+unreachable_models: Set[str] = set()
 
 
 async def map_cloud_event_as_cpg_scan_result(
@@ -72,7 +74,7 @@ async def process_cpg_scan_result(cpg_scan_result: CpgScanResult) -> None:
         )
 
 
-async def process_item(item):
+async def processcpg_scan_result_item(item):
     """Asynchronously process an item."""
     cpg_scan_result = await map_cloud_event_as_cpg_scan_result(item)
     await process_cpg_scan_result(cpg_scan_result)
@@ -87,7 +89,7 @@ async def cpg_scan_result_consumer():
     while True:
         item = await async_cpg_scan_results_queue.get()
         try:
-            await process_item(item)
+            await processcpg_scan_result_item(item)
         finally:
             async_cpg_scan_results_queue.task_done()
 
@@ -104,12 +106,6 @@ def load_config(json_config_full_path: str) -> LLMDispatchSvcConfig:
     """
     config = load_config_as_json(json_config_full_path, logger)
     return LLMDispatchSvcConfig(**config)
-
-
-# async def request_patch(
-#     request: PatchRequest, message_broker_client: MessageBrokerClient
-# ):
-#     pass
 
 
 async def read_file(file_full_path: str) -> str:
@@ -138,12 +134,16 @@ async def read_file(file_full_path: str) -> str:
 #     return f"{_goals} {_return_format} {_warnings} {_context_window}"
 
 
-async def full_prompt(system_prompt_full_path: str, user_prompt_full_path: str) -> str:
+async def full_prompt(
+    system_prompt_full_path: str,
+    user_prompt_full_path: str,
+    input_c_program_full_path: str,
+) -> str:
     _system_prompt: Final[str] = await read_file(system_prompt_full_path)
     _user_prompt: Final[str] = await read_file(user_prompt_full_path)
 
     _c_program_source_code_to_patch: Final[str] = await read_file(
-        config.devonlyinputfilepath
+        input_c_program_full_path
     )
     _separator: Final[str] = "---"
 
@@ -337,10 +337,6 @@ async def produce_output(
             await produce_event(event)
 
 
-def handle_sigterm(signum, frame):
-    pass
-
-
 # Base interface for any LLM implementation.
 class BaseLLM(ABC):
     @abstractmethod
@@ -386,22 +382,15 @@ class ApiLLM(BaseLLM):
         api_key: str,
         base_url: str,
         model: str,
-        user_prompt: str,
         # system_prompt: str,
+        user_prompt: str,
         temperature: float,
         top_p: float,
-        # max_tokens: int,
-        # context_window: str,
-        # request_timeout: int,
-        # request_retries: int,
-        # request_delay: int,
-        # request_delay_max: int,
     ) -> str:
-        # _api_key = os.environ.get("OPENROUTERAI_API_KEY")
-        _api_key = api_key
-        client = OpenAI(base_url=base_url, api_key=_api_key)
+        client = OpenAI(base_url=base_url, api_key=api_key)
 
         try:
+            # Here we concatenant the full prompt as the user prompt.
             completion = client.chat.completions.create(
                 model=model,
                 temperature=temperature,
@@ -416,7 +405,8 @@ class ApiLLM(BaseLLM):
         except openai.NotFoundError as e:
             # Models sometimes get deprecated
             logger.error(f"Route provider for Model not found: {model}. Error: {e}")
-            return "No response"
+            unreachable_models.add(model)
+            return CONST_NO_RESPONSE
 
         # TODO handle out of quota errors here
 
@@ -429,7 +419,7 @@ class ApiLLM(BaseLLM):
 
         logger.debug(f"Completion: {completion}")
 
-        return completion_str if completion_str else "No response"
+        return completion_str if completion_str else CONST_NO_RESPONSE
 
 
 class InMemoryLLM(BaseLLM):
@@ -467,9 +457,12 @@ class ApiLLMStrategy(LLMStrategy):
     async def generate(self, prompt: str) -> List[Dict]:
         responses = []
         for llm in self.llms:
-            responses.append(await llm.generate(prompt))
-            logger.info("Waiting for 1.0 seconds to avoid triggering API rate limits.")
-            await asyncio.sleep(1.0)
+            if llm.name not in unreachable_models:
+                responses.append(await llm.generate(prompt))
+                logger.info(
+                    "Waiting for 1.0 seconds to avoid triggering API rate limits."
+                )
+                await asyncio.sleep(1.0)
         return responses
 
 
@@ -610,12 +603,12 @@ async def create_patch_responses(
 
 async def create_patch_response(
     raw_response: Dict[str, str],
-    source_filename_or_program_name_under_consideration_unique_id: str,
+    program_name_under_consideration_uid: str,
 ) -> PatchResponse:
     """
     Create a PatchRequest objects from the raw response.
     """
-    name_id_str = source_filename_or_program_name_under_consideration_unique_id
+    name_id_str = program_name_under_consideration_uid.removesuffix(".c")
 
     unwrapped_response = unwrap_raw_llm_response(raw_response["response"])
     updated_response = update_diff_filename(unwrapped_response, name_id_str)
@@ -630,7 +623,7 @@ async def create_patch_response(
         name_id_str,
         base64.b64encode(updated_response.encode("utf-8")).decode("utf-8"),
         metadata,
-        status="success",
+        status="success" if updated_response != CONST_NO_RESPONSE else "fail",
     )
 
 
@@ -667,11 +660,11 @@ async def main():
 
     # LLM_DISPATCH_START_TIMESTAMP: Final[str] = get_current_timestamp()
 
+    # removed from openrouter "openai/gpt-4o-mini:free",
+        # "google/gemini-2.5-pro-exp-03-25:free",
+        # "deepseek/deepseek-r1-zero:free",
+        # "meta-llama/llama-3.3-70b-instruct:free",
     models = [
-        "openai/gpt-4o-mini:free",
-        "google/gemini-2.5-pro-exp-03-25:free",
-        "deepseek/deepseek-r1-zero:free",
-        "meta-llama/llama-3.3-70b-instruct:free",
         "mistralai/mistral-small-3.1-24b-instruct:free",
     ]
 
@@ -682,19 +675,10 @@ async def main():
         models, model_router_api_key, model_router_base_url
     )
 
-    prompt: Final[str] = await full_prompt(
-        config.system_prompt_full_path, config.user_prompt_full_path
-    )
-
     # Set active strategy at runtime.
     client.set_strategy("api")  # Change to "in_memory" to use the in-memory strategy.
 
-    dummy_filename = "dummy_c_file.c"
-
     event_loop = asyncio.get_running_loop()
-
-    # Start the consumer coroutine as a background task.
-    asyncio.create_task(cpg_scan_result_consumer())
 
     message_broker_client: Final[MessageBrokerClient] = init_message_broker(
         config.message_broker_host,
@@ -707,13 +691,43 @@ async def main():
         config.cpg_scan_result_input_topic, on_consume_cpg_scan_result
     )
 
-    responses = await client.generate(prompt)
-    patch_responses: List[PatchResponse] = await create_patch_responses(
-        responses, [dummy_filename] * len(responses)
-    )
-    await produce_output(
-        config.message_broker_topics["response"], patch_responses, message_broker_client
-    )
+    async def process_file(filename: str, config, client, message_broker_client):
+        prompt: str = await full_prompt(
+            config.system_prompt_full_path,
+            config.user_prompt_full_path,
+            os.path.join(config.input_codebase_full_path, filename),
+        )
+        responses = await client.generate(prompt)
+        patch_responses: List[PatchResponse] = await create_patch_responses(
+            responses, [filename] * len(responses)
+        )
+        await produce_output(
+            config.message_broker_topics["response"],
+            patch_responses,
+            message_broker_client,
+        )
+
+    filenames: List[str] = []
+    for filename in os.listdir(config.input_codebase_full_path):
+        if not filename.endswith(".c"):
+            # only fuzzing service yet supports makefile projects
+            logger.info(
+                f"{config.appName} does not yet support makefile projects, Skipping directory: {filename}"
+            )
+            continue
+        filenames.append(filename)
+
+    tasks = [
+        process_file(filename, config, client, message_broker_client)
+        for filename in filenames
+    ]
+    await asyncio.gather(*tasks)
+
+    # or run sequentially
+    # _ = [
+    #     await process_file(filename, config, client, message_broker_client)
+    #     for filename in os.listdir(config.input_codebase_full_path)
+    # ]
 
     # LLM_DISPATCH_END_TIMESTAMP: Final[str] = get_current_timestamp()
     # time_delta = datetime.fromisoformat(
