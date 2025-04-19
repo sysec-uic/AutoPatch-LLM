@@ -6,7 +6,7 @@ import os
 import re
 import sys
 from abc import ABC, abstractmethod
-from typing import Dict, Final, List
+from typing import Dict, Final, List, Set
 
 import openai
 from autopatchdatatypes import CpgScanResult, PatchResponse, TransformerMetadata
@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 executable_name_to_cpg_scan_result_map: Dict[str, CpgScanResult] = {}
 CONST_NO_RESPONSE: Final[str] = "No response"
-unreachable_models = set()
+unreachable_models: Set[str] = set()
 
 
 async def map_cloud_event_as_cpg_scan_result(
@@ -661,10 +661,10 @@ async def main():
     # LLM_DISPATCH_START_TIMESTAMP: Final[str] = get_current_timestamp()
 
     # removed from openrouter "openai/gpt-4o-mini:free",
+        # "google/gemini-2.5-pro-exp-03-25:free",
+        # "deepseek/deepseek-r1-zero:free",
+        # "meta-llama/llama-3.3-70b-instruct:free",
     models = [
-        "google/gemini-2.5-pro-exp-03-25:free",
-        "deepseek/deepseek-r1-zero:free",
-        "meta-llama/llama-3.3-70b-instruct:free",
         "mistralai/mistral-small-3.1-24b-instruct:free",
     ]
 

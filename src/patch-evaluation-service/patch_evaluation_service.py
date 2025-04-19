@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 from typing import Dict, Final, Set, Tuple
 
 from autopatchdatatypes import CrashDetail, PatchResponse, TransformerMetadata
@@ -37,8 +38,6 @@ results: Dict[str, Dict[str, int]]
 
 # Dictionary to store locks per CSV file
 file_locks: Dict[str, asyncio.Lock] = {}
-
-CONST_NO_RESPONSE: Final[str] = "No response"
 
 
 async def run_file_async(
@@ -304,16 +303,17 @@ async def handle_ready(
     uid: str, crash_detail: CrashDetail, patch_response: PatchResponse
 ) -> None:
     logger.info(f"[READY] {uid} → crash: {crash_detail}, patch: {patch_response}")
-    if patch_response.status == CONST_NO_RESPONSE:
+    if patch_response.status == "fail":
         logger.info(f"Patch response for {uid} is empty, skipping.")
         return
 
     # There is where we will move the run file and evaluation logic to
 
 
-async def map_updater():
+async def map_updater(timeout_seconds: int = 240):
     processed_pairs: Set[Tuple[str, str]] = set()  # (uid, llm_name)
     pending_uids: Set[str] = set()
+    seen_times: Dict[str, float] = {}  # uid → first seen timestamp (monotonic)
 
     while True:
         if not pending_uids:
@@ -329,13 +329,26 @@ async def map_updater():
                 uid = task.result()
                 logger.info(f"[map_updater] Received UID: {uid}")
                 pending_uids.add(uid)
+                if uid not in seen_times:
+                    seen_times[uid] = time.monotonic()
+
+        now = time.monotonic()
 
         # copy to avoid modifying set during iteration
         for uid in list(pending_uids):
+            age = now - seen_times.get(uid, now)
+            if age > timeout_seconds:
+                logger.warning(
+                    f"[map_updater] Timeout expired for UID={uid} (age={age:.2f}s), dropping it."
+                )
+                pending_uids.remove(uid)
+                seen_times.pop(uid, None)
+                continue
+
             crash_ready = uid in crashdetails_map
             patch_ready = uid in patchresponses_map
             logger.info(
-                f"[map_updater] UID={uid} | crash_ready={crash_ready}, patch_ready={patch_ready}"
+                f"[map_updater] UID={uid} | crash_ready={crash_ready}, patch_ready={patch_ready}, age={age:.1f}s"
             )
 
             if not (crash_ready and patch_ready):
@@ -351,9 +364,10 @@ async def map_updater():
                     processed_pairs.add(key)
 
             pending_uids.remove(uid)
+            seen_times.pop(uid, None)
 
         # Give other tasks a chance, and retry any incomplete UIDs
-        await asyncio.sleep(3.0)
+        await asyncio.sleep(10.0)
 
 
 async def patch_response_ready_producer(patch_response_str: str):
