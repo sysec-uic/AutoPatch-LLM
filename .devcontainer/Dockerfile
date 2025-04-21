@@ -10,11 +10,12 @@ RUN rm -f /etc/apt/apt.conf.d/docker-clean && \
         python3-pip=24.0+dfsg-1ubuntu1.1 \
         python3-venv=3.12.3-0ubuntu2 \
         afl++=4.09c-1ubuntu3 \
+        patch=2.7.6-7build3 \
         gcc-multilib=4:13.2.0-7ubuntu1 \
         libc6-dev-i386=2.39-0ubuntu8.4 && \
     add-apt-repository ppa:zhangsongcui3371/fastfetch && \
     apt-get update && apt-get -y install --no-install-recommends \
-        fastfetch=2.39.1 && \
+        fastfetch=2.41.0 && \
     apt-get autoremove -y && apt-get clean -y && rm -rf /var/lib/apt/lists/* && \
     wget https://github.com/joernio/joern/releases/download/v4.0.247/joern-install.sh && \
     chmod +x ./joern-install.sh && \

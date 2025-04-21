@@ -1,7 +1,13 @@
+import subprocess
+import tempfile
+import shutil
+from pathlib import Path
+
 import asyncio
 import base64
 import json
 import logging
+import math
 import os
 import subprocess
 import sys
@@ -50,6 +56,9 @@ async def run_file_async(
     """
     Asynchronously run the binary at executable_path with input from CrashDetail.
     """
+    if not executable_path:
+        return -1
+
     crash_bytes = base64.b64decode(crash_detail.base64_message)
     crash = crash_bytes.decode("utf-8", errors="replace")
     proc = None  # Initialize proc for cleanup in case of timeout
@@ -111,9 +120,8 @@ async def run_file_async(
 
 # TODO extract this into autopatchshared
 def compile_file(
-    file_path: str,
-    file_name: str,
-    executable_path: str,
+    source_file_full_path: str,
+    output_dir_path: str,
     compiler_tool_full_patch: str,
     compiler_warning_flags: str,
     compiler_feature_flags: str,
@@ -123,9 +131,9 @@ def compile_file(
     Compiles the file at file_path into a binary executable in the executable_path directory.
     """
     # form the command
-    executable_name = file_name.split(".")[0]
-    executable_full_path = os.path.join(executable_path, executable_name)
-    command = f"{compiler_tool_full_patch} {file_path} {compiler_warning_flags} {compiler_feature_flags} {executable_full_path}"
+    executable_name = os.path.basename(source_file_full_path).split(".")[0]
+    executable_full_path = os.path.join(output_dir_path, executable_name)
+    command = f"{compiler_tool_full_patch} {source_file_full_path} {compiler_warning_flags} {compiler_feature_flags} {executable_full_path}"
 
     # run the command
     try:
@@ -141,16 +149,15 @@ def compile_file(
         logger.debug(f"stderr of the compile: {result.stderr}")
     except Exception as e:
         # if an error occurs during compilation, log
-        logger.error(f"An error occurred while compiling {file_path}: {e}")
+        logger.error(f"An error occurred while compiling {source_file_full_path}: {e}")
         logger.error(f"stderr of the compile: {result.stderr}")
     finally:
         # log the command and return either the path to the executable or an empty string on failure
         if os.path.exists(executable_full_path):
             logger.info(f"Executable {executable_full_path} exists.")
-            return executable_name
-        else:
-            logger.error(f"Failed to compile {file_path}")
-            return ""
+            return executable_full_path
+        logger.error(f"Failed to compile {source_file_full_path}")
+        return ""
 
 
 def write_crashes_csv(
@@ -182,6 +189,7 @@ def write_crashes_csv(
 
 
 # TODO add MQTT publish
+# TODO add LLM context
 async def log_crash_information(
     results_path: str, executable_name: str, crash_detail: CrashDetail, return_code: int
 ) -> None:
@@ -269,6 +277,74 @@ def log_results(results: dict, results_path: str) -> None:
             logger.info(f"Success of evaluation: {total_success_rate}%.")
 
 
+def apply_patch_to_c_source(source_path: str, patch_file_as_str: str) -> str:
+    """
+    Applies a patch to a C source file and returns the patched source code.
+
+    Parameters:
+        source_path (str): Path to the original C source file.
+        patch_file_as_str (str): The patch file content as a string.
+
+    Returns:
+        str: The content of the patched C source file.
+
+    Raises:
+        RuntimeError: If the patching process fails.
+    """
+    if not source_path.endswith(".c"):
+        source_path += ".c"
+
+    source_file = Path(source_path)
+    patch_file = None  # Will hold the path to the temp patch file
+
+    try:
+        # Write patch string to a temporary file
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".patch", delete=False) as temp_patch_file:
+            temp_patch_file.write(patch_file_as_str)
+            temp_patch_file.flush()
+            os.fsync(temp_patch_file.fileno())
+            patch_file = Path(temp_patch_file.name)
+
+        # Create a temporary directory to apply the patch
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_source_path = Path(tmpdir) / source_file.name
+            shutil.copy(source_file, tmp_source_path)
+
+            # Log contents for debugging
+            with open(patch_file, "r") as f:
+                patch_file_contents = f.read()
+                logger.info(f"Contents of patch file:\n{patch_file_contents}")
+
+            with open(tmp_source_path, "r") as f:
+                source_file_contents = f.read()
+                logger.info(f"Contents of source file:\n{source_file_contents}")
+
+            # Apply patch
+            try:
+                subprocess.run(
+                    ["patch", str(tmp_source_path), str(patch_file)],
+                    cwd=tmpdir,
+                    check=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+                )
+            except subprocess.CalledProcessError as e:
+                raise RuntimeError(f"Failed to apply patch:\n{e.stderr}")
+
+            # Read and return the patched file content
+            with open(tmp_source_path, "r") as f:
+                return f.read()
+
+    finally:
+        # Clean up the temporary patch file
+        if patch_file and patch_file.exists():
+            try:
+                patch_file.unlink()
+            except Exception as cleanup_err:
+                logger.warning(f"Failed to delete temporary patch file: {patch_file} - {cleanup_err}")
+
+
 async def map_cloud_event_as_patch_response(
     patch_response_cloud_event_str: str,
 ) -> PatchResponse:
@@ -302,15 +378,86 @@ async def map_cloud_event_as_patch_response(
 async def handle_ready(
     uid: str, crash_detail: CrashDetail, patch_response: PatchResponse
 ) -> None:
+    # There is where we will move the run file and evaluation logic to
+    # we will need to apply a patch to a C source file and then compile it
+    # the original C source file will be in the assets input_codebase directory
+    # the patch will come from the patch_response
+    # finally we update the results dict with the results of the run
+
     logger.info(f"[READY] {uid} → crash: {crash_detail}, patch: {patch_response}")
     if patch_response.status == "fail":
         logger.info(f"Patch response for {uid} is empty, skipping.")
         return
 
-    # There is where we will move the run file and evaluation logic to
+    if uid not in executables_to_process:
+        logger.info(
+            f"{uid} not in set of programs to evaluate..skipping"
+        )
+        return
+
+    if crash_detail.is_input_from_file:
+        temp_crash_file = tempfile.NamedTemporaryFile()
+        logger.debug(f"temp_crash_file name: {temp_crash_file.name}")
+        temp_crash_file.write(base64.b64decode(crash_detail.base64_message))
+
+    patch_file_as_str = base64.b64decode(patch_response.patch_snippet_base64).decode('utf-8')
+    logger.info(f"patch preview: {patch_file_as_str}")
+
+    # create the patched version of the original source code
+    patched_source_code = apply_patch_to_c_source(
+        os.path.join(config.input_codebase_full_path, uid),
+        patch_file_as_str
+    )
+    temp_patched_source_code_file = tempfile.NamedTemporaryFile(
+        suffix=".c"
+    )
+    temp_patched_source_code_file.write(patched_source_code.encode())
+    logger.debug(
+        f"temp_patched_source_code_file name: {temp_patched_source_code_file.name}"
+    )
+
+    # compile the patched source code
+    executable_full_path = compile_file(
+        temp_patched_source_code_file.name,
+        config.executables_full_path,
+        config.compiler_tool_full_path,
+        config.compiler_warning_flags,
+        config.compiler_feature_flags,
+        config.compile_timeout,
+    )
+
+    return_code = await run_file_async(
+        executable_full_path,
+        uid,
+        crash_detail,
+        "" if not crash_detail.is_input_from_file else temp_crash_file.name,
+        config.run_timeout,
+    )
+
+    # TODO add LLM context, rename to produce output
+    # log the crash information to that executables dedicated csv file
+    logger.info(
+        f"Result of running file {uid}: {return_code}."
+    )
+    await log_crash_information(
+        config.patch_eval_results_full_path,
+        uid,
+        crash_detail,
+        return_code,
+    )
+
+    # update the results dict for that executable with the result of the run
+    results[uid]["total_crashes"] += 1
+    if return_code == 0 or return_code == 1:
+        results[uid]["patched_crashes"] += 1
+    # log the batched results
+    # log_results(results, config.patch_eval_results_full_path)
+    logger.info("Simulating logging the batched results")
+    logger.info("Results: " + str(results))
 
 
 async def map_updater(timeout_seconds: int = 240):
+    timed_out_uids: Set[str] = set() # as we can have multiple LLMs creating patches for a uid
     processed_pairs: Set[Tuple[str, str]] = set()  # (uid, llm_name)
     pending_uids: Set[str] = set()
     seen_times: Dict[str, float] = {}  # uid → first seen timestamp (monotonic)
@@ -328,6 +475,9 @@ async def map_updater(timeout_seconds: int = 240):
             for task in done:
                 uid = task.result()
                 logger.info(f"[map_updater] Received UID: {uid}")
+                if uid in timed_out_uids:
+                    logger.debug(f"[map_updater] UID {uid} timed out, skipping.")
+                    continue
                 pending_uids.add(uid)
                 if uid not in seen_times:
                     seen_times[uid] = time.monotonic()
@@ -343,6 +493,7 @@ async def map_updater(timeout_seconds: int = 240):
                 )
                 pending_uids.remove(uid)
                 seen_times.pop(uid, None)
+                timed_out_uids.add(uid)  # Mark it as timed out
                 continue
 
             crash_ready = uid in crashdetails_map
@@ -350,10 +501,9 @@ async def map_updater(timeout_seconds: int = 240):
             logger.info(
                 f"[map_updater] UID={uid} | crash_ready={crash_ready}, patch_ready={patch_ready}, age={age:.1f}s"
             )
-
             if not (crash_ready and patch_ready):
                 continue
-
+            # patches come in much faster than crash responses so at this time we don't need special handling for re-queueing crash details that arrive before patch responses
             for llm_name, patch in patchresponses_map[uid].items():
                 key = (uid, llm_name)
                 if key not in processed_pairs:
@@ -445,9 +595,8 @@ def on_consume_crash_detail(crash_detail_as_cloud_event_str: str) -> None:
     It uses the globally stored event_loop to schedule a call to
     async_queue.put_nowait in a thread‑safe manner.
     """
-    logger.info(
-        f"in on_consume_crash_detail received {crash_detail_as_cloud_event_str}"
-    )
+    logger.info(f"in on_consume_crash_detail")
+    logger.debug(f"Received crash detail: {crash_detail_as_cloud_event_str}")
     # Schedule adding the event to the async queue.
     # Use call_soon_threadsafe so that this function can be safely called
     # from threads outside the event loop.
@@ -457,22 +606,18 @@ def on_consume_crash_detail(crash_detail_as_cloud_event_str: str) -> None:
     )
 
 
-def prep_executables_for_evaluation(
-    executables_full_path: str,
-    patched_codes_directory_path: str,
-    compiler_tool_full_path: str,
-    compiler_warning_flags: str,
-    compiler_feature_flags: str,
-    compile_timeout: int,
+async def prep_programs_for_evaluation(
+    input_codebase_path: str,
 ) -> Tuple[set[str], Dict[str, Dict[str, int]]]:
-    # list of files successfully compiled and a dict for the results of each
+
+    # list of files to consider for evaluation and a dict for the results of each
     executables = set()
     results: Dict[str, Dict[str, int]] = dict()
+
     # iterate through the patched codes directory
-    # this will be replaced with a message broker subscription
-    for file_name in os.listdir(patched_codes_directory_path):
+    for program_name in os.listdir(input_codebase_path):
         fully_qualified_file_path = os.path.join(
-            patched_codes_directory_path, file_name
+            input_codebase_path, program_name
         )
         if os.path.isdir(fully_qualified_file_path):
             logger.info(
@@ -480,32 +625,62 @@ def prep_executables_for_evaluation(
             )
             logger.info(f"Skipping directory: {fully_qualified_file_path}")
             continue
-        # compile the file
-        logger.info(f"Compiling: {fully_qualified_file_path}")
-        executable_name = compile_file(
-            fully_qualified_file_path,
-            file_name,
-            executables_full_path,
-            compiler_tool_full_path,
-            compiler_warning_flags,
-            compiler_feature_flags,
-            compile_timeout,
-        )
-        # if the compilation was successful, then add the executable path to the list of executables to run
-        if executable_name != "":
-            executables.add(executable_name)
-            results[executable_name] = dict()
-            results[executable_name]["total_crashes"] = 0
-            results[executable_name]["patched_crashes"] = 0
+        # add the programs to the collection of executables to evaluate
+        if program_name != "":
+            executables.add(program_name.removesuffix(".c"))
+            results[program_name] = dict()
+            results[program_name]["total_crashes"] = 0
+            results[program_name]["patched_crashes"] = 0
+
     return (executables, results)
+
+# def prep_executables_for_evaluation(
+#     executables_full_path: str,
+#     patched_codes_directory_path: str,
+#     compiler_tool_full_path: str,
+#     compiler_warning_flags: str,
+#     compiler_feature_flags: str,
+#     compile_timeout: int,
+# ) -> Tuple[set[str], Dict[str, Dict[str, int]]]:
+#     # list of files successfully compiled and a dict for the results of each
+#     executables = set()
+#     results: Dict[str, Dict[str, int]] = dict()
+#     # iterate through the patched codes directory
+#     # this will be replaced with a message broker subscription
+#     for file_name in os.listdir(patched_codes_directory_path):
+#         fully_qualified_file_path = os.path.join(
+#             patched_codes_directory_path, file_name
+#         )
+#         if os.path.isdir(fully_qualified_file_path):
+#             logger.info(
+#                 "Patch Evaluation Service does not yet support complex project directories."
+#             )
+#             logger.info(f"Skipping directory: {fully_qualified_file_path}")
+#             continue
+#         # compile the file
+#         logger.info(f"Compiling: {fully_qualified_file_path}")
+#         executable_name = compile_file(
+#             fully_qualified_file_path,
+#             file_name,
+#             executables_full_path,
+#             compiler_tool_full_path,
+#             compiler_warning_flags,
+#             compiler_feature_flags,
+#             compile_timeout,
+#         )
+#         # if the compilation was successful, then add the executable path to the list of executables to run
+#         if executable_name != "":
+#             executables.add(executable_name)
+#             results[executable_name] = dict()
+#             results[executable_name]["total_crashes"] = 0
+#             results[executable_name]["patched_crashes"] = 0
+#     return (executables, results)
 
 
 async def process_crash_detail_item(item):
     """Asynchronously process an item."""
     crash_detail = await map_cloud_event_as_crash_detail(item)
     await crash_detail_ready_producer(crash_detail)
-    # TODO this is the run file and evaluation logic hook that will need to move into handle_ready
-    # await process_crash_detail(crash_detail)
 
 
 async def crash_detail_ready_producer(
@@ -520,52 +695,52 @@ async def crash_detail_ready_producer(
 
 
 # TODO this is the run file and evaluation logic hook that will need to move into handle_ready
-async def process_crash_detail(crash_detail: CrashDetail) -> None:
-    logger.info(f"Processing crash {crash_detail}")
-    # TODO evaluate if we can remove this check
-    # if the crash executable is not in our executables base, then skip it
-    if crash_detail.executable_name not in executables_to_process:
-        logger.info(
-            f"{crash_detail.executable_name} not in set of compiled executables to process..skipping"
-        )
-        return
+# async def process_crash_detail(crash_detail: CrashDetail) -> None:
+#     logger.info(f"Processing crash {crash_detail}")
+#     # TODO evaluate if we can remove this check
+#     # if the crash executable is not in our executables base, then skip it
+#     if crash_detail.executable_name not in executables_to_process:
+#         logger.info(
+#             f"{crash_detail.executable_name} not in set of compiled executables to process..skipping"
+#         )
+#         return
 
-    if crash_detail.is_input_from_file:
-        temp_crash_file = tempfile.NamedTemporaryFile()
-        logger.info("temp_crash_file name: " + temp_crash_file.name)
-        temp_crash_file.write(base64.b64decode(crash_detail.base64_message))
+#     if crash_detail.is_input_from_file:
+#         temp_crash_file = tempfile.NamedTemporaryFile()
+#         logger.info("temp_crash_file name: " + temp_crash_file.name)
+#         temp_crash_file.write(base64.b64decode(crash_detail.base64_message))
 
-    # run the file
-    executable_path = os.path.join(
-        config.executables_full_path, crash_detail.executable_name
-    )
-    return_code = await run_file_async(
-        executable_path,
-        crash_detail.executable_name,
-        crash_detail,
-        "" if not crash_detail.is_input_from_file else temp_crash_file.name,
-        config.run_timeout,
-    )
+#     # run the file
+#     executable_path = os.path.join(
+#         config.executables_full_path, crash_detail.executable_name
+#     )
+#     return_code = await run_file_async(
+#         executable_path,
+#         crash_detail.executable_name,
+#         crash_detail,
+#         "" if not crash_detail.is_input_from_file else temp_crash_file.name,
+#         config.run_timeout,
+#     )
 
-    # log the crash information to that executables dedicated csv file
-    logger.info(
-        f"Result of running file {crash_detail.executable_name}: {return_code}."
-    )
-    await log_crash_information(
-        config.patch_eval_results_full_path,
-        crash_detail.executable_name,
-        crash_detail,
-        return_code,
-    )
+#     # log the crash information to that executables dedicated csv file
+#     logger.info(
+#         f"Result of running file {crash_detail.executable_name}: {return_code}."
+#     )
+#     await log_crash_information(
+#         config.patch_eval_results_full_path,
+#         crash_detail.executable_name,
+#         crash_detail,
+#         return_code,
+#     )
 
-    # update the results dict for that executable with the result of the run
-    results[crash_detail.executable_name]["total_crashes"] += 1
-    if return_code == 0 or return_code == 1:
-        results[crash_detail.executable_name]["patched_crashes"] += 1
-    # log the batched results
-    # log_results(results, config.patch_eval_results_full_path)
-    logger.info("Simulating logging the batched results")
-    logger.info("Results: " + str(results))
+#     # update the results dict for that executable with the result of the run
+#     results[crash_detail.executable_name]["total_crashes"] += 1
+#     if return_code == 0 or return_code == 1:
+#         results[crash_detail.executable_name]["patched_crashes"] += 1
+#     # log the batched results
+#     # log_results(results, config.patch_eval_results_full_path)
+#     logger.info("Simulating logging the batched results")
+#     logger.info("Results: " + str(results))
 
 
 async def patch_response_consumer():
@@ -635,8 +810,12 @@ async def main():
     # EVAL_SVC_START_TIMESTAMP: Final[str] = get_current_timestamp()
 
     # log some info, make the directories if they DNE
+    logger.info("AppName: " + config.appname)
     logger.info("AppVersion: " + config.version)
-    logger.info("Creating executables directory: " + config.executables_full_path)
+
+    task = asyncio.create_task(
+        prep_programs_for_evaluation(config.input_codebase_full_path)
+    )
 
     event_loop = asyncio.get_running_loop()
 
@@ -663,6 +842,8 @@ async def main():
     #     config.compiler_feature_flags,
     #     config.compile_timeout,
     # )
+
+    executables_to_process, results = await task
 
     await asyncio.gather(
         crash_detail_consumer(),

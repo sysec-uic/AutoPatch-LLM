@@ -608,10 +608,10 @@ async def create_patch_response(
     """
     Create a PatchRequest objects from the raw response.
     """
-    name_id_str = program_name_under_consideration_uid.removesuffix(".c")
-
     unwrapped_response = unwrap_raw_llm_response(raw_response["response"])
-    updated_response = update_diff_filename(unwrapped_response, name_id_str)
+    updated_response = update_diff_filename(
+        unwrapped_response, program_name_under_consideration_uid
+    )
     _llm_name = raw_response["llm_name"][
         raw_response["llm_name"].index("/") + 1 : raw_response["llm_name"].index(":")
     ]
@@ -620,7 +620,7 @@ async def create_patch_response(
         llm_name=_llm_name, llm_flavor=_llm_flavor, llm_version="not available"
     )
     return PatchResponse(
-        name_id_str,
+        program_name_under_consideration_uid.removesuffix(".c"),
         base64.b64encode(updated_response.encode("utf-8")).decode("utf-8"),
         metadata,
         status="success" if updated_response != CONST_NO_RESPONSE else "fail",
@@ -661,12 +661,15 @@ async def main():
     # LLM_DISPATCH_START_TIMESTAMP: Final[str] = get_current_timestamp()
 
     # removed from openrouter "openai/gpt-4o-mini:free",
-        # "google/gemini-2.5-pro-exp-03-25:free",
-        # "deepseek/deepseek-r1-zero:free",
-        # "meta-llama/llama-3.3-70b-instruct:free",
-    models = [
-        "mistralai/mistral-small-3.1-24b-instruct:free",
-    ]
+    # models = [
+    # "mistralai/mistral-small-3.1-24b-instruct:free",
+    # "meta-llama/llama-3.3-70b-instruct:free",
+    # "deepseek/deepseek-r1-zero:free",
+    # "google/gemini-2.5-pro-exp-03-25:free",
+    # ]
+
+    models = config.models
+    logger.info(f"Models: {models}")
 
     model_router_base_url = os.environ.get("MODEL_ROUTER_BASE_URL", "CHANGE_ME")
     model_router_api_key = os.environ.get("MODEL_ROUTER_API_KEY", "CHANGE_ME")

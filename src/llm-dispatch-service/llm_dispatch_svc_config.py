@@ -30,4 +30,4 @@ class LLMDispatchSvcConfig:
     model_router_retry_attempts: int
     model_router_timeout_ms: int
     model_router_retry_delay_ms: int
-    models: List[Dict[str, object]]
+    models: List[str]

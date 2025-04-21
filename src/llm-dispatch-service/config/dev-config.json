@@ -18,148 +18,17 @@
     "message_broker_client_id": "autopatch-llm-dispatch-client",
     "message_broker_host": "mosquitto",
     "message_broker_port": 1883,
+    "models" : [
+        "google/gemini-2.5-pro-exp-03-25:free"
+    ],
     "message_broker_topics": {
-        "request": "autopatch/llm-dispatch/request",
-        "response": "autopatch/patch_response",
-        "error": "autopatch/llm-dispatch/error"
+        "request": "autopatch/patch_request",
+        "response": "autopatch/patch_response"
     },
     "model_router_base_url": "https://openrouter.ai/api/v1",
     "model_router_fallback_model": "google/gemini-2.5-pro-exp-03-25:free",
     "model_router_max_concurrent_requests": 5,
     "model_router_retry_attempts": 3,
     "model_router_timeout_ms": 3000,
-    "model_router_retry_delay_ms": 50,
-    "models": [
-        {
-            "gpt-3.5-turbo": {
-                "id": "gpt-3.5-turbo",
-                "name": "GPT-3.5 Turbo",
-                "description": "A powerful language model by OpenAI, suitable for a wide range of tasks.",
-                "model": "gpt-3.5-turbo",
-                "max_tokens": 4096,
-                "temperature": 0.7,
-                "top_p": 1,
-                "frequency_penalty": 0,
-                "presence_penalty": 0,
-                "stop": null,
-                "api_key": "your_openai_api_key",
-                "api_base": "https://api.openai.com/v1",
-                "api_type": "openai",
-                "is_in_memory": false,
-                "in_memory_model_path": "/path/to/gpt-3.5-turbo/model"
-            }
-        },
-        {
-            "gpt-4": {
-                "id": "gpt-4o-mini",
-                "name": "GPT-4o Mini",
-                "description": "The latest and most advanced language model by OpenAI, capable of understanding and generating human-like text.",
-                "model": "gpt-4o-mini",
-                "max_tokens": 8192,
-                "temperature": 0.7,
-                "top_p": 1,
-                "frequency_penalty": 0,
-                "presence_penalty": 0,
-                "stop": null,
-                "api_key": "your_openai_api_key",
-                "api_base": "https://api.openai.com/v1",
-                "api_type": "openai",
-                "openrouter_tag": "openai/gpt-4o-mini:free",
-                "is_in_memory": false,
-                "in_memory_model_path": "/path/to/gpt-4/model"
-            }
-        },
-        {
-            "llama2": {
-                "id": "llama2",
-                "name": "Llama 2",
-                "description": "A state-of-the-art language model developed by Meta, optimized for various NLP tasks.",
-                "model": "llama2",
-                "max_tokens": 4096,
-                "temperature": 0.7,
-                "top_p": 1,
-                "frequency_penalty": 0,
-                "presence_penalty": 0,
-                "stop": null,
-                "api_key": "your_llama2_api_key",
-                "api_base": "https://your_llama2_endpoint/",
-                "api_type": "llama2",
-                "in_memory_model_path": "/path/to/llama2/model",
-                "is_in_memory": false
-            }
-        },
-        {
-            "mistral": {
-                "id": "mistral",
-                "name": "Mistral",
-                "description": "A high-performance language model designed for efficiency and speed.",
-                "model": "mistral",
-                "max_tokens": 4096,
-                "temperature": 0.7,
-                "top_p": 1,
-                "frequency_penalty": 0,
-                "presence_penalty": 0,
-                "stop": null,
-                "api_key": "your_mistral_api_key",
-                "api_base": "https://your_mistral_endpoint/",
-                "api_type": "mistral",
-                "in_memory_model_path": "/path/to/mistral/model"
-            }
-        },
-        {
-            "claude": {
-                "id": "claude",
-                "name": "Claude",
-                "description": "A language model by Anthropic, designed with safety and alignment in mind.",
-                "model": "claude",
-                "max_tokens": 4096,
-                "temperature": 0.7,
-                "top_p": 1,
-                "frequency_penalty": 0,
-                "presence_penalty": 0,
-                "stop": null,
-                "api_key": "your_claude_api_key",
-                "api_base": "https://your_claude_endpoint/",
-                "api_type": "claude",
-                "in_memory_model_path": "/path/to/claude/model"
-            }
-        },
-        {
-            "deepseek": {
-                "id": "deepseek",
-                "name": "DeepSeek",
-                "description": "A language model optimized for deep learning tasks and research.",
-                "model": "deepseek",
-                "max_tokens": 4096,
-                "temperature": 0.7,
-                "top_p": 1,
-                "frequency_penalty": 0,
-                "presence_penalty": 0,
-                "stop": null,
-                "api_key": "your_deepseek_api_key",
-                "api_base": "https://your_deepseek_endpoint/",
-                "api_type": "deepseek/deepseek-r1-zero:free",
-                "in_memory_model_path": "/path/to/deepseek/model"
-            }
-        },
-        {
-            "gemini": {
-                "id": "gemini",
-                "name": "Gemini",
-                "description": "A language model by Google, designed for advanced natural language understanding.",
-                "model": "gemini",
-                "max_tokens": 4096,
-                "temperature": 0.7,
-                "top_p": 1,
-                "frequency_penalty": 0,
-                "presence_penalty": 0,
-                "stop": null,
-                "api_key": "your_google_api_key",
-                "api_base": "https://your_google_endpoint/",
-                "api_type": "google",
-                "openrouter_tag": "google/gemini-2.0-flash-lite-preview-02-05:free",
-                "model_path": "/path/to/gemini/model"
-            }
-        }
-    ]
+    "model_router_retry_delay_ms": 50
 }
