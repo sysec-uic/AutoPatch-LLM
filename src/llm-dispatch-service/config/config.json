@@ -2,7 +2,7 @@
     "cpg_scan_result_input_topic" : "autopatch/cpg-scan-result",
     "input_codebase_full_path": "/app/input_codebase",
     "appName": "autopatch.llm-dispatch-service",
-    "appVersion": "0.7.0-alpha",
+    "appVersion": "0.8.0-alpha",
     "appDescription": "A system for managing and dispatching requests to various language models.",
     "system_prompt_full_path": "/app/data/prompts/system_prompt.txt",
     "user_prompt_full_path": "/app/data/prompts/user_prompt.txt",
@@ -23,8 +23,7 @@
         "response": "autopatch/patch_response"
     },
     "models" : [
-        "mistralai/mistral-small-3.1-24b-instruct:free",
-        "google/gemini-2.5-pro-exp-03-25:free"
+        "mistralai/mistral-small-3.1-24b-instruct:free"
     ],
     "model_router_base_url": "https://openrouter.ai/api/v1",
     "model_router_fallback_model": "google/gemini-2.5-pro-exp-03-25:free",

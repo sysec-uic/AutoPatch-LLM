@@ -15,7 +15,6 @@ from llm_dispatch_svc import (
     load_config,
     read_file,
     unwrap_raw_llm_response,
-    update_diff_filename,
 )
 from llm_dispatch_svc_config import LLMDispatchSvcConfig
 
@@ -29,7 +28,7 @@ def mock_LLMDispatchSvcConfig() -> LLMDispatchSvcConfig:
         "cpg_scan_result_input_topic": "autopatch/cpg-scan-result",
         "devonlyinputfilepath": "/workspace/AutoPatch-LLM/src/llm-dispatch/data/dummy_c_file.c",
         "appName": "autopatch.llm-dispatch",
-        "appVersion": "0.5.0-alpha",
+        "appVersion": "0.8.0-alpha",
         "appDescription": "A system for managing and dispatching requests to various language models.",
         "system_prompt_full_path": "/workspace/AutoPatch-LLM/src/llm-dispatch/data/prompts/system_prompt.txt",
         "user_prompt_full_path": "/workspace/AutoPatch-LLM/src/llm-dispatch/data/prompts/user_prompt.txt",
@@ -253,67 +252,6 @@ def test_monkeypatched_re(monkeypatch):
 
     monkeypatch.setattr(re, "compile", mock_compile)
     assert unwrap_raw_llm_response("```python\nx = 1\n```") == "```python\nx = 1\n```"
-
-
-# -------------------------------------
-# Tests for update_diff_filename
-# -------------------------------------
-
-
-def test_normal_diff_update():
-    diff_str = "--- oldfile.c\n+++ oldfile.c\n@@ -1,4 +1,4 @@\n int main() {"
-    new_filename = "newfile.c"
-    expected = "--- newfile.c\n+++ newfile.c\n@@ -1,4 +1,4 @@\n int main() {"
-    result = update_diff_filename(diff_str, new_filename)
-    assert result == expected
-
-
-def test_missing_prefixes():
-    diff_str = "oldfile.c\noldfile.c\n@@ -1 +1 @@\n int main()"
-    new_filename = "newfile.c"
-    # Should remain unchanged as lines don't start with --- or +++
-    assert update_diff_filename(diff_str, new_filename) == diff_str
-
-
-def test_insufficient_lines():
-    diff_str = "--- oldfile.c"  # Only one line
-    new_filename = "newfile.c"
-    expected = "--- oldfile.c"  # No change should occur
-    assert update_diff_filename(diff_str, new_filename) == expected
-
-
-def test_empty_diff():
-    diff_str = ""
-    new_filename = "newfile.c"
-    assert update_diff_filename(diff_str, new_filename) == ""
-
-
-def test_only_prefix_line_updated():
-    diff_str = "--- oldfile.c\n unchanged line"
-    new_filename = "newfile.c"
-    expected = "--- newfile.c\n unchanged line"
-    assert update_diff_filename(diff_str, new_filename) == expected
-
-
-def test_filename_with_spaces():
-    diff_str = "--- old file.c\n+++ old file.c\n@@ -1 +1 @@\n int main()"
-    new_filename = "new file.c"
-    expected = "--- new file.c\n+++ new file.c\n@@ -1 +1 @@\n int main()"
-    assert update_diff_filename(diff_str, new_filename) == expected
-
-
-def test_new_filename_is_empty():
-    diff_str = "--- oldfile.c\n+++ oldfile.c\n"
-    new_filename = ""
-    expected = "--- \n+++ "
-    assert update_diff_filename(diff_str, new_filename) == expected
-
-
-def test_multiline_no_change():
-    diff_str = "not a diff\n@@ -1 +1 @@\n int x;"
-    new_filename = "newfile.c"
-    # No --- or +++, so nothing should change
-    assert update_diff_filename(diff_str, new_filename) == diff_str
 
 
 # -------------------------------------

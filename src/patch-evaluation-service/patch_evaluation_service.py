@@ -7,7 +7,6 @@ import asyncio
 import base64
 import json
 import logging
-import math
 import os
 import subprocess
 import sys
@@ -162,8 +161,12 @@ def compile_file(
 
 def write_crashes_csv(
     crash_detail: CrashDetail,
+    patch_base64_str: str,
     return_code: int,
     csv_path: str,
+    llm_name: str,
+    llm_flavor: str,
+    llm_version: str,
 ) -> None:
     """
     Process crash by logging in the associated executable's csv file.
@@ -179,19 +182,26 @@ def write_crashes_csv(
 
     with open(csv_path, "a", encoding="utf-8") as f:
         if write_header:
-            f.write("timestamp,crash_detail,return_code,inputFromFile\n")
+            f.write("timestamp,crash_detail,return_code,isInputFromFile,llm_name,llm_flavor,llm_version,patch_base64_str\n")
 
         logger.info(f"  - {crash_detail}")
         timestamp = get_current_timestamp()
 
-        line = f"{timestamp},{crash_detail.base64_message},{return_code},{crash_detail.is_input_from_file}\n"
+        line = f"{timestamp},{crash_detail.base64_message},{return_code},{crash_detail.is_input_from_file},{llm_name},{llm_flavor},{llm_version}{patch_base64_str}\n"
         f.write(line)
 
 
 # TODO add MQTT publish
 # TODO add LLM context
 async def log_crash_information(
-    results_path: str, executable_name: str, crash_detail: CrashDetail, return_code: int
+    results_path: str,
+    executable_name: str,
+    crash_detail: CrashDetail,
+    patch_base64_str: str,
+    return_code: int,
+    llm_name: str,
+    llm_flavor: str,
+    llm_version: str,
 ) -> None:
     """
     invokes the call to log the crash information for the given executable
@@ -204,7 +214,9 @@ async def log_crash_information(
         file_locks[csv_path] = asyncio.Lock()
 
     async with file_locks[csv_path]:
-        await asyncio.to_thread(write_crashes_csv, crash_detail, return_code, csv_path)
+        await asyncio.to_thread(
+            write_crashes_csv, crash_detail, patch_base64_str, return_code, csv_path, llm_name, llm_flavor, llm_version
+        )
 
 
 # TODO This assumes the batch run is complete, update to run after each eval and not assume a batch is complete
@@ -277,73 +289,6 @@ def log_results(results: dict, results_path: str) -> None:
             logger.info(f"Success of evaluation: {total_success_rate}%.")
 
 
-def apply_patch_to_c_source(source_path: str, patch_file_as_str: str) -> str:
-    """
-    Applies a patch to a C source file and returns the patched source code.
-
-    Parameters:
-        source_path (str): Path to the original C source file.
-        patch_file_as_str (str): The patch file content as a string.
-
-    Returns:
-        str: The content of the patched C source file.
-
-    Raises:
-        RuntimeError: If the patching process fails.
-    """
-    if not source_path.endswith(".c"):
-        source_path += ".c"
-
-    source_file = Path(source_path)
-    patch_file = None  # Will hold the path to the temp patch file
-
-    try:
-        # Write patch string to a temporary file
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".patch", delete=False) as temp_patch_file:
-            temp_patch_file.write(patch_file_as_str)
-            temp_patch_file.flush()
-            os.fsync(temp_patch_file.fileno())
-            patch_file = Path(temp_patch_file.name)
-
-        # Create a temporary directory to apply the patch
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_source_path = Path(tmpdir) / source_file.name
-            shutil.copy(source_file, tmp_source_path)
-
-            # Log contents for debugging
-            with open(patch_file, "r") as f:
-                patch_file_contents = f.read()
-                logger.info(f"Contents of patch file:\n{patch_file_contents}")
-
-            with open(tmp_source_path, "r") as f:
-                source_file_contents = f.read()
-                logger.info(f"Contents of source file:\n{source_file_contents}")
-
-            # Apply patch
-            try:
-                subprocess.run(
-                    ["patch", str(tmp_source_path), str(patch_file)],
-                    cwd=tmpdir,
-                    check=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True
-                )
-            except subprocess.CalledProcessError as e:
-                raise RuntimeError(f"Failed to apply patch:\n{e.stderr}")
-
-            # Read and return the patched file content
-            with open(tmp_source_path, "r") as f:
-                return f.read()
-
-    finally:
-        # Clean up the temporary patch file
-        if patch_file and patch_file.exists():
-            try:
-                patch_file.unlink()
-            except Exception as cleanup_err:
-                logger.warning(f"Failed to delete temporary patch file: {patch_file} - {cleanup_err}")
-
 
 async def map_cloud_event_as_patch_response(
     patch_response_cloud_event_str: str,
@@ -403,22 +348,18 @@ async def handle_ready(
     patch_file_as_str = base64.b64decode(patch_response.patch_snippet_base64).decode('utf-8')
     logger.info(f"patch preview: {patch_file_as_str}")
 
-    # create the patched version of the original source code
-    patched_source_code = apply_patch_to_c_source(
-        os.path.join(config.input_codebase_full_path, uid),
-        patch_file_as_str
+    patched_filename = os.path.join(
+        config.executables_full_path, "tmp", patch_response.executable_name + ".c"
     )
-    temp_patched_source_code_file = tempfile.NamedTemporaryFile(
-        suffix=".c"
-    )
-    temp_patched_source_code_file.write(patched_source_code.encode())
-    logger.debug(
-        f"temp_patched_source_code_file name: {temp_patched_source_code_file.name}"
-    )
+        
+    # todo delete this file after the run
+    with open(patched_filename, "w") as f:
+        f.write(patch_file_as_str)
 
     # compile the patched source code
     executable_full_path = compile_file(
-        temp_patched_source_code_file.name,
+        # temp_patched_source_code_file.name,
+        patched_filename,
         config.executables_full_path,
         config.compiler_tool_full_path,
         config.compiler_warning_flags,
@@ -443,13 +384,17 @@ async def handle_ready(
         config.patch_eval_results_full_path,
         uid,
         crash_detail,
+        patch_response.patch_snippet_base64,
         return_code,
+        patch_response.TransformerMetadata.llm_name,
+        patch_response.TransformerMetadata.llm_flavor,
+        patch_response.TransformerMetadata.llm_version,
     )
 
     # update the results dict for that executable with the result of the run
-    results[uid]["total_crashes"] += 1
+    results[uid+".c"]["total_crashes"] += 1
     if return_code == 0 or return_code == 1:
-        results[uid]["patched_crashes"] += 1
+        results[uid+".c"]["patched_crashes"] += 1
     # log the batched results
     # log_results(results, config.patch_eval_results_full_path)
     logger.info("Simulating logging the batched results")
@@ -476,7 +421,7 @@ async def map_updater(timeout_seconds: int = 240):
                 uid = task.result()
                 logger.info(f"[map_updater] Received UID: {uid}")
                 if uid in timed_out_uids:
-                    logger.debug(f"[map_updater] UID {uid} timed out, skipping.")
+                    logger.info(f"[map_updater] UID {uid} timed out, skipping.")
                     continue
                 pending_uids.add(uid)
                 if uid not in seen_times:
@@ -692,55 +637,6 @@ async def crash_detail_ready_producer(
         async_crash_details_ready_queue.put_nowait,
         crash_detail.executable_name,
     )
-
-
-# TODO this is the run file and evaluation logic hook that will need to move into handle_ready
-# async def process_crash_detail(crash_detail: CrashDetail) -> None:
-#     logger.info(f"Processing crash {crash_detail}")
-#     # TODO evaluate if we can remove this check
-#     # if the crash executable is not in our executables base, then skip it
-#     if crash_detail.executable_name not in executables_to_process:
-#         logger.info(
-#             f"{crash_detail.executable_name} not in set of compiled executables to process..skipping"
-#         )
-#         return
-
-#     if crash_detail.is_input_from_file:
-#         temp_crash_file = tempfile.NamedTemporaryFile()
-#         logger.info("temp_crash_file name: " + temp_crash_file.name)
-#         temp_crash_file.write(base64.b64decode(crash_detail.base64_message))
-
-#     # run the file
-#     executable_path = os.path.join(
-#         config.executables_full_path, crash_detail.executable_name
-#     )
-#     return_code = await run_file_async(
-#         executable_path,
-#         crash_detail.executable_name,
-#         crash_detail,
-#         "" if not crash_detail.is_input_from_file else temp_crash_file.name,
-#         config.run_timeout,
-#     )
-
-#     # log the crash information to that executables dedicated csv file
-#     logger.info(
-#         f"Result of running file {crash_detail.executable_name}: {return_code}."
-#     )
-#     await log_crash_information(
-#         config.patch_eval_results_full_path,
-#         crash_detail.executable_name,
-#         crash_detail,
-#         return_code,
-#     )
-
-#     # update the results dict for that executable with the result of the run
-#     results[crash_detail.executable_name]["total_crashes"] += 1
-#     if return_code == 0 or return_code == 1:
-#         results[crash_detail.executable_name]["patched_crashes"] += 1
-#     # log the batched results
-#     # log_results(results, config.patch_eval_results_full_path)
-#     logger.info("Simulating logging the batched results")
-#     logger.info("Results: " + str(results))
 
 
 async def patch_response_consumer():

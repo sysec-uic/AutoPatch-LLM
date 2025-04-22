@@ -2,7 +2,7 @@
     "cpg_scan_result_input_topic" : "autopatch/cpg-scan-result",
     "input_codebase_full_path": "/workspace/AutoPatch-LLM/input_codebase",
     "appName": "autopatch.llm-dispatch-service",
-    "appVersion": "0.7.0-alpha",
+    "appVersion": "0.8.0-alpha",
     "appDescription": "A system for managing and dispatching requests to various language models.",
     "system_prompt_full_path": "/workspace/AutoPatch-LLM/src/llm-dispatch-service/data/prompts/system_prompt.txt",
     "user_prompt_full_path": "/workspace/AutoPatch-LLM/src/llm-dispatch-service/data/prompts/user_prompt.txt",
@@ -19,7 +19,7 @@
     "message_broker_host": "mosquitto",
     "message_broker_port": 1883,
     "models" : [
-        "google/gemini-2.5-pro-exp-03-25:free"
+        "mistralai/mistral-small-3.1-24b-instruct:free"
     ],
     "message_broker_topics": {
         "request": "autopatch/patch_request",

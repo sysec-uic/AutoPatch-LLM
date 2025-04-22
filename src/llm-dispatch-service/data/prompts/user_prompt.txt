@@ -1,1 +1,14 @@
-Your goal is to evaluate the following C code for low-level memory safety bugs, specifically Use-After-Free, Double Free, or Buffer Overflow vulnerabilities. Identify any areas where memory handling could lead to security issues or program instability. Then, generate a unified diff patch file that fixes any such vulnerabilities. Do not include any additional commentary — the output must consist only of the patch file. Do not fabricate vulnerabilities — if no memory safety issue exists, return an empty patch file with no changes. Important constraints: only fix real memory safety bugs; do not introduce unrelated changes or modify unaffected code; ensure all C code in the patch is syntactically correct; use valid null-terminators (e.g., '\0'), never empty character literals like ''; each @@ -A,B +C,D @@ hunk header must accurately reflect the number of removed (-) and added (+) lines; and ensure the patch is formatted as a valid unified diff that can be applied with the standard Unix patch utility without errors.
+Your goal is to evaluate the following C code for low-level memory safety bugs, specifically Use-After-Free, Double Free, or Buffer Overflow vulnerabilities.
+
+Identify and fix only real memory safety issues — do not fabricate vulnerabilities or make unrelated changes. If no such issue exists, return the original code unmodified.
+
+Output only the resulting **full modified C program source code**, with all fixes applied. Do not include commentary, explanations, or formatting changes unrelated to the fixes. All code must remain syntactically correct and compile without warnings.
+
+Important constraints:
+- Only fix real memory safety bugs (e.g., Use-After-Free, Double Free, Buffer Overflow)
+- Do not introduce stylistic or functional changes unrelated to memory safety
+- Always return the full modified version of the program source code
+- Use valid null terminators (e.g., `'\0'`), never empty character literals
+- If no vulnerabilities are present, return the source exactly as given
+
+Here is the source code (starting at line 1):

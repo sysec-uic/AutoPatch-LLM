@@ -125,15 +125,6 @@ async def read_file(file_full_path: str) -> str:
         return f.read()
 
 
-# async def user_prompt(user_prompt_file_full_patch: str) -> str:
-#     _goals = ""
-#     _return_format = ""
-#     _warnings = ""
-#     _context_window = ""
-
-#     return f"{_goals} {_return_format} {_warnings} {_context_window}"
-
-
 async def full_prompt(
     system_prompt_full_path: str,
     user_prompt_full_path: str,
@@ -177,32 +168,6 @@ def unwrap_raw_llm_response(raw_llm_response: str) -> str:
         response = raw_llm_response.strip()
 
     return response
-
-
-def update_diff_filename(diff_str: str, new_filename: str) -> str:
-    """
-    Updates the diff header lines with the new C program filename.
-
-    Parameters:
-        diff_str (str): The input diff text.
-        new_filename (str): The new C program filename to replace in the header.
-
-    Returns:
-        str: The updated diff text with replaced filenames in the first two lines.
-    """
-    # Split the diff text into individual lines.
-    lines = diff_str.splitlines()
-
-    # Check if there are at least two lines to process.
-    if len(lines) >= 2:
-        # Replace the filename in the first two lines.
-        if lines[0].startswith("--- "):
-            lines[0] = "--- " + new_filename
-        if lines[1].startswith("+++ "):
-            lines[1] = "+++ " + new_filename
-
-    # Join the lines back together to form the updated diff text.
-    return "\n".join(lines)
 
 
 async def map_patchresponse_as_cloudevent(patch_response: PatchResponse) -> CloudEvent:
@@ -609,9 +574,7 @@ async def create_patch_response(
     Create a PatchRequest objects from the raw response.
     """
     unwrapped_response = unwrap_raw_llm_response(raw_response["response"])
-    updated_response = update_diff_filename(
-        unwrapped_response, program_name_under_consideration_uid
-    )
+    updated_response = unwrapped_response
     _llm_name = raw_response["llm_name"][
         raw_response["llm_name"].index("/") + 1 : raw_response["llm_name"].index(":")
     ]
