@@ -1,4 +1,6 @@
 import logging
+import os
+import subprocess
 from datetime import datetime as real_datetime
 from datetime import timezone
 from unittest import mock
@@ -7,24 +9,31 @@ import code_property_graph_generator as code_property_graph_generator
 import paho.mqtt.client as mqtt_client
 import pytest
 from cpg_svc_config import CpgSvcConfig
+from autopatchdatatypes import CpgScanResult
 from code_property_graph_generator import (
     remove_joern_scan_temp_file,
     scan_cpg,
     map_scan_result_as_cloudevent,
     map_scan_results_as_cloudevents,
     produce_output,
-    #load_config,
+    # load_config,
     unmarshall_raw_joern_scan_result,
     unmarshall_raw_joern_scan_results,
 )
 
-# from autopatchdatatypes import CpgScanResult
 
 class DummyProcess:
-    def __init__(self, returncode=0, stdout=b"output", stderr=b"error"):
+    def __init__(
+        self,
+        returncode=0,
+        stdout=b"output",
+        stderr=b"error",
+        poll_return=None,
+        pid=None,
+    ):
         self.returncode = returncode
-        self._stdout = stdout
-        self._stderr = stderr
+        self._stdout = stdout.decode() if isinstance(stdout, bytes) else stdout
+        self._stderr = stderr.decode() if isinstance(stderr, bytes) else stderr
         self._poll_return = poll_return
         self.pid = pid
 
@@ -36,6 +45,7 @@ class DummyProcess:
 
     def kill(self):
         self.returncode = -1
+
 
 def mock_CpgSvcConfig() -> CpgSvcConfig:
     mock_config = {
@@ -222,15 +232,15 @@ def test_edge_case_empty_path(monkeypatch, mock_logger):
     # Assert
     assert mock_logger.messages == ["File '' does not exist, no need to delete."]
 
+
 # -------------------------------------
 # Tests for scan_cpg
 # -------------------------------------
 
+
 def test_skip_non_c_file(monkeypatch, mock_logger):
     # remove temp‑file call should be a no‑op
-    monkeypatch.setattr(
-        remove_joern_scan_temp_file, "__call__", lambda path: None
-    )
+    monkeypatch.setattr(remove_joern_scan_temp_file, "__call__", lambda path: None)
 
     # Act
     result = scan_cpg("/bin/joern-scan", "not_a_c_file.txt")
@@ -239,6 +249,7 @@ def test_skip_non_c_file(monkeypatch, mock_logger):
     assert result == []
     # last logger call should mention skipping
     assert any("is not a C file. Skipping" in m for m in mock_logger.messages)
+
 
 def test_process_start_failure(monkeypatch, mock_logger):
     # stub out temp‑file removal
@@ -277,12 +288,19 @@ def test_one_result_line_parsed(monkeypatch, mock_logger):
     monkeypatch.setattr(subprocess, "Popen", lambda *a, **k: proc)
 
     # build a dummy CpgScanResult however your real constructor works
-    dummy = CpgScanResult(score=123, message="this_is_a_test", file="f.c", line=1, function="main")
+    dummy = CpgScanResult(
+        executable_name="dummy.c",
+        vulnerability_severity=5,
+        vulnerable_line_number=123,
+        vulnerable_function="dummy_function",
+        vulnerability_description="this_is_a_test",
+    )
+
     monkeypatch.setattr(
         unmarshall_raw_joern_scan_results, "__call__", lambda lines: [dummy]
     )
 
-    result = scan_cpg("/bin/joern-scan", "test.c")
+    result = scan_cpg("/bin/joern-scan", "dummy.c")
 
     assert result == [dummy]
     # should log that we parsed one result
