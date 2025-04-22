@@ -355,7 +355,8 @@ class ApiLLM(BaseLLM):
         client = OpenAI(base_url=base_url, api_key=api_key)
 
         try:
-            # Here we concatenant the full prompt as the user prompt.
+            # Here we concatenate the full prompt as the user prompt.
+            # This if fine as we are not performing few shot or chain of thought prompting
             completion = client.chat.completions.create(
                 model=model,
                 temperature=temperature,

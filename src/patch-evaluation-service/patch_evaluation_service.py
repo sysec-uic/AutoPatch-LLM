@@ -182,12 +182,13 @@ def write_crashes_csv(
 
     with open(csv_path, "a", encoding="utf-8") as f:
         if write_header:
-            f.write("timestamp,crash_detail,return_code,isInputFromFile,llm_name,llm_flavor,llm_version,patch_base64_str\n")
+            f.write("timestamp,program_name,crash_detail,return_code,isInputFromFile,llm_name,llm_flavor,llm_version,patch_base64_str\n")
 
         logger.info(f"  - {crash_detail}")
         timestamp = get_current_timestamp()
+        program_name = crash_detail.executable_name
 
-        line = f"{timestamp},{crash_detail.base64_message},{return_code},{crash_detail.is_input_from_file},{llm_name},{llm_flavor},{llm_version}{patch_base64_str}\n"
+        line = f"{timestamp},{program_name},{crash_detail.base64_message},{return_code},{crash_detail.is_input_from_file},{llm_name},{llm_flavor},{llm_version}{patch_base64_str}\n"
         f.write(line)
 
 
