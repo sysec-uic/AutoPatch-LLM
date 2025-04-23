@@ -389,13 +389,15 @@ def prep_executables_for_evaluation(
         fully_qualified_file_path = os.path.join(
             patched_codes_directory_path, file_name
         )
+        # if the file is a directory
         if os.path.isdir(fully_qualified_file_path):
+            
             logger.info(f"Compiling project directory: {fully_qualified_file_path}")
 
             output_executable_fully_qualified_path = os.path.join(
                 executables_full_path, file_name
             )
-
+            # compile using shared make_compile
             compiled = make_compile(
                 fully_qualified_file_path,
                 output_executable_fully_qualified_path,
@@ -403,6 +405,7 @@ def prep_executables_for_evaluation(
                 make_tool_full_path,
                 logger,
             )
+            # log errors and continue
             if not compiled:
                 logger.error(
                     f"Make compilation of project directory {fully_qualified_file_path} failed."
