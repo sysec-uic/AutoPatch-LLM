@@ -363,7 +363,7 @@ async def main():
 
     # for regular compilation: source the compiler, plus for execution need to source the input of the crashes althoguth this is
     # maybe just acquired from the crash detail object?
-
+    isInputFromFile = False
     for file_name in _source_files:
         # get the full path of the file or the project directory
         file_name_fully_qualified_path = os.path.join(
@@ -452,7 +452,7 @@ async def main():
                     os.path.join(file_name_fully_qualified_path, "config.json"), "r"
                 ) as project_config:
                     project_config_vals = json.load(project_config)
-                    inputFromFile = project_config_vals["inputFromFile"]
+                    isInputFromFile = project_config_vals["inputFromFile"]
             except Exception as e:
                 logger.error(f"Problem loading the project config file: {e}")
                 logger.info(
@@ -465,7 +465,7 @@ async def main():
                 _afl_tool_full_path,
                 _afl_tool_seed_input_path,
                 _fuzzer_tool_timeout_seconds,
-                inputFromFile,
+                isInputFromFile,
                 fully_qualified_fuzzer_tool_output_path,
                 output_executable_fully_qualified_path,
             )
@@ -484,7 +484,7 @@ async def main():
             fully_qualified_crash_directory_path,
             executable_name,
             config.iconv_tool_timeout,
-            inputFromFile,
+            isInputFromFile,
         )
 
         # Process the crash outputs
