@@ -34,7 +34,7 @@ RUN apt-get install -y --no-install-recommends \
         gcc-multilib=4:13.2.0-7ubuntu1 \
         afl++=4.09c-1ubuntu3 \
         libc6-dev-i386=2.39-0ubuntu8.4 \
-        make && \
+        make-guile=4.3-4.1build2 && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
