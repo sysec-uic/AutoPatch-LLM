@@ -55,6 +55,7 @@ def dummy_config_content() -> Dict:
         "message_broker_port": 1883,
         "autopatch_crash_detail_input_topic": "autopatch/crash_detail",
         "autopatch_patch_response_input_topic": "autopatch/patch_response",
+        "make_tool_full_path": "/usr/bin/make",
     }
 
 
@@ -374,6 +375,7 @@ def test_load_config(monkeypatch):
             "message_broker_port": 1883,
             "autopatch_crash_detail_input_topic": "autopatch/crash_detail",
             "autopatch_patch_response_input_topic": "autopatch/patch_response",
+            "make_tool_full_path": "/usr/bin/make",
         }
 
     # Assemble
@@ -416,6 +418,14 @@ def test_on_consume_crash_detail(monkeypatch):
 
 
 # # --- Test for prep_executables_for_evaluation ---
+# prep_executables_for_evaluation(
+#     executables_full_path: str,
+#     patched_codes_directory_path: str,
+#     compiler_tool_full_path: str,
+#     compiler_warning_flags: str,
+#     compiler_feature_flags: str,
+#     compile_timeout: int,
+#     make_tool_full_path: str,
 
 
 def test_prep_executables_for_evaluation(monkeypatch, tmp_path):
@@ -443,6 +453,14 @@ def test_prep_executables_for_evaluation(monkeypatch, tmp_path):
     monkeypatch.setattr("patch_evaluation_service.compile_file", fake_compile_file)
 
     # Act
+    # prep_executables_for_evaluation(
+    #     executables_full_path: str,
+    #     patched_codes_directory_path: str,
+    #     compiler_tool_full_path: str,
+    #     compiler_warning_flags: str,
+    #     compiler_feature_flags: str,
+    #     compile_timeout: int,
+    #     make_tool_full_path: str,
     executables, results_dict = prep_executables_for_evaluation(
         str(executables_dir),
         str(patched_codes_dir),
@@ -450,6 +468,7 @@ def test_prep_executables_for_evaluation(monkeypatch, tmp_path):
         "-Wall",
         "-std=c99",
         5,
+        "dummy_make",
     )
 
     # Assert
