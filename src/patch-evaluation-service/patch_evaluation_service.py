@@ -391,7 +391,6 @@ def prep_executables_for_evaluation(
         )
         # if the file is a directory
         if os.path.isdir(fully_qualified_file_path):
-            
             logger.info(f"Compiling project directory: {fully_qualified_file_path}")
 
             output_executable_fully_qualified_path = os.path.join(
