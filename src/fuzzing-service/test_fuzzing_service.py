@@ -10,6 +10,7 @@ from unittest import mock
 import fuzzing_service as fuzzing_service
 import paho.mqtt.client as mqtt_client
 import pytest
+from autopatchdatatypes import CrashDetail
 from fuzz_svc_config import FuzzSvcConfig
 
 # Import the function to test from the updated module.
@@ -21,8 +22,6 @@ from fuzzing_service import (
     produce_output,
     write_crashes_csv,
 )
-
-from autopatchdatatypes import CrashDetail
 
 
 def mock_FuzzSvcConfig() -> FuzzSvcConfig:

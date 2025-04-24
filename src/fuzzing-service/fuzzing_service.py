@@ -10,10 +10,6 @@ import time
 from datetime import datetime
 from typing import Final, List
 
-from cloudevents.conversion import to_json
-from cloudevents.http import CloudEvent
-from fuzz_svc_config import FuzzSvcConfig
-
 from autopatchdatatypes import CrashDetail
 from autopatchpubsub import MessageBrokerClient
 from autopatchshared import (
@@ -22,6 +18,10 @@ from autopatchshared import (
     load_config_as_json,
     make_compile,
 )
+from cloudevents.conversion import to_json
+from cloudevents.http import CloudEvent
+from fuzz_svc_config import FuzzSvcConfig
+
 
 # this is the name of the environment variable that will be used point to the configuration map file to load
 CONST_FUZZ_SVC_CONFIG: Final[str] = "FUZZ_SVC_CONFIG"

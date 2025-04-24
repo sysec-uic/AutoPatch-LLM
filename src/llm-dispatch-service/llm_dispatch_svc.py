@@ -9,14 +9,14 @@ from abc import ABC, abstractmethod
 from typing import Dict, Final, List, Set
 
 import openai
+from autopatchdatatypes import CpgScanResult, PatchResponse, TransformerMetadata
+from autopatchpubsub import MessageBrokerClient
+from autopatchshared import get_current_timestamp, init_logging, load_config_as_json
 from cloudevents.conversion import to_json
 from cloudevents.http import CloudEvent
 from llm_dispatch_svc_config import LLMDispatchSvcConfig
 from openai import OpenAI
 
-from autopatchdatatypes import CpgScanResult, PatchResponse, TransformerMetadata
-from autopatchpubsub import MessageBrokerClient
-from autopatchshared import get_current_timestamp, init_logging, load_config_as_json
 
 # Global variables for the async queue and event loop.
 async_cpg_scan_results_queue = asyncio.Queue()
@@ -142,7 +142,9 @@ async def full_prompt(
     full_prompt: Final[str] = (
         f"{_system_prompt}\n{_user_prompt}\n{_separator}\n{_c_program_source_code_to_patch}"
     )
-    logger.info(f"Created Full Prompt for: {input_c_program_full_path}.  View Full Prompt in Debug log")
+    logger.info(
+        f"Created Full Prompt for: {input_c_program_full_path}.  View Full Prompt in Debug log"
+    )
     logger.debug(f"Full prompt: {full_prompt}")
 
     return full_prompt

@@ -7,13 +7,13 @@ import time
 from datetime import datetime
 from typing import Final, List
 
+from autopatchdatatypes import CpgScanResult
+from autopatchpubsub import MessageBrokerClient
+from autopatchshared import get_current_timestamp, init_logging, load_config_as_json
 from cloudevents.conversion import to_json
 from cloudevents.http import CloudEvent
 from cpg_svc_config import CpgSvcConfig
 
-from autopatchdatatypes import CpgScanResult
-from autopatchpubsub import MessageBrokerClient
-from autopatchshared import get_current_timestamp, init_logging, load_config_as_json
 
 # this is the name of the environment variable that will be used point to the configuration map file to load
 CONST_CPG_SVC_CONFIG: Final[str] = "CPG_SVC_CONFIG"
