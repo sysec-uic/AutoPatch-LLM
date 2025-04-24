@@ -3,6 +3,7 @@ import logging
 from typing import Final
 
 import pytest
+
 from autopatchshared import load_config_as_json
 
 CONST_DUMMY_SVC_CONFIG: Final[str] = "CONST_DUMMY_SVC_CONFIG"

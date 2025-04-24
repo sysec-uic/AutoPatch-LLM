@@ -10,6 +10,10 @@ import time
 from datetime import datetime
 from typing import Final, List
 
+from cloudevents.conversion import to_json
+from cloudevents.http import CloudEvent
+from fuzz_svc_config import FuzzSvcConfig
+
 from autopatchdatatypes import CrashDetail
 from autopatchpubsub import MessageBrokerClient
 from autopatchshared import (
@@ -18,9 +22,6 @@ from autopatchshared import (
     load_config_as_json,
     make_compile,
 )
-from cloudevents.conversion import to_json
-from cloudevents.http import CloudEvent
-from fuzz_svc_config import FuzzSvcConfig
 
 # this is the name of the environment variable that will be used point to the configuration map file to load
 CONST_FUZZ_SVC_CONFIG: Final[str] = "FUZZ_SVC_CONFIG"
@@ -83,7 +84,13 @@ def compile_program(
     # Compile using AFL's compiler
     warn_flags = config.compiler_warning_flags
     feature_flags = config.compiler_feature_flags
-    compile_command = f"{fuzzer_compiler_full_path} {warn_flags} {feature_flags} {program_source_fully_qualified_path} -o {output_executable_fully_qualified_path}"
+    compile_command = (
+        f"{fuzzer_compiler_full_path} "
+        f"{warn_flags} "
+        f"{feature_flags} "
+        f"{program_source_fully_qualified_path} "
+        f"-o {output_executable_fully_qualified_path}"
+    )
     logger.debug(f"Compile command: {compile_command}")
     try:
         result = subprocess.run(
@@ -116,11 +123,47 @@ def run_fuzzer(
     fully_qualified_fuzzer_tool_output_path: str,
     output_executable_fully_qualified_path: str,
 ) -> bool:
-    # Prepare the fuzzing command
+    """
+    Runs the specified fuzzer tool in a subprocess with
+    given configuration parameters and monitors its execution.
+    This function constructs a command to run a fuzzer tool
+    with options such as memory limit, input directory, output
+    directory, timeout, and a target executable. It handles
+    process startup, monitors its execution, and manages a timeout
+    scenario by forcefully terminating the process group
+    if the fuzzer run exceeds the specified time.
+    Args:
+        fuzzer_full_path (str): The full filesystem path
+            to the fuzzer executable.
+        fuzzer_seed_input_path (str): The path to the
+            directory containing seed inputs for the fuzzer.
+        fuzzer_timeout (int): Maximum allowed execution
+            time (in seconds) for the fuzzer run.
+        isInputFromFile (bool): Indicates whether the
+            fuzzer should read input from a file (appending " @@").
+        fully_qualified_fuzzer_tool_output_path (str):
+            The directory path where the fuzzer tool's
+            output should be stored.
+        output_executable_fully_qualified_path (str):
+            The full path to the executable that
+            the fuzzer will target.
+    Returns:
+        bool: Returns True if the fuzzer run times out
+            and is terminated as expected, otherwise False.
+    Exceptions:
+        OSError: If there is an error starting
+            the fuzzer subprocess.
+        Exception: For any other errors encountered
+            during the fuzzer's execution.
+    """
 
     fuzz_command = (
-        f"{fuzzer_full_path} -m {config.afl_tool_child_process_memory_limit_mb} -i {fuzzer_seed_input_path} -o {fully_qualified_fuzzer_tool_output_path} "
-        f"-t {fuzzer_timeout} {output_executable_fully_qualified_path}"
+        f"{fuzzer_full_path} "
+        f"-m {config.afl_tool_child_process_memory_limit_mb} "
+        f"-i {fuzzer_seed_input_path} "
+        f"-o {fully_qualified_fuzzer_tool_output_path} "
+        f"-t {fuzzer_timeout} "
+        f"{output_executable_fully_qualified_path}"
     )
 
     if isInputFromFile:

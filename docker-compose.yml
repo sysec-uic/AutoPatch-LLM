@@ -1,6 +1,5 @@
 ---
 # docker-compose.yaml
-# this file is intended for interactive development only
 
 services:
   autopatch-llm-dispatch-service:
@@ -62,8 +61,6 @@ services:
       - ./src/patch-evaluation-service/log:/app/log:rw
       - ./src/patch-evaluation-service/data:/app/data:rw
       - ./src/patch-evaluation-service/bin:/app/bin:rw
-      - ./src/patch-evaluation-service/crash_events:/app/crash_events:rw
-      - ./src/patch-evaluation-service/patched_codes:/app/patched_codes:ro
       - ./assets/input_codebase:/app/input_codebase:ro
     working_dir: /app
   mosquitto:

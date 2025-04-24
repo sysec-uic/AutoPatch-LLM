@@ -31,7 +31,12 @@ class MessageBrokerClient:
         return f"{self.__class__.__name__}(host={self.message_broker_host}, port={self.message_broker_port})"
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(message_broker_host={self.message_broker_host!r}, message_broker_port={self.message_broker_port!r})"
+        return (
+            f"{self.__class__.__name__}("
+            f"message_broker_host={self.message_broker_host!r}, "
+            f"message_broker_port={self.message_broker_port!r}"
+            f")"
+        )
 
     def connect_message_broker(self) -> mqtt_client.Client:
 

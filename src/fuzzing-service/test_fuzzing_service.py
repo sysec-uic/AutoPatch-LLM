@@ -10,7 +10,6 @@ from unittest import mock
 import fuzzing_service as fuzzing_service
 import paho.mqtt.client as mqtt_client
 import pytest
-from autopatchdatatypes import CrashDetail
 from fuzz_svc_config import FuzzSvcConfig
 
 # Import the function to test from the updated module.
@@ -23,10 +22,12 @@ from fuzzing_service import (
     write_crashes_csv,
 )
 
+from autopatchdatatypes import CrashDetail
+
 
 def mock_FuzzSvcConfig() -> FuzzSvcConfig:
     mock_config = {
-        "version": "0.7.0-alpha",
+        "version": "0.8.0-beta",
         "appname": "autopatch.fuzzing-service",
         "logging_config": "config/logging-config.json",
         "concurrency_threshold": 10,
@@ -291,8 +292,20 @@ def test_write_crashes_csv_new_file_input_from_file(monkeypatch, tmp_path):
     # Verify header is present.
     assert lines[0] == "timestamp,executable_name,crash_detail_base64,isInputFromFile"
     # Each crash line uses the fixed timestamp.
-    expected_line1 = f"2025-01-01T12:00:00Z,{crash_details[0].executable_name},{crash_details[0].base64_message},{crash_details[0].is_input_from_file}"
-    expected_line2 = f"2025-01-01T12:00:00Z,{crash_details[1].executable_name},{crash_details[1].base64_message},{crash_details[1].is_input_from_file}"
+    detail = crash_details[0]
+    expected_line1 = (
+        f"2025-01-01T12:00:00Z,"
+        f"{detail.executable_name},"
+        f"{detail.base64_message},"
+        f"{detail.is_input_from_file}"
+    )
+    detail = crash_details[1]
+    expected_line2 = (
+        f"2025-01-01T12:00:00Z,"
+        f"{detail.executable_name},"
+        f"{detail.base64_message},"
+        f"{detail.is_input_from_file}"
+    )
     assert lines[1] == expected_line1
     assert lines[2] == expected_line2
 
@@ -329,8 +342,18 @@ def test_write_crashes_csv_existing_file_no_header(monkeypatch, tmp_path):
     assert lines[0] == "timestamp,executable_name,crash_detail,isInputFromFile"
 
     # Compute the expected hex values.
-    expected_line1 = f"2025-01-01T12:00:00Z,{crash_details[0].executable_name},{crash_details[0].base64_message},{crash_details[0].is_input_from_file}"
-    expected_line2 = f"2025-01-01T12:00:00Z,{crash_details[1].executable_name},{crash_details[1].base64_message},{crash_details[1].is_input_from_file}"
+    expected_line1 = (
+        f"2025-01-01T12:00:00Z,"
+        f"{crash_details[0].executable_name},"
+        f"{crash_details[0].base64_message},"
+        f"{crash_details[0].is_input_from_file}"
+    )
+    expected_line2 = (
+        f"2025-01-01T12:00:00Z,"
+        f"{crash_details[1].executable_name},"
+        f"{crash_details[1].base64_message},"
+        f"{crash_details[1].is_input_from_file}"
+    )
     assert lines[1] == expected_line1
     assert lines[2] == expected_line2
 
@@ -375,7 +398,12 @@ def test_write_crashes_csv_creates_directory(monkeypatch, tmp_path):
 
     content = csv_path.read_text(encoding="utf-8")
     lines = content.splitlines()
-    expected_line = f"2025-01-01T12:00:00Z,{crash_details[0].executable_name},{crash_details[0].base64_message},{crash_details[0].is_input_from_file}"
+    expected_line = (
+        f"2025-01-01T12:00:00Z,"
+        f"{crash_details[0].executable_name},"
+        f"{crash_details[0].base64_message},"
+        f"{crash_details[0].is_input_from_file}"
+    )
     # Header is the first line.
     assert lines[1] == expected_line
 

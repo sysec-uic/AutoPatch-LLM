@@ -1,8 +1,3 @@
-import subprocess
-import tempfile
-import shutil
-from pathlib import Path
-
 import asyncio
 import base64
 import json
@@ -14,10 +9,11 @@ import tempfile
 import time
 from typing import Dict, Final, Set, Tuple
 
+from patch_eval_config import PatchEvalConfig
+
 from autopatchdatatypes import CrashDetail, PatchResponse, TransformerMetadata
 from autopatchpubsub import MessageBrokerClient
 from autopatchshared import get_current_timestamp, init_logging, load_config_as_json
-from patch_eval_config import PatchEvalConfig
 
 # this is the name of the environment variable that will be used point to the configuration map file to load
 CONST_PATCH_EVAL_SVC_CONFIG: Final[str] = "PATCH_EVAL_SVC_CONFIG"
@@ -134,6 +130,8 @@ def compile_file(
     executable_full_path = os.path.join(output_dir_path, executable_name)
     command = f"{compiler_tool_full_patch} {source_file_full_path} {compiler_warning_flags} {compiler_feature_flags} {executable_full_path}"
 
+    result = None  # Ensure it's defined in scope
+
     # run the command
     try:
         result = subprocess.run(
@@ -147,11 +145,10 @@ def compile_file(
         logger.debug(f"Compiled with command {command}")
         logger.debug(f"stderr of the compile: {result.stderr}")
     except Exception as e:
-        # if an error occurs during compilation, log
         logger.error(f"An error occurred while compiling {source_file_full_path}: {e}")
-        logger.error(f"stderr of the compile: {result.stderr}")
+        if result:
+            logger.error(f"stderr of the compile: {result.stderr}")
     finally:
-        # log the command and return either the path to the executable or an empty string on failure
         if os.path.exists(executable_full_path):
             logger.info(f"Executable {executable_full_path} exists.")
             return executable_full_path
@@ -159,6 +156,7 @@ def compile_file(
         return ""
 
 
+# TODO convert to pandas
 def write_crashes_csv(
     crash_detail: CrashDetail,
     patch_base64_str: str,
@@ -169,9 +167,28 @@ def write_crashes_csv(
     llm_version: str,
 ) -> None:
     """
-    Process crash by logging in the associated executable's csv file.
-
-    Each line contains the timestamp, crash detail, return code, and inputFromFile.
+    Write crash details and LLM information to a CSV file.
+    This function appends a record containing crash details and
+    associated metadata to the CSV file specified by csv_path.
+    If the CSV file does not exist or is empty, it first writes
+    a header line before appending the new record.
+    The record includes a timestamp, executable name, crash
+    message (base64 encoded), return code, an indicator of whether
+    the input was provided from a file, and details about the LLM
+    used (name, flavor, version) along with a base64 encoded patch string.
+    Args:
+        crash_detail (CrashDetail):
+            - executable_name: Name of the crashing executable.
+            - base64_message: The crash message encoded in base64.
+            - is_input_from_file: A bool indicating if the input was provided from a file.
+        patch_base64_str (str): The base64 encoded patch string applied.
+        return_code (int): The return code resulting from the crash.
+        csv_path (str): The file path to the CSV where the record should be written.
+        llm_name (str): The name of the large language model (LLM) used.
+        llm_flavor (str): The variant or flavor of the LLM.
+        llm_version (str): The version of the LLM.
+    Returns:
+        None
     """
 
     # Ensure the output directory exists.
@@ -182,18 +199,35 @@ def write_crashes_csv(
 
     with open(csv_path, "a", encoding="utf-8") as f:
         if write_header:
-            f.write("timestamp,program_name,crash_detail,return_code,isInputFromFile,llm_name,llm_flavor,llm_version,patch_base64_str\n")
+            logger.info("Writing header to CSV file.")
+            header: Final[str] = (
+                "timestamp,"
+                "program_name,"
+                "crash_detail,"
+                "return_code,"
+                "isInputFromFile,"
+                "llm_name,"
+                "llm_flavor,"
+                "llm_version,"
+                "patch_base64_str\n"
+            )
+            f.write(header)
 
-        logger.info(f"  - {crash_detail}")
-        timestamp = get_current_timestamp()
-        program_name = crash_detail.executable_name
-
-        line = f"{timestamp},{program_name},{crash_detail.base64_message},{return_code},{crash_detail.is_input_from_file},{llm_name},{llm_flavor},{llm_version}{patch_base64_str}\n"
+        line: Final[str] = (
+            f"{get_current_timestamp()},"
+            f"{crash_detail.executable_name},"
+            f"{crash_detail.base64_message},"
+            f"{return_code},"
+            f"{crash_detail.is_input_from_file},"
+            f"{llm_name},"
+            f"{llm_flavor},"
+            f"{llm_version}"
+            f"{patch_base64_str}\n"
+        )
         f.write(line)
 
 
 # TODO add MQTT publish
-# TODO add LLM context
 async def log_crash_information(
     results_path: str,
     executable_name: str,
@@ -216,14 +250,23 @@ async def log_crash_information(
 
     async with file_locks[csv_path]:
         await asyncio.to_thread(
-            write_crashes_csv, crash_detail, patch_base64_str, return_code, csv_path, llm_name, llm_flavor, llm_version
+            write_crashes_csv,
+            crash_detail,
+            patch_base64_str,
+            return_code,
+            csv_path,
+            llm_name,
+            llm_flavor,
+            llm_version,
         )
 
 
-# TODO This assumes the batch run is complete, update to run after each eval and not assume a batch is complete
+# TODO This assumes the batch run is complete,
+# update to run after each eval and not assume a batch is complete
 def log_results(results: dict, results_path: str) -> None:
     """
-    logs the results of the entire run (all files tested) in a human-readable markdown file and a csv file describing
+    logs the results of the entire run (all files tested)
+    in a human-readable markdown file and a csv file describing
     the results
     """
     # create the paths
@@ -236,11 +279,11 @@ def log_results(results: dict, results_path: str) -> None:
     logger.info(f"Creating batched info file {log_path}.")
     logger.info(f"Creating batched csv file {csv_log_path}.")
 
-    with open(log_path, "w") as log:
-        with open(csv_log_path, "w") as csv_log:
+    with open(log_path, "w") as md_results_doc:
+        with open(csv_log_path, "w") as csv_output_file:
             # write the headers for both files
-            log.write("# Results of running patches:\n")
-            csv_log.write(
+            md_results_doc.write("# Results of running patches:\n")
+            csv_output_file.write(
                 "executable_name,triggers_addressed,triggers_total,success_rate,designation[S,P,F]\n"
             )
             # iterate through the evaluated code
@@ -269,10 +312,10 @@ def log_results(results: dict, results_path: str) -> None:
                 line = f"### {executable_name}\n"
                 line += f"**Patch addresses {patched} out of {total} trigger conditions.**\n\n"
                 line += f"**Patch is {success_rate}% successful: {designation}**\n\n"
-                log.write(line)
+                md_results_doc.write(line)
 
                 # add the csv line
-                csv_log.write(
+                csv_output_file.write(
                     f"{executable_name},{patched},{total},{success_rate},{designation_shorthand}\n"
                 )
                 # update the tallies
@@ -285,10 +328,13 @@ def log_results(results: dict, results_path: str) -> None:
                 return
             # get the total success rate, log in markdown file
             total_success_rate = round(total_patched_crashes / total_crashes * 100, 2)
-            line = f"\n ### Total success rate of {len(results.keys())} files is {total_patched_crashes} / {total_crashes}, or {total_success_rate}%.\n"
-            log.write(line)
+            line = (
+                f"\n ### Total success rate of {len(results.keys())} files is "
+                f"{total_patched_crashes} / {total_crashes}, "
+                f"or {total_success_rate}%.\n"
+            )
+            md_results_doc.write(line)
             logger.info(f"Success of evaluation: {total_success_rate}%.")
-
 
 
 async def map_cloud_event_as_patch_response(
@@ -336,9 +382,7 @@ async def handle_ready(
         return
 
     if uid not in executables_to_process:
-        logger.info(
-            f"{uid} not in set of programs to evaluate..skipping"
-        )
+        logger.info(f"{uid} not in set of programs to evaluate..skipping")
         return
 
     if crash_detail.is_input_from_file:
@@ -346,13 +390,15 @@ async def handle_ready(
         logger.debug(f"temp_crash_file name: {temp_crash_file.name}")
         temp_crash_file.write(base64.b64decode(crash_detail.base64_message))
 
-    patch_file_as_str = base64.b64decode(patch_response.patch_snippet_base64).decode('utf-8')
+    patch_file_as_str = base64.b64decode(patch_response.patch_snippet_base64).decode(
+        "utf-8"
+    )
     logger.info(f"patch preview: {patch_file_as_str}")
 
     patched_filename = os.path.join(
         config.executables_full_path, "tmp", patch_response.executable_name + ".c"
     )
-        
+
     # todo delete this file after the run
     with open(patched_filename, "w") as f:
         f.write(patch_file_as_str)
@@ -378,9 +424,7 @@ async def handle_ready(
 
     # TODO add LLM context, rename to produce output
     # log the crash information to that executables dedicated csv file
-    logger.info(
-        f"Result of running file {uid}: {return_code}."
-    )
+    logger.info(f"Result of running file {uid}: {return_code}.")
     await log_crash_information(
         config.patch_eval_results_full_path,
         uid,
@@ -393,17 +437,19 @@ async def handle_ready(
     )
 
     # update the results dict for that executable with the result of the run
-    results[uid+".c"]["total_crashes"] += 1
+    results[uid + ".c"]["total_crashes"] += 1
     if return_code == 0 or return_code == 1:
-        results[uid+".c"]["patched_crashes"] += 1
+        results[uid + ".c"]["patched_crashes"] += 1
     # log the batched results
     # log_results(results, config.patch_eval_results_full_path)
     logger.info("Simulating logging the batched results")
     logger.info("Results: " + str(results))
 
 
-async def map_updater(timeout_seconds: int = 240):
-    timed_out_uids: Set[str] = set() # as we can have multiple LLMs creating patches for a uid
+async def map_updater(timeout_seconds: int = 260):
+    timed_out_uids: Set[str] = (
+        set()
+    )  # as we can have multiple LLMs creating patches for a uid
     processed_pairs: Set[Tuple[str, str]] = set()  # (uid, llm_name)
     pending_uids: Set[str] = set()
     seen_times: Dict[str, float] = {}  # uid → first seen timestamp (monotonic)
@@ -449,7 +495,10 @@ async def map_updater(timeout_seconds: int = 240):
             )
             if not (crash_ready and patch_ready):
                 continue
-            # patches come in much faster than crash responses so at this time we don't need special handling for re-queueing crash details that arrive before patch responses
+
+            # patches come in much faster than crash responses
+            # so at this time we don't need special handling
+            # for re-queueing crash details
             for llm_name, patch in patchresponses_map[uid].items():
                 key = (uid, llm_name)
                 if key not in processed_pairs:
@@ -523,9 +572,8 @@ def on_consume_patch_response(patch_response_as_cloud_event_str: str) -> None:
     It uses the globally stored event_loop to schedule a call to
     async_queue.put_nowait in a thread‑safe manner.
     """
-    logger.info(
-        f"in on_consume_patch_response received {patch_response_as_cloud_event_str}"
-    )
+    logger.info("Received patch response from message broker.")
+    logger.debug(f"Received patch response: {patch_response_as_cloud_event_str}")
     # Schedule adding the event to the async queue.
     # Use call_soon_threadsafe so that this function can be safely called
     # from threads outside the event loop.
@@ -541,7 +589,7 @@ def on_consume_crash_detail(crash_detail_as_cloud_event_str: str) -> None:
     It uses the globally stored event_loop to schedule a call to
     async_queue.put_nowait in a thread‑safe manner.
     """
-    logger.info(f"in on_consume_crash_detail")
+    logger.info("Received crash detail from message broker.")
     logger.debug(f"Received crash detail: {crash_detail_as_cloud_event_str}")
     # Schedule adding the event to the async queue.
     # Use call_soon_threadsafe so that this function can be safely called
@@ -562,9 +610,7 @@ async def prep_programs_for_evaluation(
 
     # iterate through the patched codes directory
     for program_name in os.listdir(input_codebase_path):
-        fully_qualified_file_path = os.path.join(
-            input_codebase_path, program_name
-        )
+        fully_qualified_file_path = os.path.join(input_codebase_path, program_name)
         if os.path.isdir(fully_qualified_file_path):
             logger.info(
                 "Patch Evaluation Service does not yet support complex project directories."
@@ -579,48 +625,6 @@ async def prep_programs_for_evaluation(
             results[program_name]["patched_crashes"] = 0
 
     return (executables, results)
-
-# def prep_executables_for_evaluation(
-#     executables_full_path: str,
-#     patched_codes_directory_path: str,
-#     compiler_tool_full_path: str,
-#     compiler_warning_flags: str,
-#     compiler_feature_flags: str,
-#     compile_timeout: int,
-# ) -> Tuple[set[str], Dict[str, Dict[str, int]]]:
-#     # list of files successfully compiled and a dict for the results of each
-#     executables = set()
-#     results: Dict[str, Dict[str, int]] = dict()
-#     # iterate through the patched codes directory
-#     # this will be replaced with a message broker subscription
-#     for file_name in os.listdir(patched_codes_directory_path):
-#         fully_qualified_file_path = os.path.join(
-#             patched_codes_directory_path, file_name
-#         )
-#         if os.path.isdir(fully_qualified_file_path):
-#             logger.info(
-#                 "Patch Evaluation Service does not yet support complex project directories."
-#             )
-#             logger.info(f"Skipping directory: {fully_qualified_file_path}")
-#             continue
-#         # compile the file
-#         logger.info(f"Compiling: {fully_qualified_file_path}")
-#         executable_name = compile_file(
-#             fully_qualified_file_path,
-#             file_name,
-#             executables_full_path,
-#             compiler_tool_full_path,
-#             compiler_warning_flags,
-#             compiler_feature_flags,
-#             compile_timeout,
-#         )
-#         # if the compilation was successful, then add the executable path to the list of executables to run
-#         if executable_name != "":
-#             executables.add(executable_name)
-#             results[executable_name] = dict()
-#             results[executable_name]["total_crashes"] = 0
-#             results[executable_name]["patched_crashes"] = 0
-#     return (executables, results)
 
 
 async def process_crash_detail_item(item):
@@ -703,9 +707,6 @@ async def main():
     # initialize the logger using injected configuration
     logger = init_logging(config.logging_config, config.appname)
 
-    # get the current ISO timestamp
-    # EVAL_SVC_START_TIMESTAMP: Final[str] = get_current_timestamp()
-
     # log some info, make the directories if they DNE
     logger.info("AppName: " + config.appname)
     logger.info("AppVersion: " + config.version)
@@ -730,16 +731,6 @@ async def main():
         config.autopatch_crash_detail_input_topic, on_consume_crash_detail
     )
 
-    # list of files successfully compiled and a dict for the results of each
-    # executables_to_process, results = prep_executables_for_evaluation(
-    #     config.executables_full_path,
-    #     config.patched_codes_path,
-    #     config.compiler_tool_full_path,
-    #     config.compiler_warning_flags,
-    #     config.compiler_feature_flags,
-    #     config.compile_timeout,
-    # )
-
     executables_to_process, results = await task
 
     await asyncio.gather(
@@ -747,9 +738,6 @@ async def main():
         patch_response_consumer(),
         map_updater(),
     )
-
-    # Keep the program running indefinitely, waiting for more events.
-    # await asyncio.Future()  # This future will never complete.
 
 
 if __name__ == "__main__":

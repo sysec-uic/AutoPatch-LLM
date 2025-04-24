@@ -2,13 +2,13 @@
     "cpg_scan_result_input_topic" : "autopatch/cpg-scan-result",
     "input_codebase_full_path": "/app/input_codebase",
     "appName": "autopatch.llm-dispatch-service",
-    "appVersion": "0.8.0-alpha",
+    "appVersion": "0.8.0-beta",
     "appDescription": "A system for managing and dispatching requests to various language models.",
     "system_prompt_full_path": "/app/data/prompts/system_prompt.txt",
     "user_prompt_full_path": "/app/data/prompts/user_prompt.txt",
     "logging_config" : "/app/config/logging-config.json",
-    "default_model": "gpt-4o-mini",
-    "default_api_provider": "openai",
+    "default_model": "mistralai/mistral-small-3.1-24b-instruct:free",
+    "default_api_provider": "mistralai",
     "default_in_memory_provider": "openai",
     "default_max_tokens": 4096,
     "default_temperature": 1,
@@ -23,8 +23,7 @@
         "response": "autopatch/patch_response"
     },
     "models" : [
-        "mistralai/mistral-small-3.1-24b-instruct:free",
-        "google/gemini-2.5-pro-exp-03-25:free"
+        "meta-llama/llama-3.3-70b-instruct:free"
     ],
     "model_router_base_url": "https://openrouter.ai/api/v1",
     "model_router_fallback_model": "google/gemini-2.5-pro-exp-03-25:free",

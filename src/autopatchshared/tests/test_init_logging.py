@@ -4,7 +4,7 @@ import os
 from typing import Final
 from unittest.mock import mock_open
 
-from .init_logging import init_logging
+from autopatchshared import init_logging
 
 # --------------
 # Tests for init_logging
