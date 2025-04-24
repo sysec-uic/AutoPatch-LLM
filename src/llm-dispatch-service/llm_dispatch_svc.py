@@ -17,7 +17,6 @@ from cloudevents.http import CloudEvent
 from llm_dispatch_svc_config import LLMDispatchSvcConfig
 from openai import OpenAI
 
-
 # Global variables for the async queue and event loop.
 async_cpg_scan_results_queue = asyncio.Queue()
 event_loop: asyncio.AbstractEventLoop  # This will be set in main().
