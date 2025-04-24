@@ -14,7 +14,6 @@ from cloudevents.conversion import to_json
 from cloudevents.http import CloudEvent
 from cpg_svc_config import CpgSvcConfig
 
-
 # this is the name of the environment variable that will be used point to the configuration map file to load
 CONST_CPG_SVC_CONFIG: Final[str] = "CPG_SVC_CONFIG"
 config: CpgSvcConfig
