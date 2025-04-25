@@ -9,8 +9,6 @@ import pytest
 from code_property_graph_generator import remove_joern_scan_temp_file
 from cpg_svc_config import CpgSvcConfig
 
-# from autopatchdatatypes import CpgScanResult
-
 
 def mock_CpgSvcConfig() -> CpgSvcConfig:
     mock_config = {

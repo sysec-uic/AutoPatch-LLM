@@ -1,1 +1,14 @@
-Your goal is evaluate the following C code for low level memory safety bugs low level memory safety bug, specifically a Use After Free, Double Free, or Buffer Overflow vulnerabilities.  Identifying any areas in the code where memory handling could lead to security vulnerabilities or instability in execution.  Then generate a patch file that can be applied that fixes any memory safety bugs that may or may not exist to ensure safe memory allocation, access, and deallocation.  Your generated output should be formatted as soley a patch file without additional english language context.  Warning, do not make up new data or add code changes that would not directly a memory safety bug.
+Your goal is to evaluate the following C code for low-level memory safety bugs, specifically Use-After-Free, Double Free, or Buffer Overflow vulnerabilities.
+
+Identify and fix only real memory safety issues — do not fabricate vulnerabilities or make unrelated changes. If no such issue exists, return the original code unmodified.
+
+Output only the resulting **full modified C program source code**, with all fixes applied. Do not include commentary, explanations, or formatting changes unrelated to the fixes. All code must remain syntactically correct and compile without warnings.
+
+Important constraints:
+- Only fix real memory safety bugs (e.g., Use-After-Free, Double Free, Buffer Overflow)
+- Do not introduce stylistic or functional changes unrelated to memory safety
+- Always return the full modified version of the program source code
+- Use valid null terminators (e.g., `'\0'`), never empty character literals
+- If no vulnerabilities are present, return the source exactly as given
+
+Here is the source code (starting at line 1):

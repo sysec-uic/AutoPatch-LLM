@@ -31,7 +31,12 @@ class MessageBrokerClient:
         return f"{self.__class__.__name__}(host={self.message_broker_host}, port={self.message_broker_port})"
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(message_broker_host={self.message_broker_host!r}, message_broker_port={self.message_broker_port!r})"
+        return (
+            f"{self.__class__.__name__}("
+            f"message_broker_host={self.message_broker_host!r}, "
+            f"message_broker_port={self.message_broker_port!r}"
+            f")"
+        )
 
     def connect_message_broker(self) -> mqtt_client.Client:
 
@@ -85,8 +90,8 @@ class MessageBrokerClient:
             self.logger.info(
                 f"{self.__class__.__name__} - Message received on topic {message.topic}: {message.payload}"
             )
-            print("Message received on topic: " + message.topic)
-            print("Message received: ", message.payload.decode("utf-8"))
+            self.logger.info("Message received on topic: " + message.topic)
+            self.logger.debug("Message received: ", message.payload.decode("utf-8"))
 
             self.trigger_event(
                 self.topic_to_message_callback_map.get(message.topic, None),

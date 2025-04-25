@@ -83,7 +83,13 @@ def compile_program(
     # Compile using AFL's compiler
     warn_flags = config.compiler_warning_flags
     feature_flags = config.compiler_feature_flags
-    compile_command = f"{fuzzer_compiler_full_path} {warn_flags} {feature_flags} {program_source_fully_qualified_path} -o {output_executable_fully_qualified_path}"
+    compile_command = (
+        f"{fuzzer_compiler_full_path} "
+        f"{warn_flags} "
+        f"{feature_flags} "
+        f"{program_source_fully_qualified_path} "
+        f"-o {output_executable_fully_qualified_path}"
+    )
     logger.debug(f"Compile command: {compile_command}")
     try:
         result = subprocess.run(
@@ -116,11 +122,47 @@ def run_fuzzer(
     fully_qualified_fuzzer_tool_output_path: str,
     output_executable_fully_qualified_path: str,
 ) -> bool:
-    # Prepare the fuzzing command
+    """
+    Runs the specified fuzzer tool in a subprocess with
+    given configuration parameters and monitors its execution.
+    This function constructs a command to run a fuzzer tool
+    with options such as memory limit, input directory, output
+    directory, timeout, and a target executable. It handles
+    process startup, monitors its execution, and manages a timeout
+    scenario by forcefully terminating the process group
+    if the fuzzer run exceeds the specified time.
+    Args:
+        fuzzer_full_path (str): The full filesystem path
+            to the fuzzer executable.
+        fuzzer_seed_input_path (str): The path to the
+            directory containing seed inputs for the fuzzer.
+        fuzzer_timeout (int): Maximum allowed execution
+            time (in seconds) for the fuzzer run.
+        isInputFromFile (bool): Indicates whether the
+            fuzzer should read input from a file (appending " @@").
+        fully_qualified_fuzzer_tool_output_path (str):
+            The directory path where the fuzzer tool's
+            output should be stored.
+        output_executable_fully_qualified_path (str):
+            The full path to the executable that
+            the fuzzer will target.
+    Returns:
+        bool: Returns True if the fuzzer run times out
+            and is terminated as expected, otherwise False.
+    Exceptions:
+        OSError: If there is an error starting
+            the fuzzer subprocess.
+        Exception: For any other errors encountered
+            during the fuzzer's execution.
+    """
 
     fuzz_command = (
-        f"{fuzzer_full_path} -m {config.afl_tool_child_process_memory_limit_mb} -i {fuzzer_seed_input_path} -o {fully_qualified_fuzzer_tool_output_path} "
-        f"-t {fuzzer_timeout} {output_executable_fully_qualified_path}"
+        f"{fuzzer_full_path} "
+        f"-m {config.afl_tool_child_process_memory_limit_mb} "
+        f"-i {fuzzer_seed_input_path} "
+        f"-o {fully_qualified_fuzzer_tool_output_path} "
+        f"-t {fuzzer_timeout} "
+        f"{output_executable_fully_qualified_path}"
     )
 
     if isInputFromFile:
@@ -346,9 +388,6 @@ async def main():
     logger.info("Fuzzer tool name: " + config.fuzzer_tool_name)
     logger.info("Fuzzer tool version: " + config.fuzzer_tool_version)
 
-    logger.info("Creating AFL output directory: " + _afl_tool_output_path)
-    os.makedirs(_afl_tool_output_path, exist_ok=True)
-
     # Process each C source file in the codebase directory
     _source_files = os.listdir(_fuzz_svc_input_codebase_path)
     logger.info(
@@ -452,7 +491,7 @@ async def main():
                     os.path.join(file_name_fully_qualified_path, "config.json"), "r"
                 ) as project_config:
                     project_config_vals = json.load(project_config)
-                    inputFromFile = project_config_vals["inputFromFile"]
+                    isInputFromFile = project_config_vals["inputFromFile"]
             except Exception as e:
                 logger.error(f"Problem loading the project config file: {e}")
                 logger.info(
@@ -465,7 +504,7 @@ async def main():
                 _afl_tool_full_path,
                 _afl_tool_seed_input_path,
                 _fuzzer_tool_timeout_seconds,
-                inputFromFile,
+                isInputFromFile,
                 fully_qualified_fuzzer_tool_output_path,
                 output_executable_fully_qualified_path,
             )
@@ -484,7 +523,7 @@ async def main():
             fully_qualified_crash_directory_path,
             executable_name,
             config.iconv_tool_timeout,
-            inputFromFile,
+            isInputFromFile,
         )
 
         # Process the crash outputs
