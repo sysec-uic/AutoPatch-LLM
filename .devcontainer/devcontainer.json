@@ -51,6 +51,7 @@
 	"customizations": {
 		"vscode": {
 			"extensions": [
+				"vscode-icons-team.vscode-icons",
 				"ms-python.python",
 				"ms-vscode.cpptools-extension-pack",
 				"tomoki1207.pdf",

@@ -1,6 +1,6 @@
 [project]
 name = 'autopatch'
-version = '0.7.3'
+version = '0.8.0'
 requires-python = '>=3.12.3'
 description = ''
 authors = [

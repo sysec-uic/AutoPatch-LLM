@@ -1,11 +1,11 @@
 [project]
 name = 'autopatch.patch-evaluation-service'
-version = '0.7.0'
+version = '0.8.0'
 requires-python = '>=3.12.3'
 readme = 'README.md'
 authors = [
-    { name = 'Lily Leith', email = 'lleit@uic.edu' },
-    { name = 'Robert D. Hernandez', email = 'rherna70@uic.edu' }
+    { name = 'Robert D. Hernandez', email = 'rherna70@uic.edu' },
+    { name = 'Lily Leith', email = 'lleit@uic.edu' }
 ]
 
 [build-system]
