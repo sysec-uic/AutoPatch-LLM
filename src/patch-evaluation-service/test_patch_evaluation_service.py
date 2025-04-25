@@ -418,14 +418,6 @@ def test_on_consume_crash_detail(monkeypatch):
 
 
 # # --- Test for prep_executables_for_evaluation ---
-# prep_executables_for_evaluation(
-#     executables_full_path: str,
-#     patched_codes_directory_path: str,
-#     compiler_tool_full_path: str,
-#     compiler_warning_flags: str,
-#     compiler_feature_flags: str,
-#     compile_timeout: int,
-#     make_tool_full_path: str,
 
 
 def test_prep_executables_for_evaluation(monkeypatch, tmp_path):
@@ -453,14 +445,7 @@ def test_prep_executables_for_evaluation(monkeypatch, tmp_path):
     monkeypatch.setattr("patch_evaluation_service.compile_file", fake_compile_file)
 
     # Act
-    # prep_executables_for_evaluation(
-    #     executables_full_path: str,
-    #     patched_codes_directory_path: str,
-    #     compiler_tool_full_path: str,
-    #     compiler_warning_flags: str,
-    #     compiler_feature_flags: str,
-    #     compile_timeout: int,
-    #     make_tool_full_path: str,
+ 
     executables, results_dict = prep_executables_for_evaluation(
         str(executables_dir),
         str(patched_codes_dir),
