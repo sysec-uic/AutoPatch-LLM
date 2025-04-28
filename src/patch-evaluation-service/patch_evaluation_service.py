@@ -603,6 +603,7 @@ def on_consume_crash_detail(crash_detail_as_cloud_event_str: str) -> None:
         crash_detail_as_cloud_event_str,
     )
 
+
 async def prep_programs_for_evaluation(
     executables_full_path: str,
     patched_codes_directory_path: str,
@@ -611,7 +612,6 @@ async def prep_programs_for_evaluation(
     compiler_feature_flags: str,
     compile_timeout: int,
     make_tool_full_path: str,
-
 ) -> Tuple[set[str], Dict[str, Dict[str, int]]]:
 
     # list of files to consider for evaluation and a dict for the results of each
@@ -753,7 +753,6 @@ async def main():
     # log some info, make the directories if they DNE
     logger.info("AppName: " + config.appname)
     logger.info("AppVersion: " + config.version)
-
 
     # create task for prepping patched codes for eval
 
