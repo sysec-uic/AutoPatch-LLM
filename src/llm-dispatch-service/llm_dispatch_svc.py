@@ -787,15 +787,14 @@ async def create_patch_response(
 
 async def create_patch_responses(
     raw_responses: List[Dict[str, str]],
-    source_filename_or_program_name_under_consideration_unique_id: str,  # Changed: Expect single ID per call now
-    concurrency_threshold: int = 10,  # Concurrency applies to LLM calls, not this mapping
+    source_filename_or_program_name_under_consideration_unique_id: str,
 ) -> List[PatchResponse]:
     """
-    Creates patch responses from a list of raw 
+    Creates patch responses from a list of raw
     responses for a SINGLE source file/program.
 
     Parameters:
-        raw_responses (List[Dict[str, str]]): A list of 
+        raw_responses (List[Dict[str, str]]): A list of
           dictionaries containing raw response data from
           different LLMs for the same input.
         source_filename_or_program_name_under_consideration_unique_id (str):
@@ -828,8 +827,6 @@ async def create_patch_responses(
         # Since create_patch_response is now async (due to potential future async ops)
         result = await task
         results.append(result)
-
-    # results = await asyncio.gather(*tasks) # If parallelization is desired
 
     return results
 
