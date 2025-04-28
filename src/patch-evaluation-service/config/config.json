@@ -1,6 +1,7 @@
 {
-    "version": "0.7.0-alpha",
     "appname": "autopatch.patch-evaluation-service",
+    "version": "0.8.0-beta",
+    "input_codebase_full_path": "/app/input_codebase",
     "logging_config" : "/app/config/logging-config.json",
     "patch_eval_results_full_path":"/app/data",
     "patched_codes_path":"/app/patched_codes",
@@ -9,10 +10,13 @@
     "compiler_warning_flags":"-Wall -Wextra -Wformat -Wshift-overflow -Wcast-align -Wstrict-overflow -fstack-protector-strong",
     "compiler_feature_flags": "-O1 -g -o",
     "compile_timeout": 10,
-    "run_timeout": 10,
+    "run_timeout": 20,
     "message_broker_host": "mosquitto",
     "message_broker_port": 1883,
     "autopatch_crash_detail_input_topic": "autopatch/crash_detail",
     "autopatch_patch_response_input_topic": "autopatch/patch_response",
-    "make_tool_full_path" : "/usr/bin/make"
+    "make_tool_full_path" : "/usr/bin/make",
+    "model_names" : [
+        "mistral-small-3.1-24b-instruct"
+    ]
 }

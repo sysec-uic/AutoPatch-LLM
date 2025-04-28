@@ -5,7 +5,7 @@ from typing import Dict, List
 @dataclass
 class LLMDispatchSvcConfig:
     cpg_scan_result_input_topic: str
-    devonlyinputfilepath: str
+    input_codebase_full_path: str
     appName: str
     appVersion: str
     appDescription: str
@@ -30,4 +30,4 @@ class LLMDispatchSvcConfig:
     model_router_retry_attempts: int
     model_router_timeout_ms: int
     model_router_retry_delay_ms: int
-    models: List[Dict[str, object]]
+    models: List[str]

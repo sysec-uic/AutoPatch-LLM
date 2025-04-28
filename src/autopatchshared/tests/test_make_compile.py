@@ -3,8 +3,7 @@ import subprocess
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-from .make_compile import make_compile
+from autopatchshared import make_compile
 
 
 @pytest.fixture(autouse=True)

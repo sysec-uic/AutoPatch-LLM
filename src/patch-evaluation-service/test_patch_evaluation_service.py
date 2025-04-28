@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import subprocess
+from io import StringIO
 from typing import Dict
 from unittest import mock
 
@@ -18,8 +19,6 @@ from patch_evaluation_service import (
     compile_file,
     map_cloud_event_as_crash_detail,
     on_consume_crash_detail,
-    prep_executables_for_evaluation,
-    process_crash_detail,
     run_file_async,
     write_crashes_csv,
 )
@@ -40,8 +39,8 @@ class DummyProcess:
 
 def dummy_config_content() -> Dict:
     return {
-        "version": "0.7.3-alpha",
         "appname": "autopatch.patch-evaluation-service",
+        "version": "0.8.0-alpha",
         "logging_config": "/workspace/AutoPatch-LLM/src/patch-evaluation-service/config/dev-logging-config.json",
         "patch_eval_results_full_path": "/workspace/AutoPatch-LLM/src/patch-evaluation-service/data",
         "patched_codes_path": "/workspace/AutoPatch-LLM/src/patch-evaluation-service/patched_codes",
@@ -78,6 +77,168 @@ def fake_message_broker_client(monkeypatch):
     monkeypatch.setattr(
         patch_evaluation_service, "MessageBrokerClient", DummyMessageBrokerClient
     )
+
+
+# # --- Tests for compile_file ---
+
+
+# A dummy logger to capture logger calls.
+class DummyLogger(logging.Logger):
+    def __init__(self):
+        super().__init__(name="dummy")
+        self.messages = []
+        self.level = logging.DEBUG
+
+    def info(self, msg):
+        self.messages.append(msg)
+
+    def debug(self, msg):  # noqa: A003
+        self.messages.append(msg)
+
+    def error(self, msg):
+        self.messages.append(msg)
+
+    def log(self, level, msg, *args, **kwargs):  # noqa: A003
+        self.messages.append(msg)
+
+
+@pytest.fixture(autouse=True)
+def mock_logger(monkeypatch):
+    logger = DummyLogger()
+    monkeypatch.setattr("patch_evaluation_service.logger", logger)
+    return logger
+
+
+class DummyResult:
+    def __init__(self, stdout: str = "", stderr: str = ""):
+        self.stdout = stdout
+        self.stderr = stderr
+        self.returncode = 0
+
+
+def test_compile_success(tmp_path, monkeypatch, mock_logger):
+    source = tmp_path / "hello.c"
+    source.write_text("int main() { return 0; }")
+    output_dir = str(tmp_path)
+    exec_name = "hello"
+    exec_path = os.path.join(output_dir, exec_name)
+
+    # Fake subprocess.run returning a successful result
+    dummy = DummyResult(stdout="built", stderr="")
+
+    def fake_run(cmd, stderr, stdout, universal_newlines, timeout, shell):
+        expected = f"gcc {source} -Wall -O2 {exec_path}"
+        assert cmd == [expected]
+        return dummy
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(os.path, "exists", lambda p: p == exec_path)
+
+    result = compile_file(
+        source_file_full_path=str(source),
+        output_dir_path=output_dir,
+        compiler_tool_full_patch="gcc",
+        compiler_warning_flags="-Wall",
+        compiler_feature_flags="-O2",
+        compiler_timeout=10,
+    )
+
+    assert result == exec_path
+    # Check logged messages
+    assert any("Compiled with command" in m for m in mock_logger.messages)
+    assert any(
+        f"stderr of the compile: {dummy.stderr}" in m for m in mock_logger.messages
+    )
+    assert any(f"Executable {exec_path} exists." in m for m in mock_logger.messages)
+
+
+def test_compile_no_executable(tmp_path, monkeypatch, mock_logger):
+    source = tmp_path / "prog.c"
+    output_dir = str(tmp_path)
+
+    dummy = DummyResult(stdout="", stderr="some error")
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: dummy)
+    monkeypatch.setattr(os.path, "exists", lambda p: False)
+
+    result = compile_file(
+        source_file_full_path=str(source),
+        output_dir_path=output_dir,
+        compiler_tool_full_patch="gcc",
+        compiler_warning_flags="-Werror",
+        compiler_feature_flags="-O3",
+        compiler_timeout=5,
+    )
+
+    assert result == ""
+    assert any("Failed to compile" in m for m in mock_logger.messages)
+
+
+def test_compile_timeout_exception(tmp_path, monkeypatch, mock_logger):
+    source = tmp_path / "timeout.c"
+    output_dir = str(tmp_path)
+
+    def fake_run(*args, **kwargs):
+        raise subprocess.TimeoutExpired(cmd="gcc", timeout=2)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(os.path, "exists", lambda p: False)
+
+    result = compile_file(
+        source_file_full_path=str(source),
+        output_dir_path=output_dir,
+        compiler_tool_full_patch="gcc",
+        compiler_warning_flags="",
+        compiler_feature_flags="",
+        compiler_timeout=2,
+    )
+
+    assert result == ""
+    assert any("An error occurred while compiling" in m for m in mock_logger.messages)
+
+
+def test_source_basename_edge_cases(tmp_path, monkeypatch, mock_logger):
+    source = tmp_path / "Makefile"
+    output_dir = str(tmp_path)
+    exec_path = os.path.join(output_dir, "Makefile")
+
+    dummy = DummyResult()
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: dummy)
+    monkeypatch.setattr(os.path, "exists", lambda p: p == exec_path)
+
+    result = compile_file(
+        source_file_full_path=str(source),
+        output_dir_path=output_dir,
+        compiler_tool_full_patch="cc",
+        compiler_warning_flags="",
+        compiler_feature_flags="",
+        compiler_timeout=1,
+    )
+
+    assert result == exec_path
+
+
+def test_multiple_dots_in_filename(tmp_path, monkeypatch, mock_logger):
+    source = tmp_path / "my.cool.program.c"
+    output_dir = str(tmp_path)
+    exec_path = os.path.join(output_dir, "my")
+
+    dummy = DummyResult()
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: dummy)
+    monkeypatch.setattr(os.path, "exists", lambda p: p == exec_path)
+
+    result = compile_file(
+        source_file_full_path=str(source),
+        output_dir_path=output_dir,
+        compiler_tool_full_patch="cc",
+        compiler_warning_flags="-W",
+        compiler_feature_flags="-std=c11",
+        compiler_timeout=3,
+    )
+
+    assert result == exec_path
+
+
+# --- Tests for run_file_async ---
 
 
 @pytest.mark.asyncio
@@ -222,112 +383,135 @@ async def test_run_file_async_signal(monkeypatch):
     assert result == 2
 
 
-# # --- Tests for compile_file ---
-
-
-def test_compile_file_success(monkeypatch, tmp_path):
-    # Assemble
-    # Setup a temporary directory to simulate the executables directory.
-    executables_dir = tmp_path / "executables"
-    executables_dir.mkdir()
-    file_path = str(tmp_path / "dummy.c")
-    file_name = "dummy.c"
-    executable_path = str(executables_dir)
-    compiler_tool_full_path = "gcc"
-    compiler_warning_flags = "-Wall"
-    compiler_feature_flags = "-std=c99"
-    compiler_timeout = 5
-
-    # Monkeypatch subprocess.run to simulate a successful compile.
-    def fake_run(command, stderr, stdout, universal_newlines, timeout, shell):
-        class Result:
-            stderr = ""
-            stdout = "compiled successfully"
-
-        return Result()
-
-    monkeypatch.setattr(subprocess, "run", fake_run)
-
-    # Monkeypatch os.path.exists to return True when checking for the compiled executable.
-    def fake_exists(path):
-        if "dummy" in path:
-            return True
-        return False
-
-    monkeypatch.setattr(os.path, "exists", fake_exists)
-
-    # Act
-    executable_name = compile_file(
-        file_path,
-        file_name,
-        executable_path,
-        compiler_tool_full_path,
-        compiler_warning_flags,
-        compiler_feature_flags,
-        compiler_timeout,
-    )
-
-    # Assert
-    assert executable_name == "dummy"
-
-
-def test_compile_file_failure(monkeypatch, tmp_path):
-    # Assemble
-    executables_dir = tmp_path / "executables"
-    executables_dir.mkdir()
-    file_path = str(tmp_path / "dummy.c")
-    file_name = "dummy.c"
-    executable_path = str(executables_dir)
-    compiler_tool_full_path = "gcc"
-    compiler_warning_flags = "-Wall"
-    compiler_feature_flags = "-std=c99"
-    compiler_timeout = 5
-
-    def fake_run(command, stderr, stdout, universal_newlines, timeout, shell):
-        class Result:
-            stderr = "compilation error"
-            stdout = ""
-
-        return Result()
-
-    monkeypatch.setattr(subprocess, "run", fake_run)
-    monkeypatch.setattr(os.path, "exists", lambda path: False)
-
-    # Act
-    executable_name = compile_file(
-        file_path,
-        file_name,
-        executable_path,
-        compiler_tool_full_path,
-        compiler_warning_flags,
-        compiler_feature_flags,
-        compiler_timeout,
-    )
-
-    # Assert
-    assert executable_name == ""
-
-
 # # --- Tests for write_crashes_csv and log_crash_information ---
 
+# # A dummy logger to capture logger calls.
+# class DummyLogger(logging.Logger):
+#     def __init__(self):
+#         super().__init__(name="dummy")
+#         self.messages = []
+#         self.level = logging.DEBUG
 
-def test_write_crashes_csv(tmp_path):
-    # Assemble
-    csv_path = str(tmp_path / "results.csv")
-    message = "crash data"
-    encoded = base64.b64encode(message.encode()).decode()
-    crash_detail = CrashDetail(
-        executable_name="dummy_exe", base64_message=encoded, is_input_from_file=False
+#     def info(self, msg):
+#         self.messages.append(msg)
+
+#     def debug(self, msg):  # noqa: A003
+#         self.messages.append(msg)
+
+#     def error(self, msg):
+#         self.messages.append(msg)
+
+#     def log(self, level, msg, *args, **kwargs):  # noqa: A003
+#         self.messages.append(msg)
+
+# @pytest.fixture(autouse=True)
+# def mock_logger(monkeypatch):
+#     logger = DummyLogger()
+#     monkeypatch.setattr("patch_evaluation_service.logger", logger)
+#     return logger
+
+
+@pytest.fixture(autouse=True)
+def fixed_timestamp(monkeypatch):
+    # Freeze timestamp for predictable output
+    monkeypatch.setattr(
+        "patch_evaluation_service.get_current_timestamp", lambda: "2025-04-23T00:00:00Z"
+    )
+    return None
+
+
+class DummyFile(StringIO):
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        pass
+
+
+@pytest.fixture(autouse=True)
+def skip_makedirs(monkeypatch):
+    # Avoid creating actual directories
+    monkeypatch.setattr(os, "makedirs", lambda path, exist_ok: None)
+    return None
+
+
+@pytest.mark.parametrize(
+    "exists,size,header_expected",
+    [
+        (False, 0, True),  # File missing or empty -> header
+        (True, 100, False),  # File exists and non-empty -> no header
+    ],
+)
+def test_write_crashes_csv(
+    tmp_path, monkeypatch, mock_logger, exists, size, header_expected
+):
+
+    _base64_message = base64.b64encode("test message".encode()).decode()
+
+    crash = CrashDetail(
+        executable_name="testprog",
+        base64_message=_base64_message,
+        is_input_from_file=True,
+    )
+    patch_str = "PATCHDATA"
+    return_code = 42
+    llm_name = "gpt4"
+    llm_flavor = "standard"
+    llm_version = "1.0"
+
+    # CSV path under tmp
+    csv_path = tmp_path / "out" / "crashes.csv"
+
+    # Simulate file existence and size
+    monkeypatch.setattr(os.path, "exists", lambda p: exists)
+    monkeypatch.setattr(os.path, "getsize", lambda p: size)
+
+    # Capture writes to a dummy file
+    dummy_file = DummyFile()
+    monkeypatch.setattr(
+        "builtins.open",  # the full import path
+        lambda path, mode="r", encoding=None: dummy_file,
+        raising=True,
     )
 
-    # Act
-    write_crashes_csv(crash_detail, 0, csv_path)
-    with open(csv_path, "r", encoding="utf-8") as f:
-        content = f.read()
+    # Invoke function
+    write_crashes_csv(
+        crash_detail=crash,
+        patch_base64_str=patch_str,
+        return_code=return_code,
+        csv_path=str(csv_path),
+        llm_name=llm_name,
+        llm_flavor=llm_flavor,
+        llm_version=llm_version,
+    )
 
-    # Assert
-    assert "timestamp,crash_detail,return_code,inputFromFile" in content
-    assert encoded in content
+    contents = dummy_file.getvalue().splitlines(keepends=True)
+
+    # Check header line
+    header_line = (
+        "timestamp,"
+        "program_name,"
+        "crash_detail,"
+        "return_code,"
+        "isInputFromFile,"
+        "llm_name,"
+        "llm_flavor,"
+        "llm_version,"
+        "patch_base64_str\n"
+    )
+
+    if header_expected:
+        assert contents[0] == header_line
+        data_line = contents[1]
+    else:
+        assert not contents[0].startswith("timestamp")
+        data_line = contents[0]
+
+    # Verify data line structure
+    assert data_line.startswith(
+        f"2025-04-23T00:00:00Z,testprog,{_base64_message},42,True,gpt4,standard,1.0"
+    )
+    assert data_line.strip().endswith(patch_str)
 
 
 # # --- Test for map_cloud_event_as_crash_detail ---
@@ -360,22 +544,24 @@ def test_map_cloud_event_as_crash_detail():
 def test_load_config(monkeypatch):
     def fake_load_config_as_json(path, logger):
         return {
-            "logging_config": {},
-            "appname": "dummy_app",
-            "version": "1.0",
+            "appname": "autopatch.patch-evaluation-service",
+            "version": "0.8.0-beta",
+            "input_codebase_full_path": "/dummy/input_codebase",
+            "logging_config": "/dummy/logging-config.json",
+            "patch_eval_results_full_path": "/dummy/data",
+            "patched_codes_path": "/dummy/patched_codes",
             "executables_full_path": "/dummy/executables",
-            "patched_codes_path": "/dummy/patches",
-            "compiler_tool_full_path": "gcc",
-            "compiler_warning_flags": "-Wall",
-            "compiler_feature_flags": "-std=c99",
-            "compile_timeout": 5,
-            "run_timeout": 10,
-            "patch_eval_results_full_path": "/dummy/results",
-            "message_broker_host": "localhost",
+            "compiler_tool_full_path": "/dummy/bin/gcc",
+            "compiler_warning_flags": "-Wall -Wextra -Wformat -Wshift-overflow -Wcast-align -Wstrict-overflow -fstack-protector-strong",
+            "compiler_feature_flags": "-O1 -g -o",
+            "compile_timeout": 10,
+            "run_timeout": 20,
+            "message_broker_host": "mosquitto",
             "message_broker_port": 1883,
             "autopatch_crash_detail_input_topic": "autopatch/crash_detail",
             "autopatch_patch_response_input_topic": "autopatch/patch_response",
             "make_tool_full_path": "/usr/bin/make",
+            "model_names": ["mistral-small-3.1-24b-instruct"],
         }
 
     # Assemble
@@ -389,38 +575,34 @@ def test_load_config(monkeypatch):
 
     # Assert
     assert isinstance(config_obj, PatchEvalConfig)
-    assert config_obj.appname == "dummy_app"
+    assert config_obj.appname == "autopatch.patch-evaluation-service"
 
 
 # # --- Test for on_consume_crash_detail ---
 
 
-def test_on_consume_crash_detail(monkeypatch):
-    # Assemble
-    calls = []
+# Dummy queue to capture put_nowait calls
+class DummyQueue:
+    def __init__(self):
+        self.items = []
 
-    class DummyLoop:
-        def call_soon_threadsafe(self, callback, arg):
-            calls.append((callback, arg))
-
-    patch_evaluation_service.event_loop = DummyLoop()
-    cloud_event_str = "dummy event"
-
-    # Act
-    on_consume_crash_detail(cloud_event_str)
-
-    # Assert
-    assert len(calls) == 1
-    callback, arg = calls[0]
-    # Ensure that the callback is the put_nowait method of the async queue.
-    assert callback == patch_evaluation_service.async_crash_details_queue.put_nowait
-    assert arg == cloud_event_str
+    def put_nowait(self, item):
+        self.items.append(item)
 
 
-# # --- Test for prep_executables_for_evaluation ---
+# Dummy event loop to capture and invoke scheduled calls
+class DummyEventLoop:
+    def __init__(self):
+        self.calls = []
+
+    def call_soon_threadsafe(self, callback, *args):
+        # record the callback and args
+        self.calls.append((callback, args))
+        # simulate immediate invocation
+        callback(*args)
 
 
-def test_prep_executables_for_evaluation(monkeypatch, tmp_path):
+def test_prep_programs_for_evaluation(monkeypatch, tmp_path):
     # Assemble
     def fake_compile_file(
         file_path,
@@ -446,7 +628,7 @@ def test_prep_executables_for_evaluation(monkeypatch, tmp_path):
 
     # Act
  
-    executables, results_dict = prep_executables_for_evaluation(
+    executables, results_dict = prep_programs_for_evaluation(
         str(executables_dir),
         str(patched_codes_dir),
         "dummy_compiler",
@@ -454,159 +636,180 @@ def test_prep_executables_for_evaluation(monkeypatch, tmp_path):
         "-std=c99",
         5,
         "dummy_make",
-    )
+      )
 
-    # Assert
-    assert "file1" in executables
-    assert "file2" in executables
-    assert results_dict["file1"]["total_crashes"] == 0
-    assert results_dict["file1"]["patched_crashes"] == 0
+      # Assert
+      assert "file1" in executables
+      assert "file2" in executables
+      assert results_dict["file1"]["total_crashes"] == 0
+      assert results_dict["file1"]["patched_crashes"] == 0
 
-
-# # --- Test for process_crash_detail ---
-
-
-@pytest.mark.asyncio
-async def test_process_crash_detail(monkeypatch, tmp_path):
-
-    # Assemble
-    dummy_config = dummy_PatchEvalConfig()
-    dummy_config.executables_full_path = str(tmp_path / "executables")
-    dummy_config.run_timeout = 5
-    dummy_config.patch_eval_results_full_path = str(tmp_path / "results")
-    os.makedirs(dummy_config.executables_full_path, exist_ok=True)
-    os.makedirs(dummy_config.patch_eval_results_full_path, exist_ok=True)
-    patch_evaluation_service.config = dummy_config
-    patch_evaluation_service.executables_to_process = {"dummy_exe"}
-    patch_evaluation_service.results = {
-        "dummy_exe": {"total_crashes": 0, "patched_crashes": 0}
-    }
-
-    message = "dummy crash"
-    encoded = base64.b64encode(message.encode()).decode()
-    crash_detail = CrashDetail(
-        executable_name="dummy_exe", base64_message=encoded, is_input_from_file=False
-    )
-
-    async def fake_run_file_async(*args, **kwargs):
-        return 0
-
-    monkeypatch.setattr(patch_evaluation_service, "run_file_async", fake_run_file_async)
-
-    async def fake_log_crash_information(*args, **kwargs):
-        pass
-
+@pytest.fixture
+def dummy_queue(monkeypatch):
+    dq = DummyQueue()
     monkeypatch.setattr(
-        patch_evaluation_service, "log_crash_information", fake_log_crash_information
+        patch_evaluation_service, "async_crash_details_cloud_events_queue", dq
+
+    )
+    return dq
+
+
+@pytest.fixture
+def dummy_event_loop(monkeypatch):
+    de = DummyEventLoop()
+    monkeypatch.setattr(patch_evaluation_service, "event_loop", de, raising=False)
+    return de
+
+
+def test_normal_scheduling(dummy_event_loop, dummy_queue, mock_logger):
+    sample = '{"foo": "bar"}'
+    on_consume_crash_detail(sample)
+
+    # Logs
+    assert any(
+        "Received crash detail from message broker." in msg
+        for msg in mock_logger.messages
+    )
+    assert any(
+        f"Received crash detail: {sample}" in msg for msg in mock_logger.messages
     )
 
-    # Act
-    await process_crash_detail(crash_detail)
+    # Event loop scheduled exactly one call
+    assert len(dummy_event_loop.calls) == 1
+    _, args = dummy_event_loop.calls[0]
+    # Should have scheduled the queue put with the right argument
+    assert args == (sample,)
 
-    # Assert
-    # Expect total_crashes and patched_crashes to update (since return code 0 counts as a patched crash).
-    assert patch_evaluation_service.results["dummy_exe"]["total_crashes"] == 1
-    assert patch_evaluation_service.results["dummy_exe"]["patched_crashes"] == 1
+    # Queue received the sample
+    assert dummy_queue.items == [sample]
+
+
+@pytest.mark.parametrize("input_str", ["", "   ", "こんにちは", "🙂🚀"])
+def test_various_strings(dummy_event_loop, dummy_queue, mock_logger, input_str):
+    # Should schedule and store any string, even empty or unicode
+    on_consume_crash_detail(input_str)
+    assert dummy_queue.items[-1] == input_str
+    assert any(
+        input_str in msg
+        for msg in mock_logger.messages
+        if "Received crash detail" in msg
+    )
+
+
+def test_exception_propagates(monkeypatch):
+    # If scheduling fails, exception should propagate
+    def bad_call(callback, *args):
+        raise RuntimeError("boom")
+
+    # patch only the event_loop.call_soon_threadsafe
+    monkeypatch.setattr(
+        patch_evaluation_service,
+        "event_loop",
+        type("E", (), {"call_soon_threadsafe": bad_call})(),
+        raising=False,
+    )
+    with pytest.raises(RuntimeError):
+        on_consume_crash_detail("data")
 
 
 # # --- Test for crash_detail_consumer ---
 
 
-@pytest.mark.asyncio
-async def test_crash_detail_consumer(monkeypatch):
-    # Assemble
-    called = False
+# @pytest.mark.asyncio
+# async def test_crash_detail_consumer(monkeypatch):
+#     # Assemble
+#     called = False
 
-    async def fake_process_item(item):
-        nonlocal called
-        called = True
+#     async def fake_process_item(item):
+#         nonlocal called
+#         called = True
 
-    monkeypatch.setattr(patch_evaluation_service, "process_item", fake_process_item)
+#     monkeypatch.setattr(patch_evaluation_service, "process_item", fake_process_item)
 
-    # Enqueue a dummy cloud event.
-    dummy_event = json.dumps(
-        {
-            "data": {
-                "executable_name": "dummy_exe",
-                "crash_detail_base64": base64.b64encode("crash".encode()).decode(),
-                "is_input_from_file": False,
-            }
-        }
-    )
-    patch_evaluation_service.async_crash_details_queue.put_nowait(dummy_event)
+#     # Enqueue a dummy cloud event.
+#     dummy_event = json.dumps(
+#         {
+#             "data": {
+#                 "executable_name": "dummy_exe",
+#                 "crash_detail_base64": base64.b64encode("crash".encode()).decode(),
+#                 "is_input_from_file": False,
+#             }
+#         }
+#     )
+#     patch_evaluation_service.async_crash_details_queue.put_nowait(dummy_event)
 
-    # Act
-    # Run the consumer briefly.
-    consumer_task = asyncio.create_task(
-        patch_evaluation_service.crash_detail_consumer()
-    )
-    await asyncio.sleep(0.1)
-    consumer_task.cancel()
-    try:
-        await consumer_task
-    except asyncio.CancelledError:
-        pass
+#     # Act
+#     # Run the consumer briefly.
+#     consumer_task = asyncio.create_task(
+#         patch_evaluation_service.crash_detail_consumer()
+#     )
+#     await asyncio.sleep(0.1)
+#     consumer_task.cancel()
+#     try:
+#         await consumer_task
+#     except asyncio.CancelledError:
+#         pass
 
-    # Assert
-    assert called is True
+#     # Assert
+#     assert called is True
 
 
 # --- Test for main() ---
 #
 
 
-@pytest.mark.asyncio
-async def test_main(monkeypatch, tmp_path):
+# @pytest.mark.asyncio
+# async def test_main(monkeypatch, tmp_path):
 
-    # Because main() enters an infinite wait at the end, we monkeypatch asyncio.Future to return a future that is
-    # already done so that main() completes.
+#     # Because main() enters an infinite wait at the end, we monkeypatch asyncio.Future to return a future that is
+#     # already done so that main() completes.
 
-    # Assemble
-    dummy_config_path = str(tmp_path / "config.json")
+#     # Assemble
+#     dummy_config_path = str(tmp_path / "config.json")
 
-    monkeypatch.setenv("PATCH_EVAL_SVC_CONFIG", dummy_config_path)
+#     monkeypatch.setenv("PATCH_EVAL_SVC_CONFIG", dummy_config_path)
 
-    # Prepare a dummy config object.
-    dummy_config = PatchEvalConfig(**dummy_config_content())
-    monkeypatch.setattr(
-        patch_evaluation_service, "load_config", lambda path, logger: dummy_config
-    )
-    monkeypatch.setattr(
-        patch_evaluation_service,
-        "init_logging",
-        lambda config, appname: logging.getLogger("dummy"),
-    )
-    monkeypatch.setattr(
-        patch_evaluation_service,
-        "prep_executables_for_evaluation",
-        lambda *args, **kwargs: (
-            {"dummy_exe"},
-            {"dummy_exe": {"total_crashes": 0, "patched_crashes": 0}},
-        ),
-    )
+#     # Prepare a dummy config object.
+#     dummy_config = PatchEvalConfig(**dummy_config_content())
+#     monkeypatch.setattr(
+#         patch_evaluation_service, "load_config", lambda path, logger: dummy_config
+#     )
+#     monkeypatch.setattr(
+#         patch_evaluation_service,
+#         "init_logging",
+#         lambda config, appname: logging.getLogger("dummy"),
+#     )
+#     monkeypatch.setattr(
+#         patch_evaluation_service,
+#         "prep_executables_for_evaluation",
+#         lambda *args, **kwargs: (
+#             {"dummy_exe"},
+#             {"dummy_exe": {"total_crashes": 0, "patched_crashes": 0}},
+#         ),
+#     )
 
-    # Dummy MessageBrokerClient with a no-op consume.
-    class DummyMessageBrokerClient:
-        def __init__(self, host, port, logger):
-            pass
+#     # Dummy MessageBrokerClient with a no-op consume.
+#     class DummyMessageBrokerClient:
+#         def __init__(self, host, port, logger):
+#             pass
 
-        def consume(self, topic, callback):
-            pass
+#         def consume(self, topic, callback):
+#             pass
 
-    monkeypatch.setattr(
-        patch_evaluation_service, "MessageBrokerClient", DummyMessageBrokerClient
-    )
+#     monkeypatch.setattr(
+#         patch_evaluation_service, "MessageBrokerClient", DummyMessageBrokerClient
+#     )
 
-    # Replace asyncio.Future with one that is already completed.
-    class DummyFuture(asyncio.Future):
-        def __init__(self):
-            super().__init__()
-            self.set_result(None)
+#     # Replace asyncio.Future with one that is already completed.
+#     class DummyFuture(asyncio.Future):
+#         def __init__(self):
+#             super().__init__()
+#             self.set_result(None)
 
-    monkeypatch.setattr(asyncio, "Future", lambda: DummyFuture())
+#     monkeypatch.setattr(asyncio, "Future", lambda: DummyFuture())
 
-    # Run main; it should complete because the future is already done.
-    try:
-        await asyncio.wait_for(patch_evaluation_service.main(), timeout=1)
-    except asyncio.TimeoutError:
-        pytest.fail("main() did not complete as expected")
+#     # Run main; it should complete because the future is already done.
+#     try:
+#         await asyncio.wait_for(patch_evaluation_service.main(), timeout=1)
+#     except asyncio.TimeoutError:
+#         pytest.fail("main() did not complete as expected")

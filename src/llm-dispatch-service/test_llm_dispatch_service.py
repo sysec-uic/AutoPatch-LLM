@@ -7,7 +7,6 @@ from types import SimpleNamespace
 from typing import Final
 from unittest.mock import MagicMock
 
-import llm_dispatch_svc
 import pytest
 from llm_dispatch_svc import (
     full_prompt,
@@ -15,21 +14,16 @@ from llm_dispatch_svc import (
     load_config,
     read_file,
     unwrap_raw_llm_response,
-    update_diff_filename,
 )
 from llm_dispatch_svc_config import LLMDispatchSvcConfig
-
-# import paho.mqtt.client as mqtt_client
 
 llm_dispatch_svc_module_name_str: Final[str] = "llm_dispatch_svc"
 
 
 def mock_LLMDispatchSvcConfig() -> LLMDispatchSvcConfig:
     mock_config = {
-        "cpg_scan_result_input_topic": "autopatch/cpg-scan-result",
-        "devonlyinputfilepath": "/workspace/AutoPatch-LLM/src/llm-dispatch/data/dummy_c_file.c",
         "appName": "autopatch.llm-dispatch",
-        "appVersion": "0.5.0-alpha",
+        "appVersion": "0.8.0-beta",
         "appDescription": "A system for managing and dispatching requests to various language models.",
         "system_prompt_full_path": "/workspace/AutoPatch-LLM/src/llm-dispatch/data/prompts/system_prompt.txt",
         "user_prompt_full_path": "/workspace/AutoPatch-LLM/src/llm-dispatch/data/prompts/user_prompt.txt",
@@ -45,6 +39,7 @@ def mock_LLMDispatchSvcConfig() -> LLMDispatchSvcConfig:
         "message_broker_client_id": "autopatch-llm-dispatch-client",
         "message_broker_host": "mqtt",
         "message_broker_port": 1883,
+        "cpg_scan_result_input_topic": "autopatch/cpg-scan-result",
         "message_broker_topics": {
             "request": "llm/dispatch/request",
             "response": "llm/dispatch/response",
@@ -106,22 +101,6 @@ def mock_logger(monkeypatch):
     logger = MockLogger()
     monkeypatch.setattr("llm_dispatch_svc.logger", logger)
     return logger
-
-
-# @pytest.fixture(autouse=True)
-# def mock_message_broker_client(monkeypatch):
-#     class DummyMessageBrokerClient:
-#         def __init__(self, *args, **kwargs):
-#             self.client = mock.Mock(spec=mqtt_client.Client)
-
-#         def publish(self, topic, message):
-#             # Optionally, record calls or simply do nothing.
-#             # self.client.publish(topic, message)
-#             pass
-
-#     monkeypatch.setattr(
-#         llm_dispatch_svc, "MessageBrokerClient", DummyMessageBrokerClient
-#     )
 
 
 # A fixed datetime class to always return the same timestamp.
@@ -256,67 +235,6 @@ def test_monkeypatched_re(monkeypatch):
 
 
 # -------------------------------------
-# Tests for update_diff_filename
-# -------------------------------------
-
-
-def test_normal_diff_update():
-    diff_str = "--- oldfile.c\n+++ oldfile.c\n@@ -1,4 +1,4 @@\n int main() {"
-    new_filename = "newfile.c"
-    expected = "--- newfile.c\n+++ newfile.c\n@@ -1,4 +1,4 @@\n int main() {"
-    result = update_diff_filename(diff_str, new_filename)
-    assert result == expected
-
-
-def test_missing_prefixes():
-    diff_str = "oldfile.c\noldfile.c\n@@ -1 +1 @@\n int main()"
-    new_filename = "newfile.c"
-    # Should remain unchanged as lines don't start with --- or +++
-    assert update_diff_filename(diff_str, new_filename) == diff_str
-
-
-def test_insufficient_lines():
-    diff_str = "--- oldfile.c"  # Only one line
-    new_filename = "newfile.c"
-    expected = "--- oldfile.c"  # No change should occur
-    assert update_diff_filename(diff_str, new_filename) == expected
-
-
-def test_empty_diff():
-    diff_str = ""
-    new_filename = "newfile.c"
-    assert update_diff_filename(diff_str, new_filename) == ""
-
-
-def test_only_prefix_line_updated():
-    diff_str = "--- oldfile.c\n unchanged line"
-    new_filename = "newfile.c"
-    expected = "--- newfile.c\n unchanged line"
-    assert update_diff_filename(diff_str, new_filename) == expected
-
-
-def test_filename_with_spaces():
-    diff_str = "--- old file.c\n+++ old file.c\n@@ -1 +1 @@\n int main()"
-    new_filename = "new file.c"
-    expected = "--- new file.c\n+++ new file.c\n@@ -1 +1 @@\n int main()"
-    assert update_diff_filename(diff_str, new_filename) == expected
-
-
-def test_new_filename_is_empty():
-    diff_str = "--- oldfile.c\n+++ oldfile.c\n"
-    new_filename = ""
-    expected = "--- \n+++ "
-    assert update_diff_filename(diff_str, new_filename) == expected
-
-
-def test_multiline_no_change():
-    diff_str = "not a diff\n@@ -1 +1 @@\n int x;"
-    new_filename = "newfile.c"
-    # No --- or +++, so nothing should change
-    assert update_diff_filename(diff_str, new_filename) == diff_str
-
-
-# -------------------------------------
 # Tests for read_file
 # -------------------------------------
 
@@ -401,119 +319,89 @@ async def test_read_file_invalid_utf8_binary_content(tmp_path):
 # Tests for full_prompt
 # -------------------------------------
 
+HELLO_WORLD_C: Final[
+    str
+] = """#include <stdio.h>
+
+int main() {
+    printf("Hello, world!\\n");
+    return 0;
+}
+"""
+
 
 @pytest.mark.asyncio
-async def test_full_prompt_normal(monkeypatch, tmp_path):
-    # Assemble
-    # Prepare files and their contents
-    system_file = tmp_path / "system.txt"
-    user_file = tmp_path / "user.txt"
-    dev_file = tmp_path / "dev.txt"
-
-    system_file.write_text("System")
-    user_file.write_text("User")
-    dev_file.write_text("C code")
-
-    mock_config = mock_LLMDispatchSvcConfig()
-    mock_config.devonlyinputfilepath = str(dev_file)
-    llm_dispatch_svc.config = mock_config
-
-    # Patch read_file
+async def test_full_prompt_normal(monkeypatch, mock_logger):
     async def mock_read_file(path):
-        return Path(path).read_text()
+        return HELLO_WORLD_C
 
     monkeypatch.setattr("llm_dispatch_svc.read_file", mock_read_file)
 
-    # Act
-    result = await full_prompt(str(system_file), str(user_file))
-    expected = "System\nUser\n---\nC code"
-
-    # Assert
+    result = await full_prompt("system.txt", "user.txt", "program.c")
+    expected = f"{HELLO_WORLD_C}\n{HELLO_WORLD_C}\n---\n{HELLO_WORLD_C}"
     assert result == expected
+
+    assert any(
+        "Created Full Prompt for: program.c" in msg for msg in mock_logger.messages
+    )
+    assert any("Full prompt:" in msg for msg in mock_logger.messages)
 
 
 @pytest.mark.asyncio
-async def test_full_prompt_empty_files(monkeypatch, tmp_path):
-    # Assemble
-    system_file = tmp_path / "system.txt"
-    user_file = tmp_path / "user.txt"
-    dev_file = tmp_path / "dev.txt"
-
-    system_file.write_text("")
-    user_file.write_text("")
-    dev_file.write_text("")
-
-    mock_config = mock_LLMDispatchSvcConfig()
-    mock_config.devonlyinputfilepath = str(dev_file)
-    llm_dispatch_svc.config = mock_config
-
+async def test_full_prompt_empty_files(monkeypatch):
     async def mock_read_file(path):
         return ""
 
     monkeypatch.setattr("llm_dispatch_svc.read_file", mock_read_file)
 
-    # Act
-    result = await full_prompt(str(system_file), str(user_file))
-
-    # Assert
+    result = await full_prompt("empty_system.txt", "empty_user.txt", "empty_program.c")
     assert result == "\n\n---\n"
 
 
 @pytest.mark.asyncio
-async def test_full_prompt_missing_config_path(monkeypatch, tmp_path):
-    # Assemble
-    system_file = tmp_path / "system.txt"
-    user_file = tmp_path / "user.txt"
-    system_file.write_text("System")
-    user_file.write_text("User")
-
-    mock_config = mock_LLMDispatchSvcConfig()
-    mock_config.devonlyinputfilepath = "/non/existent/file.txt"
-    llm_dispatch_svc.config = mock_config
+async def test_full_prompt_large_file(monkeypatch):
+    large_data = HELLO_WORLD_C * 1000
 
     async def mock_read_file(path):
-        if "non/existent" in path:
-            raise FileNotFoundError("File not found")
-        return Path(path).read_text()
+        return large_data
 
     monkeypatch.setattr("llm_dispatch_svc.read_file", mock_read_file)
 
-    # Assert
-    with pytest.raises(FileNotFoundError):
-        # Act
-        await full_prompt(str(system_file), str(user_file))
+    result = await full_prompt("large_system.txt", "large_user.txt", "large_program.c")
+    expected = f"{large_data}\n{large_data}\n---\n{large_data}"
+    assert result == expected
 
 
 @pytest.mark.asyncio
-async def test_full_prompt_separator_format(monkeypatch, tmp_path):
-
-    # Assemble
-    system_file = tmp_path / "system.txt"
-    user_file = tmp_path / "user.txt"
-    dev_file = tmp_path / "dev.txt"
-
-    system_file.write_text("SYS")
-    user_file.write_text("USR")
-    dev_file.write_text("CODE")
-
-    mock_config = mock_LLMDispatchSvcConfig()
-    mock_config.devonlyinputfilepath = str(dev_file)
-    llm_dispatch_svc.config = mock_config
-
+async def test_full_prompt_missing_file(monkeypatch):
     async def mock_read_file(path):
-        return Path(path).read_text()
+        raise FileNotFoundError(f"{path} not found")
 
     monkeypatch.setattr("llm_dispatch_svc.read_file", mock_read_file)
 
-    # Act
-    result = await full_prompt(str(system_file), str(user_file))
+    with pytest.raises(FileNotFoundError):
+        await full_prompt("missing_system.txt", "missing_user.txt", "missing_program.c")
 
-    # Assert
-    assert "\n---\n" in result
+
+@pytest.mark.asyncio
+async def test_full_prompt_mixed_content(monkeypatch):
+    async def mock_read_file(path):
+        filename = Path(path).name
+        if filename == "program.c":
+            return HELLO_WORLD_C
+        return f"// {filename} instructions"
+
+    monkeypatch.setattr("llm_dispatch_svc.read_file", mock_read_file)
+
+    result = await full_prompt("system.txt", "user.txt", "program.c")
+    expected = (
+        "// system.txt instructions\n// user.txt instructions\n---\n" + HELLO_WORLD_C
+    )
+    assert result == expected
 
 
 # -------------------------------------
-# Tests for full_prompt
+# Tests for init_llm_client
 # -------------------------------------
 
 
