@@ -9,16 +9,16 @@ from typing import Final
 from unittest.mock import MagicMock
 
 import pytest
+from autopatchdatatypes import CpgScanResult, PatchResponse, TransformerMetadata
 from llm_dispatch_svc import (
     create_patch_response,
+    format_cpg_scan_context,
     full_prompt,
     init_llm_client,
     load_config,
     read_file,
-    unwrap_raw_llm_response,
-    format_cpg_scan_context,
+    unwrap_raw_llm_response
 )
-from autopatchdatatypes import PatchResponse, TransformerMetadata, CpgScanResult
 from llm_dispatch_svc_config import LLMDispatchSvcConfig
 
 llm_dispatch_svc_module_name_str: Final[str] = "llm_dispatch_svc"

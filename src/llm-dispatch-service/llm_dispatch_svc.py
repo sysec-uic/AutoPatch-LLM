@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 import asyncio
 import base64
 import json
@@ -7,7 +6,7 @@ import os
 import re
 import sys
 from abc import ABC, abstractmethod
-from typing import Dict, Final, List, Set, Optional
+from typing import Dict, Final, List, Optional, Set
 
 import openai
 from autopatchdatatypes import CpgScanResult, PatchResponse, TransformerMetadata
@@ -345,7 +344,7 @@ def on_consume_cpg_scan_result(cloud_event_str: str) -> None:
     It uses the globally stored event_loop to schedule a call to
     async_queue.put_nowait in a thread‑safe manner.
     """
-    logger.info(f"Received CPG scan result message, scheduling for async processing.")
+    logger.info("Received CPG scan result message, scheduling for async processing.")
     logger.debug(f"Raw CPG scan result message: {cloud_event_str}")
     # Schedule adding the event to the async queue.
     # Use call_soon_threadsafe so that this function can be safely called
@@ -792,13 +791,20 @@ async def create_patch_responses(
     concurrency_threshold: int = 10,  # Concurrency applies to LLM calls, not this mapping
 ) -> List[PatchResponse]:
     """
-    Creates patch responses from a list of raw responses for a SINGLE source file/program.
+    Creates patch responses from a list of raw 
+    responses for a SINGLE source file/program.
 
     Parameters:
-        raw_responses (List[Dict[str, str]]): A list of dictionaries containing raw response data from different LLMs for the same input.
+        raw_responses (List[Dict[str, str]]): A list of 
+          dictionaries containing raw response data from
+          different LLMs for the same input.
         source_filename_or_program_name_under_consideration_unique_id (str):
-            The unique identifier (e.g., source filename) corresponding to ALL raw responses in the list.
-        concurrency_threshold (int, optional): This parameter is less relevant here as mapping is usually fast. Kept for signature consistency but not used for concurrency logic within this function.
+            The unique identifier (e.g., source filename)
+            corresponding to ALL raw responses in the list.
+        concurrency_threshold (int, optional): This parameter
+        is less relevant here as mapping is usually fast. Kept for
+        signature consistency but not used for concurrency logic
+        within this function.
 
     Returns:
         List[PatchResponse]: A list of patch responses generated from the raw responses.
