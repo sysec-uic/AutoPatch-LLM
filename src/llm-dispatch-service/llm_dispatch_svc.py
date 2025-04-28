@@ -17,7 +17,6 @@ from cloudevents.http import CloudEvent
 from llm_dispatch_svc_config import LLMDispatchSvcConfig
 from openai import OpenAI
 
-
 async_cpg_scan_results_queue = asyncio.Queue()
 event_loop: asyncio.AbstractEventLoop
 
@@ -1050,9 +1049,7 @@ async def main():
         sys.exit(1)
 
     _dir_contents = os.listdir(config.input_codebase_full_path)
-    _wait_time = len(_dir_contents) * 30
-    if _wait_time < 300:
-        _wait_time = 300
+    _wait_time = max(300, len(_dir_contents) * 30)
 
     # Allow some time for connections and potential initial messages
     logger.info(
