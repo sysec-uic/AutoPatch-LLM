@@ -1,3 +1,4 @@
+import base64
 import logging
 import re
 from datetime import datetime as real_datetime
@@ -9,12 +10,15 @@ from unittest.mock import MagicMock
 
 import pytest
 from llm_dispatch_svc import (
+    create_patch_response,
     full_prompt,
     init_llm_client,
     load_config,
     read_file,
     unwrap_raw_llm_response,
+    format_cpg_scan_context,
 )
+from autopatchdatatypes import PatchResponse, TransformerMetadata, CpgScanResult
 from llm_dispatch_svc_config import LLMDispatchSvcConfig
 
 llm_dispatch_svc_module_name_str: Final[str] = "llm_dispatch_svc"
@@ -117,6 +121,86 @@ class FixedDatetime:
     @classmethod
     def fromisoformat(cls, iso_str):
         return real_datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
+
+
+# -------------------------------------
+# Tests for format_cpg_scan_context
+# -------------------------------------
+
+
+def test_format_cpg_scan_context_normal_case():
+    """
+    Tests the function with a typical, valid CpgScanResult object.
+    """
+    scan_result = CpgScanResult(
+        executable_name="my_program.c",
+        vulnerability_severity=7.5,
+        vulnerable_line_number=123,
+        vulnerable_function="process_input",
+        vulnerability_description="Potential buffer overflow via strcpy",
+    )
+    expected_output = (
+        "Vulnerability Context:\n"
+        "- Executable Name: my_program.c\n"
+        "- Severity Score: 7.5\n"
+        "- Vulnerable Line: 123\n"
+        "- Vulnerable Function: process_input\n"
+        "- Description: Potential buffer overflow via strcpy\n"
+    )
+    assert format_cpg_scan_context(scan_result) == expected_output
+
+
+def test_format_cpg_scan_context_robust_empty_strings_zero_severity():
+    """
+    Tests the function with empty strings for text fields and zero/low severity.
+    """
+    scan_result = CpgScanResult(
+        executable_name="",
+        vulnerability_severity=0.0,
+        vulnerable_line_number=0,  # Line number 0 is possible in some contexts or just an edge/robust case
+        vulnerable_function="",
+        vulnerability_description="",
+    )
+    expected_output = (
+        "Vulnerability Context:\n"
+        "- Executable Name: \n"
+        "- Severity Score: 0.0\n"
+        "- Vulnerable Line: 0\n"
+        "- Vulnerable Function: \n"
+        "- Description: \n"
+    )
+    assert format_cpg_scan_context(scan_result) == expected_output
+
+
+def test_format_cpg_scan_context_robust_special_chars_severity():
+    """
+    Tests the function with special characters in strings and a different severity.
+    """
+    scan_result = CpgScanResult(
+        executable_name="/path/to/program with spaces.elf",
+        vulnerability_severity=9.9,
+        vulnerable_line_number=42,
+        vulnerable_function="main (argc, argv[])",
+        vulnerability_description="XSS vulnerability <script>alert('XSS')</script>",
+    )
+    expected_output = (
+        "Vulnerability Context:\n"
+        "- Executable Name: /path/to/program with spaces.elf\n"
+        "- Severity Score: 9.9\n"
+        "- Vulnerable Line: 42\n"
+        "- Vulnerable Function: main (argc, argv[])\n"
+        "- Description: XSS vulnerability <script>alert('XSS')</script>\n"
+    )
+    assert format_cpg_scan_context(scan_result) == expected_output
+
+
+def test_format_cpg_scan_context_edge_case_none_input():
+    """
+    Tests the function with None as the input context, which is an explicitly handled edge case.
+    """
+    scan_result = None
+    expected_output = ""
+    assert format_cpg_scan_context(scan_result) == expected_output
 
 
 # -------------------------------------
@@ -271,10 +355,10 @@ async def test_read_file_file_not_found(tmp_path):
     # Assemble
     non_existent = tmp_path / "missing.txt"
 
+    # Act
+    result = await read_file(str(non_existent))
     # Assert
-    with pytest.raises(FileNotFoundError):
-        # Act
-        await read_file(str(non_existent))
+    assert result == ""
 
 
 @pytest.mark.asyncio
@@ -298,10 +382,11 @@ async def test_read_file_utf8_binary_content(tmp_path):
     binary_data = b"\xff\xfe\xfa"  # Invalid UTF-8 bytes
     test_file.write_bytes(binary_data)
 
+    # Act
+    result = await read_file(str(test_file))
+
     # Assert
-    with pytest.raises(UnicodeDecodeError):
-        # Act
-        await read_file(str(test_file))
+    assert result == ""
 
 
 @pytest.mark.asyncio
@@ -337,8 +422,49 @@ async def test_full_prompt_normal(monkeypatch, mock_logger):
 
     monkeypatch.setattr("llm_dispatch_svc.read_file", mock_read_file)
 
-    result = await full_prompt("system.txt", "user.txt", "program.c")
-    expected = f"{HELLO_WORLD_C}\n{HELLO_WORLD_C}\n---\n{HELLO_WORLD_C}"
+    cpgscanresult = CpgScanResult(
+        executable_name="program.c",
+        vulnerability_severity=7.5,
+        vulnerable_line_number=123,
+        vulnerable_function="process_input",
+        vulnerability_description="Potential buffer overflow via strcpy",
+    )
+    expected: Final[
+        str
+    ] = """#include <stdio.h>
+
+int main() {
+    printf("Hello, world!\\n");
+    return 0;
+}
+
+#include <stdio.h>
+
+int main() {
+    printf("Hello, world!\\n");
+    return 0;
+}
+
+Vulnerability Context:
+- Executable Name: program.c
+- Severity Score: 7.5
+- Vulnerable Line: 123
+- Vulnerable Function: process_input
+- Description: Potential buffer overflow via strcpy
+
+Here is the source code (starting at line 1):
+---
+
+#include <stdio.h>
+
+int main() {
+    printf("Hello, world!\\n");
+    return 0;
+}
+"""
+
+    # Act
+    result = await full_prompt("system.txt", "user.txt", "program.c", cpgscanresult)
     assert result == expected
 
     assert any(
@@ -355,7 +481,7 @@ async def test_full_prompt_empty_files(monkeypatch):
     monkeypatch.setattr("llm_dispatch_svc.read_file", mock_read_file)
 
     result = await full_prompt("empty_system.txt", "empty_user.txt", "empty_program.c")
-    assert result == "\n\n---\n"
+    assert result == "Here is the source code (starting at line 1):\n---\n"
 
 
 @pytest.mark.asyncio
@@ -495,3 +621,116 @@ async def test_init_llm_client_api_llm_failure(monkeypatch):
     with pytest.raises(ValueError, match="bad model"):
         # Act
         await init_llm_client(["invalid"], "badkey", "url")
+
+
+# -------------------------------------
+# Tests for create_patch_response
+# -------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_create_patch_response_with_colon(monkeypatch):
+    def mock_unwrap_raw_llm_response(response):
+        return "patched_code_here"
+
+    monkeypatch.setattr(
+        "llm_dispatch_svc.unwrap_raw_llm_response", mock_unwrap_raw_llm_response
+    )
+
+    raw_response = {
+        "response": "some_raw_patch",
+        "llm_name": "meta-llama/llama-4-maverick:free",
+    }
+    program_uid = "test_program.c"
+
+    result = await create_patch_response(raw_response, program_uid)
+
+    expected_patch_snippet = base64.b64encode(b"patched_code_here").decode("utf-8")
+    assert isinstance(result, PatchResponse)
+    assert result.executable_name == "test_program"
+    assert result.patch_snippet_base64 == expected_patch_snippet
+    assert result.status == "success"
+    assert result.TransformerMetadata == TransformerMetadata(
+        llm_name="llama-4-maverick",
+        llm_flavor="meta-llama",
+        llm_version="not available",
+    )
+
+
+@pytest.mark.asyncio
+async def test_create_patch_response_without_colon(monkeypatch):
+    def mock_unwrap_raw_llm_response(response):
+        return "another_patch_content"
+
+    monkeypatch.setattr(
+        "llm_dispatch_svc.unwrap_raw_llm_response", mock_unwrap_raw_llm_response
+    )
+
+    raw_response = {
+        "response": "raw_patch_data",
+        "llm_name": "google/gemini-2.5-pro-preview-03-25",
+    }
+    program_uid = "program_under_test.c"
+
+    result = await create_patch_response(raw_response, program_uid)
+
+    expected_patch_snippet = base64.b64encode(b"another_patch_content").decode("utf-8")
+    assert isinstance(result, PatchResponse)
+    assert result.executable_name == "program_under_test"
+    assert result.patch_snippet_base64 == expected_patch_snippet
+    assert result.status == "success"
+    assert result.TransformerMetadata == TransformerMetadata(
+        llm_name="gemini-2.5-pro-preview-03-25",
+        llm_flavor="google",
+        llm_version="not available",
+    )
+
+
+@pytest.mark.asyncio
+async def test_create_patch_response_no_patch(monkeypatch):
+
+    def mock_unwrap_raw_llm_response(response):
+        return "No response"
+
+    monkeypatch.setattr(
+        "llm_dispatch_svc.unwrap_raw_llm_response", mock_unwrap_raw_llm_response
+    )
+
+    raw_response = {
+        "response": "no_patch",
+        "llm_name": "some-provider/some-model",
+    }
+    program_uid = "nopatch_program.c"
+
+    result = await create_patch_response(raw_response, program_uid)
+
+    expected_patch_snippet = base64.b64encode(b"No response").decode("utf-8")
+    assert isinstance(result, PatchResponse)
+    assert result.executable_name == "nopatch_program"
+    assert result.patch_snippet_base64 == expected_patch_snippet
+    assert result.status == "fail"
+    assert result.TransformerMetadata == TransformerMetadata(
+        llm_name="some-model",
+        llm_flavor="some-provider",
+        llm_version="not available",
+    )
+
+
+@pytest.mark.asyncio
+async def test_create_patch_response_program_name_no_suffix(monkeypatch):
+    def mock_unwrap_raw_llm_response(response):
+        return "patched_data"
+
+    monkeypatch.setattr(
+        "llm_dispatch_svc.unwrap_raw_llm_response", mock_unwrap_raw_llm_response
+    )
+
+    raw_response = {
+        "response": "some_response",
+        "llm_name": "org/example-model:paid",
+    }
+    program_uid = "already_clean_name"
+
+    result = await create_patch_response(raw_response, program_uid)
+
+    assert result.executable_name == "already_clean_name"  # No .c suffix to remove

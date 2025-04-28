@@ -559,7 +559,6 @@ def test_load_config(monkeypatch):
             "message_broker_port": 1883,
             "autopatch_crash_detail_input_topic": "autopatch/crash_detail",
             "autopatch_patch_response_input_topic": "autopatch/patch_response",
-            "model_names": ["mistral-small-3.1-24b-instruct"],
         }
 
     # Assemble
