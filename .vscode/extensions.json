@@ -1,5 +1,6 @@
 {
     "recommendations": [
+        "vscode-icons-team.vscode-icons",
         "ms-python.python",
         "ms-vscode.cpptools-extension-pack",
         "tomoki1207.pdf",
@@ -12,6 +13,12 @@
         "GitHub.copilot-chat",
         "task.vscode-task",
         "ms-python.isort",
-        "ms-python.black-formatter"
+        "ms-python.black-formatter",
+        "mechatroner.rainbow-csv",
+        "bierner.markdown-mermaid",
+        "bpruitt-goddard.mermaid-markdown-syntax-highlighting",
+        "MS-vsliveshare.vsliveshare",
+        "GitHub.vscode-github-actions",
+        "ryanluker.vscode-coverage-gutters"
     ]
 }
