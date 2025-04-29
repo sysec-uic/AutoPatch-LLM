@@ -19,6 +19,7 @@ from patch_evaluation_service import (
     compile_file,
     map_cloud_event_as_crash_detail,
     on_consume_crash_detail,
+    prep_programs_for_evaluation,
     run_file_async,
     write_crashes_csv,
 )
@@ -54,6 +55,7 @@ def dummy_config_content() -> Dict:
         "message_broker_port": 1883,
         "autopatch_crash_detail_input_topic": "autopatch/crash_detail",
         "autopatch_patch_response_input_topic": "autopatch/patch_response",
+        "make_tool_full_path": "/usr/bin/make",
     }
 
 
@@ -559,6 +561,7 @@ def test_load_config(monkeypatch):
             "message_broker_port": 1883,
             "autopatch_crash_detail_input_topic": "autopatch/crash_detail",
             "autopatch_patch_response_input_topic": "autopatch/patch_response",
+            "make_tool_full_path": "/usr/bin/make",
             "model_names": ["mistral-small-3.1-24b-instruct"],
         }
 
@@ -598,6 +601,50 @@ class DummyEventLoop:
         self.calls.append((callback, args))
         # simulate immediate invocation
         callback(*args)
+
+
+@pytest.mark.asyncio
+async def test_prep_programs_for_evaluation(monkeypatch, tmp_path):
+    # Assemble
+    def fake_compile_file(
+        file_path,
+        file_name,
+        executable_path,
+        compiler_tool_full_path,
+        compiler_warning_flags,
+        compiler_feature_flags,
+        compile_timeout,
+    ):
+        # For testing, simply return the file name without extension.
+        return file_name.split(".")[0]
+
+    # Create a dummy patched codes directory with two files.
+    patched_codes_dir = tmp_path / "patches"
+    patched_codes_dir.mkdir()
+    (patched_codes_dir / "file1.c").write_text("dummy")
+    (patched_codes_dir / "file2.c").write_text("dummy")
+    executables_dir = tmp_path / "executables"
+    executables_dir.mkdir()
+
+    monkeypatch.setattr("patch_evaluation_service.compile_file", fake_compile_file)
+
+    # Act
+
+    executables, results_dict = await prep_programs_for_evaluation(
+        str(executables_dir),
+        str(patched_codes_dir),
+        "dummy_compiler",
+        "-Wall",
+        "-std=c99",
+        5,
+        "dummy_make",
+    )
+
+    # Assert
+    assert "file1" in executables
+    assert "file2" in executables
+    assert results_dict["file1"]["total_crashes"] == 0
+    assert results_dict["file1"]["patched_crashes"] == 0
 
 
 @pytest.fixture

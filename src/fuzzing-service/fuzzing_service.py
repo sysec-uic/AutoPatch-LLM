@@ -402,7 +402,7 @@ async def main():
 
     # for regular compilation: source the compiler, plus for execution need to source the input of the crashes althoguth this is
     # maybe just acquired from the crash detail object?
-
+    isInputFromFile = False
     for file_name in _source_files:
         # get the full path of the file or the project directory
         file_name_fully_qualified_path = os.path.join(
