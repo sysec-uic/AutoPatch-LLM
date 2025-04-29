@@ -54,7 +54,6 @@ async def run_file_async(
         return -1
 
     crash_bytes = base64.b64decode(crash_detail.base64_message)
-    crash = crash_bytes.decode("utf-8", errors="replace")
     proc = None  # Initialize proc for cleanup in case of timeout
 
     try:
@@ -75,15 +74,10 @@ async def run_file_async(
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            stdout, stderr = await asyncio.wait_for(
+            await asyncio.wait_for(
                 proc.communicate(input=crash_bytes),
                 timeout=timeout,
             )
-
-        logger.debug(f"stdout: {stdout.decode()}")
-        logger.debug(f"stderr: {stderr.decode()}")
-        logger.info(f"stdout: {stdout.decode()}")
-        logger.info(f"stderr: {stderr.decode()}")
 
     except asyncio.TimeoutError:
         if proc:
@@ -98,6 +92,7 @@ async def run_file_async(
 
     # Process return code handling:
     if proc.returncode == 0:
+        crash: Final[str] = crash_bytes.decode("utf-8", errors="replace")
         logger.debug(f"File {executable_name} ran with input {crash} without errors.")
         return 0
     elif proc.returncode == 1:
@@ -445,7 +440,7 @@ async def handle_ready(
     logger.info("Results: " + str(results))
 
 
-async def map_updater(timeout_seconds: int = 260):
+async def map_updater(timeout_seconds: int = 340):
     timed_out_uids: Set[str] = (
         set()
     )  # as we can have multiple LLMs creating patches for a uid
@@ -732,13 +727,28 @@ async def main():
 
     executables_to_process, results = await task
 
-    await asyncio.gather(
-        crash_detail_consumer(),
-        patch_response_consumer(),
-        map_updater(),
-    )
+    try:
+        # Keep running until consumer stops or is cancelled
+        await asyncio.gather(
+            crash_detail_consumer(),
+            patch_response_consumer(),
+            map_updater(),
+        )
+    except asyncio.CancelledError:
+        logger.info("Consumer task cancelled.")
+    except Exception as e:
+        logger.error(f"Consumer task exited with error: {e}", exc_info=True)
+
+    logger.info("Shutting down.")
 
 
 if __name__ == "__main__":
-    # Run the event loop
-    asyncio.run(main())
+    try:
+        # Run the event loop
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("Interrupted by user. Exiting.")
+    except Exception as e:
+        # Catch top-level exceptions during startup/shutdown
+        logging.error(f"Unhandled exception in main execution: {e}", exc_info=True)
+        sys.exit(1)
