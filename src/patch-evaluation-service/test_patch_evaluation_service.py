@@ -78,9 +78,6 @@ def fake_message_broker_client(monkeypatch):
     )
 
 
-# # --- Tests for compile_file ---
-
-
 # A dummy logger to capture logger calls.
 class DummyLogger(logging.Logger):
     def __init__(self):
@@ -384,31 +381,6 @@ async def test_run_file_async_signal(monkeypatch):
 
 # # --- Tests for write_crashes_csv and log_crash_information ---
 
-# # A dummy logger to capture logger calls.
-# class DummyLogger(logging.Logger):
-#     def __init__(self):
-#         super().__init__(name="dummy")
-#         self.messages = []
-#         self.level = logging.DEBUG
-
-#     def info(self, msg):
-#         self.messages.append(msg)
-
-#     def debug(self, msg):  # noqa: A003
-#         self.messages.append(msg)
-
-#     def error(self, msg):
-#         self.messages.append(msg)
-
-#     def log(self, level, msg, *args, **kwargs):  # noqa: A003
-#         self.messages.append(msg)
-
-# @pytest.fixture(autouse=True)
-# def mock_logger(monkeypatch):
-#     logger = DummyLogger()
-#     monkeypatch.setattr("patch_evaluation_service.logger", logger)
-#     return logger
-
 
 @pytest.fixture(autouse=True)
 def fixed_timestamp(monkeypatch):
@@ -664,106 +636,3 @@ def test_exception_propagates(monkeypatch):
     )
     with pytest.raises(RuntimeError):
         on_consume_crash_detail("data")
-
-
-# # --- Test for crash_detail_consumer ---
-
-
-# @pytest.mark.asyncio
-# async def test_crash_detail_consumer(monkeypatch):
-#     # Assemble
-#     called = False
-
-#     async def fake_process_item(item):
-#         nonlocal called
-#         called = True
-
-#     monkeypatch.setattr(patch_evaluation_service, "process_item", fake_process_item)
-
-#     # Enqueue a dummy cloud event.
-#     dummy_event = json.dumps(
-#         {
-#             "data": {
-#                 "executable_name": "dummy_exe",
-#                 "crash_detail_base64": base64.b64encode("crash".encode()).decode(),
-#                 "is_input_from_file": False,
-#             }
-#         }
-#     )
-#     patch_evaluation_service.async_crash_details_queue.put_nowait(dummy_event)
-
-#     # Act
-#     # Run the consumer briefly.
-#     consumer_task = asyncio.create_task(
-#         patch_evaluation_service.crash_detail_consumer()
-#     )
-#     await asyncio.sleep(0.1)
-#     consumer_task.cancel()
-#     try:
-#         await consumer_task
-#     except asyncio.CancelledError:
-#         pass
-
-#     # Assert
-#     assert called is True
-
-
-# --- Test for main() ---
-#
-
-
-# @pytest.mark.asyncio
-# async def test_main(monkeypatch, tmp_path):
-
-#     # Because main() enters an infinite wait at the end, we monkeypatch asyncio.Future to return a future that is
-#     # already done so that main() completes.
-
-#     # Assemble
-#     dummy_config_path = str(tmp_path / "config.json")
-
-#     monkeypatch.setenv("PATCH_EVAL_SVC_CONFIG", dummy_config_path)
-
-#     # Prepare a dummy config object.
-#     dummy_config = PatchEvalConfig(**dummy_config_content())
-#     monkeypatch.setattr(
-#         patch_evaluation_service, "load_config", lambda path, logger: dummy_config
-#     )
-#     monkeypatch.setattr(
-#         patch_evaluation_service,
-#         "init_logging",
-#         lambda config, appname: logging.getLogger("dummy"),
-#     )
-#     monkeypatch.setattr(
-#         patch_evaluation_service,
-#         "prep_executables_for_evaluation",
-#         lambda *args, **kwargs: (
-#             {"dummy_exe"},
-#             {"dummy_exe": {"total_crashes": 0, "patched_crashes": 0}},
-#         ),
-#     )
-
-#     # Dummy MessageBrokerClient with a no-op consume.
-#     class DummyMessageBrokerClient:
-#         def __init__(self, host, port, logger):
-#             pass
-
-#         def consume(self, topic, callback):
-#             pass
-
-#     monkeypatch.setattr(
-#         patch_evaluation_service, "MessageBrokerClient", DummyMessageBrokerClient
-#     )
-
-#     # Replace asyncio.Future with one that is already completed.
-#     class DummyFuture(asyncio.Future):
-#         def __init__(self):
-#             super().__init__()
-#             self.set_result(None)
-
-#     monkeypatch.setattr(asyncio, "Future", lambda: DummyFuture())
-
-#     # Run main; it should complete because the future is already done.
-#     try:
-#         await asyncio.wait_for(patch_evaluation_service.main(), timeout=1)
-#     except asyncio.TimeoutError:
-#         pytest.fail("main() did not complete as expected")

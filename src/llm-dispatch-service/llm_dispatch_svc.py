@@ -113,7 +113,7 @@ def load_config(json_config_full_path: str) -> LLMDispatchSvcConfig:
     return LLMDispatchSvcConfig(**config_data)
 
 
-async def read_file(file_full_path: str) -> str:
+def read_file(file_full_path: str) -> str:
     """
     Asynchronously read the content of a file from a given full file path.
     Parameters:
@@ -125,7 +125,6 @@ async def read_file(file_full_path: str) -> str:
     if not file_full_path or not os.path.exists(file_full_path):
         logger.error(f"File does not exist or path is invalid: {file_full_path}")
         return ""
-    # Use async file reading if available/needed, otherwise stick to sync for simplicity here
     try:
         with open(file_full_path, "r", encoding="utf-8") as f:
             return f.read()
@@ -177,11 +176,9 @@ async def full_prompt(
     Returns:
         str: The fully constructed prompt.
     """
-    _system_prompt: Final[str] = await read_file(system_prompt_full_path)
-    _user_prompt: Final[str] = await read_file(user_prompt_full_path)
-    _c_program_source_code_to_patch: Final[str] = await read_file(
-        input_c_program_full_path
-    )
+    _system_prompt: Final[str] = read_file(system_prompt_full_path)
+    _user_prompt: Final[str] = read_file(user_prompt_full_path)
+    _c_program_source_code_to_patch: Final[str] = read_file(input_c_program_full_path)
 
     # Format the CPG context if it's provided
     _formatted_cpg_context: str = ""
@@ -1048,17 +1045,14 @@ async def main():
         await asyncio.sleep(1)  # Allow cancellation to process
         sys.exit(1)
 
-    _dir_contents = os.listdir(config.input_codebase_full_path)
-    _wait_time = max(300, len(_dir_contents) * 30)
-
     # Allow some time for connections and potential initial messages
     logger.info(
-        f"Allowing {str(_wait_time)}s for code property graph generation and message consumption..."
+        f"Allowing {str(config.cpg_gen_wait_time)}s for code property graph generation and message consumption..."
     )
-    await asyncio.sleep(_wait_time)
+    await asyncio.sleep(config.cpg_gen_wait_time)
     logger.info("Initial wait complete. Proceeding with file processing.")
 
-    for item in _dir_contents:
+    for item in os.listdir(config.input_codebase_full_path):
         item_path = os.path.join(config.input_codebase_full_path, item)
         if item.endswith(".c") and os.path.isfile(item_path):
             filenames.append(item)
@@ -1106,11 +1100,11 @@ async def main():
         logger.error(f"Consumer task exited with error: {e}", exc_info=True)
 
     logger.info("Shutting down.")
-    # Add any cleanup needed here (e.g., disconnect message broker)
 
 
 if __name__ == "__main__":
     try:
+        # Run the event loop
         asyncio.run(main())
     except KeyboardInterrupt:
         print("Interrupted by user. Exiting.")

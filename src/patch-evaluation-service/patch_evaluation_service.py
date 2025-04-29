@@ -727,13 +727,28 @@ async def main():
 
     executables_to_process, results = await task
 
-    await asyncio.gather(
-        crash_detail_consumer(),
-        patch_response_consumer(),
-        map_updater(),
-    )
+    try:
+        # Keep running until consumer stops or is cancelled
+        await asyncio.gather(
+            crash_detail_consumer(),
+            patch_response_consumer(),
+            map_updater(),
+        )
+    except asyncio.CancelledError:
+        logger.info("Consumer task cancelled.")
+    except Exception as e:
+        logger.error(f"Consumer task exited with error: {e}", exc_info=True)
+
+    logger.info("Shutting down.")
 
 
 if __name__ == "__main__":
-    # Run the event loop
-    asyncio.run(main())
+    try:
+        # Run the event loop
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("Interrupted by user. Exiting.")
+    except Exception as e:
+        # Catch top-level exceptions during startup/shutdown
+        logging.error(f"Unhandled exception in main execution: {e}", exc_info=True)
+        sys.exit(1)
