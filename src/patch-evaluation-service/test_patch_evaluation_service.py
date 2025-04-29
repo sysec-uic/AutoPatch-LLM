@@ -21,6 +21,7 @@ from patch_evaluation_service import (
     on_consume_crash_detail,
     run_file_async,
     write_crashes_csv,
+    prep_programs_for_evaluation,
 )
 
 
@@ -602,7 +603,8 @@ class DummyEventLoop:
         callback(*args)
 
 
-def test_prep_programs_for_evaluation(monkeypatch, tmp_path):
+@pytest.mark.asyncio
+async def test_prep_programs_for_evaluation(monkeypatch, tmp_path):
     # Assemble
     def fake_compile_file(
         file_path,
@@ -627,8 +629,8 @@ def test_prep_programs_for_evaluation(monkeypatch, tmp_path):
     monkeypatch.setattr("patch_evaluation_service.compile_file", fake_compile_file)
 
     # Act
- 
-    executables, results_dict = prep_programs_for_evaluation(
+
+    executables, results_dict = await prep_programs_for_evaluation(
         str(executables_dir),
         str(patched_codes_dir),
         "dummy_compiler",
@@ -636,20 +638,20 @@ def test_prep_programs_for_evaluation(monkeypatch, tmp_path):
         "-std=c99",
         5,
         "dummy_make",
-      )
+    )
 
-      # Assert
-      assert "file1" in executables
-      assert "file2" in executables
-      assert results_dict["file1"]["total_crashes"] == 0
-      assert results_dict["file1"]["patched_crashes"] == 0
+    # Assert
+    assert "file1" in executables
+    assert "file2" in executables
+    assert results_dict["file1"]["total_crashes"] == 0
+    assert results_dict["file1"]["patched_crashes"] == 0
+
 
 @pytest.fixture
 def dummy_queue(monkeypatch):
     dq = DummyQueue()
     monkeypatch.setattr(
         patch_evaluation_service, "async_crash_details_cloud_events_queue", dq
-
     )
     return dq
 
