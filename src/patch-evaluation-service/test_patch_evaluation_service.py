@@ -19,9 +19,9 @@ from patch_evaluation_service import (
     compile_file,
     map_cloud_event_as_crash_detail,
     on_consume_crash_detail,
+    prep_programs_for_evaluation,
     run_file_async,
     write_crashes_csv,
-    prep_programs_for_evaluation,
 )
 
 
