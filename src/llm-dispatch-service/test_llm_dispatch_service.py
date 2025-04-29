@@ -11,7 +11,6 @@ from unittest.mock import MagicMock
 import pytest
 from autopatchdatatypes import CpgScanResult, PatchResponse, TransformerMetadata
 from llm_dispatch_svc import (
-    LLMClient,
     create_patch_response,
     format_cpg_scan_context,
     full_prompt,
