@@ -4,11 +4,12 @@ from typing import Dict, List
 
 @dataclass
 class LLMDispatchSvcConfig:
-    cpg_scan_result_input_topic: str
-    input_codebase_full_path: str
     appName: str
     appVersion: str
     appDescription: str
+    cpg_gen_wait_time: int
+    cpg_scan_result_input_topic: str
+    input_codebase_full_path: str
     system_prompt_full_path: str
     user_prompt_full_path: str
     logging_config: str

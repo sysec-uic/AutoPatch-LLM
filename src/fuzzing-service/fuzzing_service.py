@@ -22,7 +22,6 @@ from cloudevents.conversion import to_json
 from cloudevents.http import CloudEvent
 from fuzz_svc_config import FuzzSvcConfig
 
-# this is the name of the environment variable that will be used point to the configuration map file to load
 CONST_FUZZ_SVC_CONFIG: Final[str] = "FUZZ_SVC_CONFIG"
 config: FuzzSvcConfig
 
@@ -394,15 +393,6 @@ async def main():
         f"Found {len(_source_files)} source files in {_fuzz_svc_input_codebase_path}"
     )
 
-    # changes to make: need to check if it's a directory
-    # within the directory, check for makefile
-    # for afl compilation: need to source the afl compiler path
-    # for fuzz target run: need to source the afl fuzzer path, the input and output directories
-    # put the executable in assets instead of bin?
-
-    # for regular compilation: source the compiler, plus for execution need to source the input of the crashes althoguth this is
-    # maybe just acquired from the crash detail object?
-
     for file_name in _source_files:
         # get the full path of the file or the project directory
         file_name_fully_qualified_path = os.path.join(
@@ -543,5 +533,12 @@ async def main():
 
 
 if __name__ == "__main__":
-    # Run the event loop
-    asyncio.run(main())
+    try:
+        # Run the event loop
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("Interrupted by user. Exiting.")
+    except Exception as e:
+        # Catch top-level exceptions during startup/shutdown
+        logging.error(f"Unhandled exception in main execution: {e}", exc_info=True)
+        sys.exit(1)
