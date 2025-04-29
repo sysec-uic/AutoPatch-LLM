@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import List
 
 
 @dataclass
@@ -18,7 +17,6 @@ class PatchEvalConfig:
     run_timeout: int
     autopatch_patch_response_input_topic: str
     autopatch_crash_detail_input_topic: str
-    model_names: List[str]
     message_broker_host: str
     make_tool_full_path: str
     message_broker_port: int = 1833
