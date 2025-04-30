@@ -1,7 +1,7 @@
 # Section 3: LLM Dispatch & Patch Generation Service <!-- omit in toc -->
 - [Under the Hood: Service Flow](#under-the-hood-service-flow)
 - [What Problem Does This Service Solve?](#what-problem-does-this-service-solve)
-- [Stategy Pattern](#stategy-pattern)
+- [Strategy Pattern](#strategy-pattern)
 - [Key Concepts: LLMs and Prompts](#key-concepts-llms-and-prompts)
 - [How the LLM Dispatch Service Works](#how-the-llm-dispatch-service-works)
 - [Configuration](#configuration)
