@@ -1,10 +1,10 @@
-# Section 6: Message Broker Client <!-- omit in toc -->
+# Section: Message Broker Client <!-- omit in toc -->
+
 - [Under the Hood: Client Internals](#under-the-hood-client-internals)
 - [What Problem Does This Client Solve?](#what-problem-does-this-client-solve)
 - [Key Concepts](#key-concepts)
 - [How the Message Broker Client Works (Usage)](#how-the-message-broker-client-works-usage)
 - [Conclusion](#conclusion)
-
 
 ## Under the Hood: Client Internals
 
@@ -47,9 +47,17 @@ sequenceDiagram
 
 ## What Problem Does This Client Solve?
 
-In a system with many independent services, having them talk directly to each other creates tight coupling. If Service A needs to send data directly to Service B, Service A needs to know Service B's network address and port. What happens if Service B restarts or moves? Service A breaks. What if we want to add a new Service C that also needs the same data from Service A? Service A would need to be updated to talk to Service C as well. This gets messy quickly!
+In a system with many independent services, having them talk directly to each other creates tight coupling.
+If Service A needs to send data directly to Service B, Service A needs to know Service B's network address and port.
+What happens if Service B restarts or moves? Service A breaks.
+What if we want to add a new Service C that also needs the same data from Service A?
+Service A would need to be updated to talk to Service C as well. This gets messy quickly!
 
-**Use Case:** The Fuzzing Service finds a crash and creates a `CrashDetail` DTO. It needs to announce this crash so that the Patch Evaluation Service can later use it to test patches. However, the Fuzzing Service shouldn't care *who* receives this information or *when* they receive it. It just needs to reliably "post" the crash information somewhere central. Similarly, the Patch Evaluation Service needs to "listen" for these crash announcements without needing to know anything specific about the Fuzzing Service.
+**Use Case:** The Fuzzing Service finds a crash and creates a `CrashDetail` DTO.
+It needs to announce this crash so that the Patch Evaluation Service can later use it to test patches.
+However, the Fuzzing Service shouldn't care *who* receives this information or *when* they receive it.
+It just needs to reliably "post" the crash information somewhere central.
+Similarly, the Patch Evaluation Service needs to "listen" for these crash announcements without needing to know anything specific about the Fuzzing Service.
 
 The Message Broker Client facilitates this by:
 1. Providing a way for services to **publish** (send) messages to named channels (called "topics").
@@ -67,7 +75,7 @@ This uses a pattern called **Publish/Subscribe (Pub/Sub)**.
 
 4. **Subscribe:** When a service wants to receive information related to a certain category, it uses the Message Broker Client to "subscribe" to the relevant topic (e.g., `"autopatch/crash_details"`). It also tells the client, "When a message arrives on this topic, please call this specific function in my code."
 
-5. **Message:** The actual piece of data being sent. In AutoPatch, this is typically a JSON string representing a CloudEvent, which in turn contains one of our [Data Transfer Objects (DTOs)](05_data_transfer_objects__dtos_.md).
+5. **Message:** The actual piece of data being sent. In AutoPatch, this is typically a JSON string representing a CloudEvent, which in turn contains one of our Data Transfer Objects (DTOs).
 
 ## How the Message Broker Client Works (Usage)
 
@@ -92,7 +100,7 @@ This code registers the service's interest in the `"autopatch/crash_details"` to
 ## Conclusion
 
 The `MessageBrokerClient` is the communication backbone of AutoPatch, allowing different services to talk to each other without being directly connected. Using the publish/subscribe pattern with topics via an MQTT broker, it acts like a central mailroom:
-* Services `publish` messages (containing [DTOs](05_data_transfer_objects__dtos_.md) as JSON) to specific topics.
+* Services `publish` messages (containing DTOs as JSON) to specific topics.
 * Services `consume` messages by subscribing to topics and providing callback functions to handle incoming data.
 
 This keeps our services decoupled, making the whole system more flexible and robust.

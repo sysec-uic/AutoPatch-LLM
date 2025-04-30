@@ -91,7 +91,7 @@ This information is put into a structured format called `CrashDetail`. This is o
 
 **Step 5: Publish the Crash Report**
 
-Finally, the Fuzzing Service takes each `CrashDetail` object and sends it out as a message. It uses a helper component, the [Message Broker Client](06_message_broker_client_.md), to publish these messages to a specific channel or "topic" (defined in the configuration as `fuzz_svc_output_topic`).
+Finally, the Fuzzing Service takes each `CrashDetail` object and sends it out as a message. It uses a helper component, the Message Broker Client, to publish these messages to a specific channel or "topic" (defined in the configuration as `fuzz_svc_output_topic`).
 
 Think of this like mailing a detailed crash report. Other services AutoPatch are listen on this channel, waiting for these reports so they can take the next steps. The messages are formatted as CloudEvents, a standard way to describe events.
 

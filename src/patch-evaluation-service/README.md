@@ -1,4 +1,5 @@
-# Section 4: Patch Evaluation Service <!-- omit in toc -->
+# Section: Patch Evaluation Service <!-- omit in toc -->
+
 - [Under the Hood: Service Flow](#under-the-hood-service-flow)
 - [What Problem Does This Service Solve?](#what-problem-does-this-service-solve)
 - [How the Patch Evaluation Service Works](#how-the-patch-evaluation-service-works)
@@ -63,8 +64,8 @@ This service essentially answers the question: "Did this specific patch fix this
 This service acts like a tester, taking a proposed patch and the original crash details and running the program to see if a crash is triggered.
 
 **Input:**
-* **`PatchResponse` Messages:** Received from the [LLM Dispatch & Patch Generation Service](03_llm_dispatch___patch_generation_service_.md) via the message broker. These contain the suggested code patch (Base64 encoded) and details about the LLM that generated it.
-* **`CrashDetail` Messages:** Received from the [Fuzzing Service](01_fuzzing_service_.md) (or potentially other sources) via the message broker. These contain the name of the program that crashed, the specific input that caused the crash (Base64 encoded), and how the input was provided (file or direct).
+* **`PatchResponse` Messages:** Received from the LLM Dispatch & Patch Generation Service via the message broker. These contain the suggested code patch (Base64 encoded) and details about the LLM that generated it.
+* **`CrashDetail` Messages:** Received from the Fuzzing Service (or potentially other sources) via the message broker. These contain the name of the program that crashed, the specific input that caused the crash (Base64 encoded), and how the input was provided (file or direct).
 
 Let's break down the process step-by-step:
 

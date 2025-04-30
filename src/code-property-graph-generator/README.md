@@ -1,4 +1,5 @@
-# Section 2: Code Property Graph (CPG) Generation Service <!-- omit in toc -->
+# Section: Code Property Graph (CPG) Generation Service <!-- omit in toc -->
+
 - [Under the Hood: Service Flow](#under-the-hood-service-flow)
 - [What Problem Does This Service Solve?](#what-problem-does-this-service-solve)
 - [Key Concepts: CPGs and Joern](#key-concepts-cpgs-and-joern)
@@ -75,10 +76,8 @@ For each `.c` file found in the input folder, the service runs the `joern-scan` 
 
 Joern's output might look something like this (simplified):
 
-```
 Result: 8.0 : Dangerous function gets() used : dangerous_input.c : 12 : process_data
 Result: 5.0 : Potential buffer overflow : dangerous_input.c : 15 : process_data
-```
 
 The service parses each line starting with "Result:"
 
@@ -89,7 +88,7 @@ The parsed details for each finding are stored in a `CpgScanResult` object. This
 
 **Step 4: Publish the Scan Results**
 
-Finally, the service takes each `CpgScanResult` object and sends it out as a message. Just like the Fuzzing Service, it uses the [Message Broker Client](06_message_broker_client_.md) to publish these findings to a specific topic (`cpg_svc_scan_result_output_topic` from the configuration).
+Finally, the service takes each `CpgScanResult` object and sends it out as a message. Just like the Fuzzing Service, it uses the Message Broker Client to publish these findings to a specific topic (`cpg_svc_scan_result_output_topic` from the configuration).
 
 Other services can listen to this topic to get reports about potential vulnerabilities found by static analysis. The messages are again formatted as CloudEvents.
 

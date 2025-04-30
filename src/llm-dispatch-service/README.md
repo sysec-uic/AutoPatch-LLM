@@ -1,4 +1,5 @@
-# Section 3: LLM Dispatch & Patch Generation Service <!-- omit in toc -->
+# Section: LLM Dispatch & Patch Generation Service <!-- omit in toc -->
+
 - [Under the Hood: Service Flow](#under-the-hood-service-flow)
 - [What Problem Does This Service Solve?](#what-problem-does-this-service-solve)
 - [Strategy Pattern](#strategy-pattern)
@@ -83,8 +84,8 @@ To understand this service, let's look at two key ideas:
 This service acts as the central coordinator for interacting with LLMs to generate patches.
 
 **Input:**
-*  C source code files found in its input directory (`input_codebase_full_path`).
-*  Optionally, `CpgScanResult` messages received from the [Message Broker Client](06_message_broker_client_.md) (it listens for these to get context about vulnerabilities found in the code it's about to process).
+* C source code files found in its input directory (`input_codebase_full_path`).
+* Optionally, `CpgScanResult` messages received from the [Message Broker Client](06_message_broker_client_.md) (it listens for these to get context about vulnerabilities found in the code it's about to process).
 
 **Step 1: Listen for CPG Scan Results (Optional Context)**
 

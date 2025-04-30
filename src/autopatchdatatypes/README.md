@@ -1,4 +1,5 @@
-# Section 5: Data Transfer Objects (DTOs) <!-- omit in toc -->
+# Section: Data Transfer Objects (DTOs) <!-- omit in toc -->
+
 - [Under the Hood: The Flow of Information](#under-the-hood-the-flow-of-information)
 - [What Problem Do DTOs Solve?](#what-problem-do-dtos-solve)
 - [What are DTOs, Exactly?](#what-are-dtos-exactly)
@@ -9,7 +10,6 @@
 - [Key DTOs in AutoPatch](#key-dtos-in-autopatch)
 - [How DTOs are Used in AutoPatch](#how-dtos-are-used-in-autopatch)
 - [Conclusion](#conclusion)
-
 
 ## Under the Hood: The Flow of Information
 
@@ -55,9 +55,9 @@ DTOs solve this by defining a fixed structure, like a pre-printed form or a temp
 A Data Transfer Object (DTO) is a simple object whose main purpose is to hold data and make it easy to transfer between different parts of a system (like different services in AutoPatch).
 
 Think of them as standardized containers or forms:
-*   **Standardized:** They have a predefined structure or "shape". Everyone knows exactly what fields (pieces of information) to expect.
-*   **Data Holders:** Their job is just to carry data, not to perform complex actions or calculations.
-*   **Transfer:** They are designed to be easily converted into formats suitable for sending across networks or between processes (like JSON).
+* **Standardized:** They have a predefined structure or "shape". Everyone knows exactly what fields (pieces of information) to expect.
+* **Data Holders:** Their job is just to carry data, not to perform complex actions or calculations.
+* **Transfer:** They are designed to be easily converted into formats suitable for sending across networks or between processes (like JSON).
 
 In AutoPatch, DTOs ensure that when one service sends information (like crash details), the receiving service knows exactly how to read and understand that information, preventing errors and misunderstandings.
 
@@ -148,9 +148,9 @@ AutoPatch uses several DTOs defined in the `autopatchdatatypes` shared library. 
 * **Purpose:** To carry information about a specific crash found by the [Fuzzing Service](01_fuzzing_service_.md).
 * **Used By:** Published by the Fuzzing Service, consumed by the [Patch Evaluation Service](04_patch_evaluation_service_.md).
 * **Fields (Shape):**
-    * `executable_name` (string): The name of the program that crashed (e.g., `program.afl`).
-    * `base64_message` (string): The *exact* input that caused the crash. Because crash inputs can contain strange characters or be binary data, it's encoded using base64 (a standard way to represent any data using safe text characters).
-    * `is_input_from_file` (boolean): Was the input originally provided as a file (`True`) or directly to the program's input (`False`)?
+  * `executable_name` (string): The name of the program that crashed (e.g., `program.afl`).
+  * `base64_message` (string): The *exact* input that caused the crash. Because crash inputs can contain strange characters or be binary data, it's encoded using base64 (a standard way to represent any data using safe text characters).
+  * `is_input_from_file` (boolean): Was the input originally provided as a file (`True`) or directly to the program's input (`False`)?
 
 ```python
 from dataclasses import dataclass
@@ -168,14 +168,14 @@ This simple structure ensures the Patch Evaluation Service gets all the necessar
 
 **2. `CpgScanResult`**
 
-* **Purpose:** To carry information about a potential vulnerability found by the [Code Property Graph (CPG) Generation Service](02_code_property_graph__cpg__generation_service_.md) using `joern-scan`.
-* **Used By:** Published by the CPG Service, consumed by the [LLM Dispatch & Patch Generation Service](03_llm_dispatch___patch_generation_service_.md) to provide context to the AI.
+* **Purpose:** To carry information about a potential vulnerability found by the Code Property Graph (CPG) Generation Service using `joern-scan`.
+* **Used By:** Published by the CPG Service, consumed by the LLM Dispatch & Patch Generation Service to provide context to the AI.
 * **Fields (Shape):**
-    * `executable_name` (string): The name of the C file analyzed (e.g., `vulnerable_program.c`).
-    * `vulnerability_severity` (float): A score indicating how severe Joern thinks the issue might be.
-    * `vulnerable_line_number` (int): The line number in the code where the issue was detected.
-    * `vulnerable_function` (string): The name of the function containing the issue.
-    * `vulnerability_description` (string): A short text description of the potential vulnerability (e.g., "Dangerous function gets() used").
+  * `executable_name` (string): The name of the C file analyzed (e.g., `vulnerable_program.c`).
+  * `vulnerability_severity` (float): A score indicating how severe Joern thinks the issue might be.
+  * `vulnerable_line_number` (int): The line number in the code where the issue was detected.
+  * `vulnerable_function` (string): The name of the function containing the issue.
+  * `vulnerability_description` (string): A short text description of the potential vulnerability (e.g., "Dangerous function gets() used").
 
 ```python
 from dataclasses import dataclass
@@ -193,12 +193,12 @@ This structure gives the LLM Service specific hints about where and what type of
 **3. `PatchResponse`**
 
 * **Purpose:** To carry a suggested code patch generated by an LLM, along with metadata about how it was generated.
-* **Used By:** Published by the [LLM Dispatch & Patch Generation Service](03_llm_dispatch___patch_generation_service_.md), consumed by the [Patch Evaluation Service](04_patch_evaluation_service_.md) for testing.
+* **Used By:** Published by the LLM Dispatch & Patch Generation Service, consumed by the Patch Evaluation Service for testing.
 *  **Fields (Shape):**
-    * `executable_name` (string): The name of the program this patch is intended for (e.g., `vulnerable_program`).
-    * `patch_snippet_base64` (string): The actual suggested code patch (or sometimes the entire patched file content), encoded using base64 for safe transfer.
-    * `TransformerMetadata` (another DTO): Contains details about the AI model that generated the patch.
-    * `status` (string): Indicates if the patch generation was successful (e.g., "success", "fail").
+  * `executable_name` (string): The name of the program this patch is intended for (e.g., `vulnerable_program`).
+  * `patch_snippet_base64` (string): The actual suggested code patch (or sometimes the entire patched file content), encoded using base64 for safe transfer.
+  * `TransformerMetadata` (another DTO): Contains details about the AI model that generated the patch.
+  * `status` (string): Indicates if the patch generation was successful (e.g., "success", "fail").
 
 ```python
 from dataclasses import dataclass
@@ -216,10 +216,10 @@ class PatchResponse:
 
 * **Purpose:** To provide details about the specific AI model (LLM) used to generate a patch. This is nested inside `PatchResponse`.
 * **Fields (Shape):**
-    * `llm_name` (string): The name of the base model (e.g., `gpt-4`, `gemini-pro`).
-    * `llm_version` (string): The specific version of the model used (if available).
-    * `llm_flavor` (string): The provider or type of the model (e.g., `openai`, `google`).
-    * *(Other fields related to model configuration might exist)*
+  * `llm_name` (string): The name of the base model (e.g., `gpt-4`, `gemini-pro`).
+  * `llm_version` (string): The specific version of the model used (if available).
+  * `llm_flavor` (string): The provider or type of the model (e.g., `openai`, `google`).
+  * *(Other fields related to model configuration might exist)*
 
 ```python
 from dataclasses import dataclass
