@@ -43,9 +43,9 @@ RUN apt-get install -y --no-install-recommends \
 WORKDIR /deps
 
 COPY requirements.txt .
-COPY autopatchshared-0.8.0-py3-none-any.whl .
-COPY autopatchdatatypes-0.8.0-py3-none-any.whl .
-COPY autopatchpubsub-0.8.0-py3-none-any.whl .
+COPY autopatchshared-0.9.0-py3-none-any.whl .
+COPY autopatchdatatypes-0.9.0-py3-none-any.whl .
+COPY autopatchpubsub-0.9.0-py3-none-any.whl .
 
 RUN pip install --break-system-packages --no-cache-dir -r requirements.txt
 
