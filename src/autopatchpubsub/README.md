@@ -12,11 +12,11 @@ How does the `MessageBrokerClient` actually achieve this? It uses a Python libra
 
 **Simplified Flow:**
 
-1.  **Connection:** When you create a `MessageBrokerClient`, its `__init__` method uses `paho-mqtt` to establish a network connection to the MQTT broker. It also sets up internal callback functions (`on_connect`, `on_disconnect`, `on_message`, `on_publish`) that `paho-mqtt` will call for different events.
-2.  **Background Loop:** The client starts a background thread (`client.loop_start()`) that constantly communicates with the broker, handles network activity, processes incoming messages, and manages reconnections if the connection drops.
-3.  **Publishing:** When you call `message_client.publish(topic, message)`, it essentially hands the topic and message over to the `paho-mqtt` library's `publish` function, which sends it to the broker via the established connection.
-4.  **Subscribing:** When you call `message_client.consume(topic, callback_function)`, the client tells the `paho-mqtt` library to subscribe to that `topic` on the broker. It also stores your `callback_function` in an internal dictionary, mapping the `topic` to your function.
-5.  **Receiving:** When the broker sends a message to the client for a topic it's subscribed to, the background loop triggers the internal `on_message` callback. This internal callback looks up the topic in its dictionary, finds *your* registered `callback_function`, and calls it, passing the message payload.
+1. **Connection:** When you create a `MessageBrokerClient`, its `__init__` method uses `paho-mqtt` to establish a network connection to the MQTT broker. It also sets up internal callback functions (`on_connect`, `on_disconnect`, `on_message`, `on_publish`) that `paho-mqtt` will call for different events.
+2. **Background Loop:** The client starts a background thread (`client.loop_start()`) that constantly communicates with the broker, handles network activity, processes incoming messages, and manages reconnections if the connection drops.
+3. **Publishing:** When you call `message_client.publish(topic, message)`, it essentially hands the topic and message over to the `paho-mqtt` library's `publish` function, which sends it to the broker via the established connection.
+4. **Subscribing:** When you call `message_client.consume(topic, callback_function)`, the client tells the `paho-mqtt` library to subscribe to that `topic` on the broker. It also stores your `callback_function` in an internal dictionary, mapping the `topic` to your function.
+5. **Receiving:** When the broker sends a message to the client for a topic it's subscribed to, the background loop triggers the internal `on_message` callback. This internal callback looks up the topic in its dictionary, finds *your* registered `callback_function`, and calls it, passing the message payload.
 
 Here's a sequence diagram illustrating the publish and subscribe flow:
 
@@ -52,22 +52,22 @@ In a system with many independent services, having them talk directly to each ot
 **Use Case:** The Fuzzing Service finds a crash and creates a `CrashDetail` DTO. It needs to announce this crash so that the Patch Evaluation Service can later use it to test patches. However, the Fuzzing Service shouldn't care *who* receives this information or *when* they receive it. It just needs to reliably "post" the crash information somewhere central. Similarly, the Patch Evaluation Service needs to "listen" for these crash announcements without needing to know anything specific about the Fuzzing Service.
 
 The Message Broker Client facilitates this by:
-1.  Providing a way for services to **publish** (send) messages to named channels (called "topics").
-2.  Providing a way for services to **subscribe** (listen) to specific topics and receive messages sent to them.
+1. Providing a way for services to **publish** (send) messages to named channels (called "topics").
+2. Providing a way for services to **subscribe** (listen) to specific topics and receive messages sent to them.
 
 This uses a pattern called **Publish/Subscribe (Pub/Sub)**.
 
 ## Key Concepts
 
-1.  **Message Broker:** This is the central "mailroom" or "bulletin board" server. It's a separate piece of software running in our system (AutoPatch uses one called **MQTT**, specifically the Mosquitto broker). Its job is to receive messages from publishers and deliver them to interested subscribers. The services themselves don't deliver messages; they just talk to the broker.
+1. **Message Broker:** This is the central "mailroom" or "bulletin board" server. It's a separate piece of software running in our system (AutoPatch uses one called **MQTT**, specifically the Mosquitto broker). Its job is to receive messages from publishers and deliver them to interested subscribers. The services themselves don't deliver messages; they just talk to the broker.
 
-2.  **Topic:** Think of a topic as a specific channel, category, or mailbox name on the bulletin board. For example, we might have a topic called `"autopatch/crash_details"` for crash information and another called `"autopatch/patch_responses"` for suggested patches. Publishers send messages *to* a specific topic, and subscribers listen *on* specific topics.
+2. **Topic:** Think of a topic as a specific channel, category, or mailbox name on the bulletin board. For example, we might have a topic called `"autopatch/crash_details"` for crash information and another called `"autopatch/patch_responses"` for suggested patches. Publishers send messages *to* a specific topic, and subscribers listen *on* specific topics.
 
-3.  **Publish:** When a service wants to send information (like a `CrashDetail` DTO, usually converted to a JSON string), it uses the Message Broker Client to "publish" that message to a specific topic (e.g., `"autopatch/crash_details"`). The broker then takes care of it.
+3. **Publish:** When a service wants to send information (like a `CrashDetail` DTO, usually converted to a JSON string), it uses the Message Broker Client to "publish" that message to a specific topic (e.g., `"autopatch/crash_details"`). The broker then takes care of it.
 
-4.  **Subscribe:** When a service wants to receive information related to a certain category, it uses the Message Broker Client to "subscribe" to the relevant topic (e.g., `"autopatch/crash_details"`). It also tells the client, "When a message arrives on this topic, please call this specific function in my code."
+4. **Subscribe:** When a service wants to receive information related to a certain category, it uses the Message Broker Client to "subscribe" to the relevant topic (e.g., `"autopatch/crash_details"`). It also tells the client, "When a message arrives on this topic, please call this specific function in my code."
 
-5.  **Message:** The actual piece of data being sent. In AutoPatch, this is typically a JSON string representing a CloudEvent, which in turn contains one of our [Data Transfer Objects (DTOs)](05_data_transfer_objects__dtos_.md).
+5. **Message:** The actual piece of data being sent. In AutoPatch, this is typically a JSON string representing a CloudEvent, which in turn contains one of our [Data Transfer Objects (DTOs)](05_data_transfer_objects__dtos_.md).
 
 ## How the Message Broker Client Works (Usage)
 
@@ -92,7 +92,7 @@ This code registers the service's interest in the `"autopatch/crash_details"` to
 ## Conclusion
 
 The `MessageBrokerClient` is the communication backbone of AutoPatch, allowing different services to talk to each other without being directly connected. Using the publish/subscribe pattern with topics via an MQTT broker, it acts like a central mailroom:
-*   Services `publish` messages (containing [DTOs](05_data_transfer_objects__dtos_.md) as JSON) to specific topics.
-*   Services `consume` messages by subscribing to topics and providing callback functions to handle incoming data.
+* Services `publish` messages (containing [DTOs](05_data_transfer_objects__dtos_.md) as JSON) to specific topics.
+* Services `consume` messages by subscribing to topics and providing callback functions to handle incoming data.
 
 This keeps our services decoupled, making the whole system more flexible and robust.

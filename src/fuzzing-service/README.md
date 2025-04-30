@@ -1,4 +1,5 @@
 # Section: Fuzzing Service <!-- omit in toc -->
+
 - [Under the Hood: Service Flow](#under-the-hood-service-flow)
 - [What Problem Does Fuzzing Solve?](#what-problem-does-fuzzing-solve)
 - [How the AutoPatch Fuzzing Service Works](#how-the-autopatch-fuzzing-service-works)
@@ -39,10 +40,10 @@ Software bugs, especially those causing crashes, can be sneaky. They might only 
 **Use Case:** Given a C that reads some STDIN or text file and processes it. We want to automatically test if *any* kind of text input could make it crash, without having to manually type thousands of strange combinations.
 
 The Fuzzing Service tackles this by automatically:
-1.  Running the program repeatedly.
-2.  Feeding it a massive amount of automatically generated, often random or malformed, inputs (this is called "fuzz").
-3.  Watching closely to see if any input causes a crash.
-4.  If a crash occurs, carefully recording the *exact* input that caused it.
+1. Running the program repeatedly.
+2. Feeding it a massive amount of automatically generated, often random or malformed, inputs (this is called "fuzz").
+3. Watching closely to see if any input causes a crash.
+4. If a crash occurs, carefully recording the *exact* input that caused it.
 
 Our Fuzzing Service uses a popular and powerful fuzzing tool called **AFL (American Fuzzy Lop)++**. AFL is smart about generating inputs; it observes how the program behaves and uses that information to create new inputs that are more likely to explore different parts of the code and find crashes.
 
@@ -56,19 +57,19 @@ The Fuzzing Service is the starting point of the AutoPatch pipeline. It takes so
 
 Before AFL can fuzz a program, the program needs to be compiled with a special compiler (`afl-gcc` or `afl-clang`). This in conjunction with the AddressSanitizer compiler feature code instrumentation that let AFL see which parts of the program are being executed by a given input. This helps AFL generate better fuzz data.
 
-*   **Single Files:** If it finds a `.c` file (like `my_program.c`), it compiles it directly.
-*   **Projects:** If it finds a directory with a `Makefile`, it tries to use the `make` command with the AFL compiler.
+* **Single Files:** If it finds a `.c` file (like `my_program.c`), it compiles it directly.
+* **Projects:** If it finds a directory with a `Makefile`, it tries to use the `make` command with the AFL compiler.
 
 This step creates an executable file (like `program.afl`) ready for fuzzing.
 
 **Step 2: Run the Fuzzer (AFL)**
 
 Now the service unleashes AFL on the compiled program. It tells AFL things like:
-*   Where to find some initial example inputs ("seed inputs").
-*   Where to save its findings (especially crashes).
-*   How long to run (`fuzzer_tool_timeout_seconds`).
-*   How much memory the program is allowed to use.
-*   *Importantly:* How the program expects input. Does it read from a file? (`isInputFromFile = True`, AFL uses `@@` placeholder). Or does it expect input directly? (`isInputFromFile = False`).
+* Where to find some initial example inputs ("seed inputs").
+* Where to save its findings (especially crashes).
+* How long to run (`fuzzer_tool_timeout_seconds`).
+* How much memory the program is allowed to use.
+* *Importantly:* How the program expects input. Does it read from a file? (`isInputFromFile = True`, AFL uses `@@` placeholder). Or does it expect input directly? (`isInputFromFile = False`).
 
 AFL runs for the specified time, trying countless inputs.
 
@@ -81,9 +82,9 @@ The Fuzzing Service checks if this `crashes` folder exists and if it contains an
 **Step 4: Package Crash Details**
 
 For every crash found, the service gathers the important details:
-1.  The name of the program that crashed (e.g., `program.c`).
-2.  The input that caused the crash. Since this input might contain weird characters or be binary data, it's encoded using Base64 (a way to represent any data using standard text characters).
-3.  Whether the input was expected as a file path or as direct data (`isInputFromFile`).
+1. The name of the program that crashed (e.g., `program.c`).
+2. The input that caused the crash. Since this input might contain weird characters or be binary data, it's encoded using base64 (a way to represent any data using standard text characters).
+3. Whether the input was expected as a file path or as direct data (`isInputFromFile`).
 
 This information is put into a structured format called `CrashDetail`. This is one of our Data Transfer Objects (DTOs), designed for passing information between services.
 

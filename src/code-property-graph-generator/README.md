@@ -35,24 +35,24 @@ Simply knowing a program crashes isn't enough to fix it. We need to analyze the 
 **Use Case:** Let's say our Fuzzing Service found that the program `dangerous_input.c` crashes when given a very long string. We suspect a buffer overflow, but where exactly is it in the code? Does the code use a known dangerous function?
 
 The CPG Generation Service helps answer these questions by:
-1.  Taking C source code as input.
-2.  Using a powerful analysis tool (`joern-scan`) to build a detailed map of the code (the CPG).
-3.  Using the same tool to search this map for known patterns of vulnerabilities (like using unsafe functions or potential buffer overflows).
-4.  Reporting any potential vulnerabilities found.
+1. Taking C source code as input.
+2. Using a powerful analysis tool (`joern-scan`) to build a detailed map of the code (the CPG).
+3. Using the same tool to search this map for known patterns of vulnerabilities (like using unsafe functions or potential buffer overflows).
+4. Reporting any potential vulnerabilities found.
 
 ## Key Concepts: CPGs and Joern
 
 Before diving into the service, let's understand two key ideas:
 
-1.  **Code Property Graph (CPG):** This is the "detailed map" or "blueprint" we mentioned. It's a way to represent source code as a graph. Think of it like connecting the dots:
-    *   **Nodes:** Represent parts of the code like functions (`main`, `get_input`), variables (`buffer`, `user_name`), specific operations (`=`, `+`), method calls (`strcpy`, `gets`), etc.
-    *   **Edges (Connections):** Show the relationships between these parts, like "this variable is used in this function," "this function calls that function," "this code runs after that code," or "data flows from this variable to that function."
+1. **Code Property Graph (CPG):** This is the "detailed map" or "blueprint" we mentioned. It's a way to represent source code as a graph. Think of it like connecting the dots:
+    * **Nodes:** Represent parts of the code like functions (`main`, `get_input`), variables (`buffer`, `user_name`), specific operations (`=`, `+`), method calls (`strcpy`, `gets`), etc.
+    * **Edges (Connections):** Show the relationships between these parts, like "this variable is used in this function," "this function calls that function," "this code runs after that code," or "data flows from this variable to that function."
 
     By representing code this way, we can ask complex questions about its structure and data flow, which is crucial for finding vulnerabilities.
 
-2.  **Joern (`joern-scan`):** This is the external tool our service uses. It's like a combination architect and building inspector for code:
-    *   **Architect:** It reads C source code and automatically builds the complex Code Property Graph (CPG).
-    *   **Inspector:** It comes with a set of pre-defined checks (queries) that it runs on the CPG to look for common security vulnerability patterns (like using the dangerous `gets()` function, potential integer overflows, etc.). `joern-scan` is a command-line script that bundles Joern's CPG generation and querying capabilities.
+2. **Joern (`joern-scan`):** This is the external tool our service uses. It's like a combination architect and building inspector for code:
+    * **Architect:** It reads C source code and automatically builds the complex Code Property Graph (CPG).
+    * **Inspector:** It comes with a set of predefined checks (queries) that it runs on the CPG to look for common security vulnerability patterns (like using the dangerous `gets()` function, potential integer overflows, etc.). `joern-scan` is a command-line script that bundles Joern's CPG generation and querying capabilities.
 
 ## How the AutoPatch CPG Service Works
 
@@ -64,10 +64,10 @@ The CPG Generation Service takes C source code files and analyzes them using `jo
 
 For each `.c` file found in the input folder, the service runs the `joern-scan` command-line tool. It tells `joern-scan` which file to analyze.
 
-*   `joern-scan`: The command to execute the tool.
-*   `--overwrite`: Tells Joern to create a fresh CPG, even if one exists from a previous run.
-*   `c_program_full_path`: The specific C file to analyze.
-*   The service runs this command using Python's `subprocess` module and captures its text output (both standard output and error streams).
+* `joern-scan`: The command to execute the tool.
+* `--overwrite`: Tells Joern to create a fresh CPG, even if one exists from a previous run.
+* `c_program_full_path`: The specific C file to analyze.
+* The service runs this command using Python's `subprocess` module and captures its text output (both standard output and error streams).
 
 **Step 2: Parse Joern Scan Output**
 
@@ -96,17 +96,17 @@ Other services can listen to this topic to get reports about potential vulnerabi
 ## Configuration
 
 The CPG Generation Service also uses a configuration file (`src/code-property-graph-generator/cpg_svc_config.py`) based on our standard Service Configuration Pattern. This file tells the service:
-*   Where to find the `joern-scan` tool (`scan_tool_full_path`).
-*   Where the input C files are located (`cpg_svc_input_codebase_path`).
-*   How to connect to the message broker (`message_broker_host`, `message_broker_port`).
-*   Which topic to publish the results to (`cpg_svc_scan_result_output_topic`).
+* Where to find the `joern-scan` tool (`scan_tool_full_path`).
+* Where the input C files are located (`cpg_svc_input_codebase_path`).
+* How to connect to the message broker (`message_broker_host`, `message_broker_port`).
+* Which topic to publish the results to (`cpg_svc_scan_result_output_topic`).
 
 ## Conclusion
 
 CPG Generation Service - our code detective that uses the external tool `joern-scan` to:
-1.  Build a detailed map (Code Property Graph) of C source code.
-2.  Scan that map for known vulnerability patterns.
-3.  Publish any findings as `CpgScanResult` messages.
+1. Build a detailed map (Code Property Graph) of C source code.
+2. Scan that map for known vulnerability patterns.
+3. Publish any findings as `CpgScanResult` messages.
 
 This service provides crucial information about *potential* weaknesses directly within the source code, complementing the crash information found by the Fuzzing Service.
 
