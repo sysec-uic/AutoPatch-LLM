@@ -7,6 +7,7 @@ Lead Developer: Robert D. Hernandez <https://www.linkedin.com/in/robhernandez5/>
 - [Introduction](#introduction)
   - [Features](#features)
 - [How It Works](#how-it-works)
+- [LLM Performance Comparison so far](#llm-performance-comparison-so-far)
 - [Pre-requisites](#pre-requisites)
 - [How to Run](#how-to-run)
 - [Devtools](#devtools)
@@ -35,13 +36,13 @@ High level system design diagram:
 
 ## Introduction  
 
-
 **AutoPatch**: is an end-to-end GenAI-assisted tool designed to automatically detect and patch bugs in C code by performing vulnerability detection, vulnerability patching, and evaluation of patches for real-world C programs.
 
-By combining **Google's Address Sanitizer (ASan)**, **American Fuzzy Lop (AFL++)** and **a competing ensemble of Large Language Models**, AutoPatch targets low level memory safety bugs.  Identifying and resolving memory safety bugs such as Use After Free, Double Free, and Buffer Overflow.
+By combining **Google's Address Sanitizer (ASan)**, **American Fuzzy Lop (AFL++)** **Code Property Graphs** and we evaluate the feasibility of **various Large Language Models** for additional research towards automatica and sound program repair. AutoPatch targets low level memory safety bugs.  Identifying and resolving memory safety bugs such as Use After Free, Double Free, and Buffer Overflow.
 
 **Method:**
-1. **Vulnerability detection** through fuzzing and static analysis (address sanitizer, [WIP]code property graphs).
+
+1. **Vulnerability detection** through fuzzing with address sanitizer instrumentation and coverage boosting with code property graphs.
 2. **Patching**: sourcing the buggy source code, crash instances, and static analysis to query LLMs to generate a patch.
 3. **Evaluation**: sourcing the potential patch (2) and the identified trigger inputs (1) to test the patch’s success.
 
@@ -65,6 +66,10 @@ Theory tells us that creating bug-free programs is nearly impossible and proving
    Issues detected by ASan and AFL++ are passed to a competing ensemble of LLMs, which each generate fixes.  
 4. **Iterative Process:**  
    The patched code is retested with crashes conditions generated with AFL++ to ensure reliability.  Potential patches are surfaced to the user for human evaluation.
+
+## LLM Performance Comparison so far
+
+![LLM Performance So Far](./docs/images/llm-perf-so-far.png)
 
 ## Pre-requisites
 
@@ -94,7 +99,6 @@ Theory tells us that creating bug-free programs is nearly impossible and proving
 ## Devtools
 
 ![Developer Experience Diagram AutoPatch v0.6.1](./docs/Diagrams/autopatch-devtools-v.0.6.1.drawio.svg)
-
 
 ## Versioning Strategy
 
