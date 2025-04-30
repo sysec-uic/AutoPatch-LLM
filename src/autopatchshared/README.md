@@ -24,16 +24,16 @@ The Shared Utilities module (`autopatchshared`) provides this common toolbox, co
 The `autopatchshared` library contains several useful functions. Let's look at the main ones:
 
 1. **`init_logging(logging_config_path, appname)`:**
-  * **What it does:** Sets up the logging system for a service. It reads logging settings (like format, log level, where to log) from a specified JSON configuration file. This ensures all services log messages in a consistent way.
-  * **Analogy:** This is like handing out the official company notepad and pen, ensuring everyone takes notes in the standard format.
+* **What it does:** Sets up the logging system for a service. It reads logging settings (like format, log level, where to log) from a specified JSON configuration file. This ensures all services log messages in a consistent way.
+* **Analogy:** This is like handing out the official company notepad and pen, ensuring everyone takes notes in the standard format.
 
 2. **`load_config_as_json(config_path, logger)`:**
-  * **What it does:** It reads a JSON configuration file and returns the settings as a Python dictionary.
-  * **Analogy:** This is the standard procedure for reading the instruction sheet for any specific task.
+* **What it does:** It reads a JSON configuration file and returns the settings as a Python dictionary.
+* **Analogy:** This is the standard procedure for reading the instruction sheet for any specific task.
 
 3. **`get_current_timestamp()`:**
-  * **What it does:** Returns the current date and time as a string, formatted in a standard way (ISO 8601 UTC format, like `2023-10-27T10:30:00Z`). This is useful for timestamps in logs or records.
-  * **Analogy:** This is like a perfectly synchronized clock available to everyone, ensuring all timestamps are consistent.
+* **What it does:** Returns the current date and time as a string, formatted in a standard way (ISO 8601 UTC format, like `2023-10-27T10:30:00Z`). This is useful for timestamps in logs or records.
+* **Analogy:** This is like a perfectly synchronized clock available to everyone, ensuring all timestamps are consistent.
 
 ## How to Use the Shared Utilities
 

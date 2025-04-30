@@ -52,7 +52,7 @@ The LLM Dispatch Service acts like a helpful AI programming assistant:
 3. It asks one or more powerful AI models (LLMs) to suggest a fix.
 4. It collects these suggestions and packages them up for the next step in the pipeline.
 
-## Stategy Pattern
+## Strategy Pattern
 
 BaseLLM: An abstract base class defining the interface for any LLM implementation.
 
