@@ -69,6 +69,25 @@ Theory tells us that creating bug-free programs is nearly impossible and proving
 
 ## LLM Performance Comparison so far
 
+In C programming, memory safety bugs often result in distinct exit codes or crash
+behaviors that help diagnose issues. A use-after-free typically leads to segmentation
+faults (exit code 139 on Unix-like systems) because the program accesses memory
+that has been deallocated, resulting in an invalid memory reference. A double
+free usually triggers an abort signal (exit code 134) as memory allocators like glibc
+detect corruption during a second attempt to free the same pointer, intentionally
+terminating the program to prevent exploitation.
+
+Buffer overflows vary: stack-based buffer overflows often cause segmentation
+faults (exit code 139) due to corruption of the stack frame or overwriting control
+data like return addresses; heap-based buffer overflows can cause a segmentation
+fault or an abort if the overflow corrupts allocator metadata, while global (static)
+buffer overflows similarly result in segmentation faults when the program reads
+or writes outside the bounds of static memory regions. In all cases, signals like
+SIGSEGV (segmentation fault) or SIGABRT (abort) and their corresponding
+exit codes provide critical clues during debugging.
+Thus, in the context of evaluation AutoPatch considers 0 and 1 exit codes as
+”graceful exits” and not memory safety bugs.
+
 ![LLM Performance So Far](./docs/images/llm-perf-so-far.png)
 
 ## Pre-requisites
