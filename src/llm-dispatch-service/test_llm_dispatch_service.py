@@ -27,7 +27,7 @@ llm_dispatch_svc_module_name_str: Final[str] = "llm_dispatch_svc"
 def mock_LLMDispatchSvcConfig() -> LLMDispatchSvcConfig:
     mock_config = {
         "appName": "autopatch.llm-dispatch",
-        "appVersion": "0.8.0-beta",
+        "appVersion": "0.9.0-beta",
         "appDescription": "A system for managing and dispatching requests to various language models.",
         "cpg_gen_wait_time": 1,
         "system_prompt_full_path": "/workspace/AutoPatch-LLM/src/llm-dispatch/data/prompts/system_prompt.txt",
