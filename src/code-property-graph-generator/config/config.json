@@ -1,6 +1,6 @@
 {
     "appname": "autopatch.code-property-graph-generator",
-    "version": "0.8.0-beta",
+    "version": "0.9.0-beta",
     "logging_config" : "config/logging-config.json",
     "scan_tool_full_path": "/opt/joern/joern-cli/joern-scan",
     "concurrency_threshold": 10,
