@@ -1,6 +1,6 @@
 {
     "appname": "autopatch.patch-evaluation-service",
-    "version": "0.8.0-beta",
+    "version": "0.9.0-beta",
     "input_codebase_full_path": "/app/input_codebase",
     "logging_config" : "/app/config/logging-config.json",
     "patch_eval_results_full_path":"/app/data",
