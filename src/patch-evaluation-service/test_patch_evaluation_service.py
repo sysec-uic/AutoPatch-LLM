@@ -41,7 +41,7 @@ class DummyProcess:
 def dummy_config_content() -> Dict:
     return {
         "appname": "autopatch.patch-evaluation-service",
-        "version": "0.8.0-alpha",
+        "version": "0.9.0-beta",
         "logging_config": "/workspace/AutoPatch-LLM/src/patch-evaluation-service/config/dev-logging-config.json",
         "patch_eval_results_full_path": "/workspace/AutoPatch-LLM/src/patch-evaluation-service/data",
         "patched_codes_path": "/workspace/AutoPatch-LLM/src/patch-evaluation-service/patched_codes",
