@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoPatch-LLM Project</title>
+    <link rel="stylesheet" href="style.css">
+    <meta name="description" content="Website for AutoPatch-LLM: Automated Program Repair for Vulnerabilities using Large Language Models by SySeC UIC.">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>AutoPatch-LLM</h1>
+            <p class="tagline">Automated Program Repair for Vulnerabilities using Large Language Models</p>
+            <p class="affiliation">A project by the <a href="https://sysec.cs.uic.edu/" target="_blank" rel="noopener noreferrer">Systems Security Lab (SySeC)</a> at the University of Illinois Chicago (UIC)</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <section id="about">
+            <h2>About The Project</h2>
+            <p>
+                AutoPatch-LLM leverages the power of Large Language Models (LLMs), such as GPT-4, to automatically generate patches for security vulnerabilities found in C/C++ code. Given a description of the vulnerability (like a CVE report) and the vulnerable code snippet, AutoPatch-LLM aims to produce a correct patch to remediate the issue.
+            </p>
+             <p>
+                This tool is designed to assist developers and security researchers in the often complex and time-consuming task of vulnerability patching.
+             </p>
+        </section>
+
+        <section id="features">
+            <h2>Key Features</h2>
+            <ul>
+                <li>Automated patch generation for C/C++ vulnerabilities.</li>
+                <li>Utilizes state-of-the-art Large Language Models.</li>
+                <li>Processes vulnerability descriptions and code context.</li>
+                <li>Aims to reduce manual effort in patch development.</li>
+                <li>Research-driven approach developed at UIC SySeC Lab.</li>
+            </ul>
+        </section>
+
+        <section id="getting-started">
+            <h2>Getting Started</h2>
+            <p>To get started with AutoPatch-LLM, follow these general steps (refer to the repository's README for detailed instructions):</p>
+            <ol>
+                <li><strong>Clone the repository:</strong><br>
+                    <code>git clone https://github.com/sysec-uic/AutoPatch-LLM.git</code><br>
+                    <code>cd AutoPatch-LLM</code>
+                </li>
+                <li><strong>Set up the environment:</strong><br>
+                    Install Python dependencies (likely using pip and a <code>requirements.txt</code> file).<br>
+                    <code>pip install -r requirements.txt</code> (Example command)
+                </li>
+                <li><strong>Configure API Keys:</strong><br>
+                    You will likely need API keys for the LLM service being used (e.g., OpenAI). Follow the project's instructions for configuration.
+                </li>
+                <li><strong>Run the tool:</strong><br>
+                    Execute the main Python script, providing necessary inputs like vulnerability information and code file paths. Example (check actual usage in README):<br>
+                    <code>python autopatch_llm.py --vuln-desc "description.txt" --code "vulnerable_code.c"</code>
+                </li>
+            </ol>
+             <p>
+                Please consult the <a href="https://github.com/sysec-uic/AutoPatch-LLM#readme" target="_blank" rel="noopener noreferrer">project's README</a> for specific commands, options, and prerequisites.
+            </p>
+        </section>
+
+        <section id="repository">
+            <h2>Source Code Repository</h2>
+            <p>
+                The complete source code, detailed documentation, and issue tracker can be found on GitHub. Contributions and feedback are welcome!
+            </p>
+            <a href="https://github.com/sysec-uic/AutoPatch-LLM" class="button" target="_blank" rel="noopener noreferrer">View on GitHub</a>
+        </section>
+
+         <section id="citation">
+            <h2>Research & Citation</h2>
+            <p>
+                If you use AutoPatch-LLM in your research, please cite the relevant publication(s). Check the project's README or repository for the correct citation information.
+            </p>
+            </section>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024-2025 SySeC Lab, University of Illinois Chicago. All rights reserved.</p>
+            <p>Website generated on: April 30, 2025</p>
+        </div>
+    </footer>
+</body>
+</html>
