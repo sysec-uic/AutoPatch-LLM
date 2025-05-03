@@ -6,7 +6,7 @@ import os
 import re
 import sys
 from abc import ABC, abstractmethod
-from typing import Dict, Final, List, Set
+from typing import Dict, Final, List, Optional, Set
 
 import openai
 from autopatchdatatypes import CpgScanResult, PatchResponse, TransformerMetadata
@@ -17,15 +17,12 @@ from cloudevents.http import CloudEvent
 from llm_dispatch_svc_config import LLMDispatchSvcConfig
 from openai import OpenAI
 
-# Global variables for the async queue and event loop.
 async_cpg_scan_results_queue = asyncio.Queue()
-event_loop: asyncio.AbstractEventLoop  # This will be set in main().
+event_loop: asyncio.AbstractEventLoop
 
-# this is the name of the environment variable that will be used point to the configuration map file to load
 CONST_LLM_DISPATCH_CONFIG: Final[str] = "LLM_DISPATCH_CONFIG"
 config: LLMDispatchSvcConfig
 
-# before configuration is loaded, use the default logger
 logger = logging.getLogger(__name__)
 
 executable_name_to_cpg_scan_result_map: Dict[str, CpgScanResult] = {}
@@ -49,35 +46,41 @@ async def map_cloud_event_as_cpg_scan_result(
 
     data = cloud_event.get("data", {})
 
+    # Ensure correct types are handled, providing defaults if necessary
+    severity = data.get("vulnerability_severity")
+    line_number = data.get("vulnerable_line_number")
+
     return CpgScanResult(
         executable_name=data.get("executable_name", ""),
-        vulnerability_severity=data.get("vulnerability_severity", None),
-        vulnerable_line_number=data.get("vulnerable_line_number", None),
+        vulnerability_severity=float(severity) if severity is not None else 0.0,
+        vulnerable_line_number=int(line_number) if line_number is not None else 0,
         vulnerable_function=data.get("vulnerable_function", ""),
         vulnerability_description=data.get("vulnerability_description", ""),
     )
 
 
 async def process_cpg_scan_result(cpg_scan_result: CpgScanResult) -> None:
-    logger.info(f"Processing cpg scan result: {cpg_scan_result}")
-    # TODO evaluate if we can remove this check
-    # if the crash executable is not in our executables base, then skip it
-    if cpg_scan_result.executable_name not in executable_name_to_cpg_scan_result_map:
-        logger.info(
-            f"{cpg_scan_result.executable_name} not in set of compiled executables to process.. adding to map"
-        )
-        executable_name_to_cpg_scan_result_map[cpg_scan_result.executable_name] = (
-            cpg_scan_result
-        )
-        logger.info(
-            f"Current executable_name_cpg_scan_result_map: {executable_name_to_cpg_scan_result_map.items()}"
-        )
+    # Store the result using the executable name as the key
+    executable_name_to_cpg_scan_result_map[
+        cpg_scan_result.executable_name.removesuffix(".c")
+    ] = cpg_scan_result
+    logger.info(
+        f"Added/Updated CPG scan result for {cpg_scan_result.executable_name}. Map size: {len(executable_name_to_cpg_scan_result_map)}"
+    )
+    logger.debug(
+        f"Current executable_name_cpg_scan_result_map keys: {list(executable_name_to_cpg_scan_result_map.keys())}"
+    )
 
 
 async def processcpg_scan_result_item(item):
     """Asynchronously process an item."""
-    cpg_scan_result = await map_cloud_event_as_cpg_scan_result(item)
-    await process_cpg_scan_result(cpg_scan_result)
+    try:
+        cpg_scan_result = await map_cloud_event_as_cpg_scan_result(item)
+        await process_cpg_scan_result(cpg_scan_result)
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON from item: {item}")
+    except Exception as e:
+        logger.error(f"Error processing CPG scan result item: {e}", exc_info=True)
 
 
 async def cpg_scan_result_consumer():
@@ -104,11 +107,13 @@ def load_config(json_config_full_path: str) -> LLMDispatchSvcConfig:
     Raises:
         Exception: Propagates any exceptions encountered during JSON loading or configuration parsing.
     """
-    config = load_config_as_json(json_config_full_path, logger)
-    return LLMDispatchSvcConfig(**config)
+    config_data = load_config_as_json(
+        json_config_full_path, logger
+    )  # Corrected function call
+    return LLMDispatchSvcConfig(**config_data)
 
 
-async def read_file(file_full_path: str) -> str:
+def read_file(file_full_path: str) -> str:
     """
     Asynchronously read the content of a file from a given full file path.
     Parameters:
@@ -117,34 +122,92 @@ async def read_file(file_full_path: str) -> str:
         str: The content of the file if it exists; otherwise, an empty string is returned and an error is logged.
 
     """
-    if not file_full_path:
-        logger.error("File does not exist")
+    if not file_full_path or not os.path.exists(file_full_path):
+        logger.error(f"File does not exist or path is invalid: {file_full_path}")
+        return ""
+    try:
+        with open(file_full_path, "r", encoding="utf-8") as f:
+            return f.read()
+    except Exception as e:
+        logger.error(f"Error reading file {file_full_path}: {e}")
         return ""
 
-    with open(file_full_path, "r") as f:
-        return f.read()
+
+def format_cpg_scan_context(cpg_context: CpgScanResult) -> str:
+    """
+    Formats the CpgScanResult object into a string suitable for prompt augmentation.
+
+    Parameters:
+        cpg_context (CpgScanResult): The CPG scan result object containing vulnerability details.
+
+    Returns:
+        str: A formatted string describing the vulnerability context.
+    """
+    if not cpg_context:
+        return ""  # Return empty string if context is None
+
+    context_str = (
+        f"Vulnerability Context:\n"
+        f"- Executable Name: {cpg_context.executable_name}\n"
+        f"- Severity Score: {cpg_context.vulnerability_severity}\n"
+        f"- Vulnerable Line: {cpg_context.vulnerable_line_number}\n"
+        f"- Vulnerable Function: {cpg_context.vulnerable_function}\n"
+        f"- Description: {cpg_context.vulnerability_description}\n"
+    )
+    return context_str
 
 
 async def full_prompt(
     system_prompt_full_path: str,
     user_prompt_full_path: str,
     input_c_program_full_path: str,
+    cpg_context: Optional[CpgScanResult] = None,
 ) -> str:
-    _system_prompt: Final[str] = await read_file(system_prompt_full_path)
-    _user_prompt: Final[str] = await read_file(user_prompt_full_path)
+    """
+    Constructs the full prompt by combining system prompt, user prompt, CPG context (if available),
+    and the source code.
 
-    _c_program_source_code_to_patch: Final[str] = await read_file(
-        input_c_program_full_path
-    )
-    _separator: Final[str] = "---"
+    Parameters:
+        system_prompt_full_path (str): Path to the system prompt file.
+        user_prompt_full_path (str): Path to the user prompt file.
+        input_c_program_full_path (str): Path to the C source code file.
+        cpg_context (Optional[CpgScanResult]): The vulnerability context from CPG scan.
 
-    full_prompt: Final[str] = (
-        f"{_system_prompt}\n{_user_prompt}\n{_separator}\n{_c_program_source_code_to_patch}"
-    )
+    Returns:
+        str: The fully constructed prompt.
+    """
+    _system_prompt: Final[str] = read_file(system_prompt_full_path)
+    _user_prompt: Final[str] = read_file(user_prompt_full_path)
+    _c_program_source_code_to_patch: Final[str] = read_file(input_c_program_full_path)
+
+    # Format the CPG context if it's provided
+    _formatted_cpg_context: str = ""
+    if cpg_context:
+        _formatted_cpg_context = format_cpg_scan_context(cpg_context)
+        logger.info(
+            f"Augmenting prompt with CPG context for {cpg_context.executable_name}"
+        )
+
+    _separator: Final[str] = "Here is the source code (starting at line 1):\n---\n"
+
+    # Combine all parts, including the CPG context if available
+    # Place context after user prompt but before the code separator
+    full_prompt_parts = [
+        _system_prompt,
+        _user_prompt,
+        _formatted_cpg_context if _formatted_cpg_context else "",  # Add context here
+        _separator,
+        _c_program_source_code_to_patch,
+    ]
+    # Filter out empty strings that might result from missing files or context
+    full_prompt: Final[str] = "\n".join(part for part in full_prompt_parts if part)
+
     logger.info(
-        f"Created Full Prompt for: {input_c_program_full_path}.  View Full Prompt in Debug log"
+        f"Created Full Prompt for: {input_c_program_full_path}. View Full Prompt in Debug log"
     )
-    logger.debug(f"Full prompt: {full_prompt}")
+    logger.debug(
+        f"Full prompt:\n{full_prompt}"
+    )  # Added newline for readability in logs
 
     return full_prompt
 
@@ -183,32 +246,35 @@ async def map_patchresponse_as_cloudevent(patch_response: PatchResponse) -> Clou
     Returns:
         CloudEvent: The corresponding CloudEvent Occurence.
     """
-    if patch_response is None or any(
-        value is None
-        for value in [
-            patch_response.executable_name,
-            patch_response.patch_snippet_base64,
-            patch_response.TransformerMetadata,
-            patch_response.status,
-        ]
-    ):
-        logger.error("Invalid patch_response object or one of its values is None.")
-        logger.debug(f"PatchResponse: {PatchResponse}")
-        raise ValueError("Invalid patch_response object or one of its values is None.")
+    if patch_response is None:
+        logger.error("Invalid patch_response object: cannot be None.")
+        raise ValueError("Invalid patch_response object: cannot be None.")
 
-    metadata: TransformerMetadata = patch_response.TransformerMetadata
-    if metadata is None or any(
-        value is None
-        for value in [
-            metadata.llm_name,
-            metadata.llm_version,
-            metadata.llm_flavor,
-        ]
+    # Simplified check using a helper or direct access if structure is guaranteed
+    required_patch_attrs = [
+        "executable_name",
+        "patch_snippet_base64",
+        "TransformerMetadata",
+        "status",
+    ]
+    if any(
+        getattr(patch_response, attr, None) is None for attr in required_patch_attrs
     ):
         logger.error(
-            "Invalid transformer_metadata object or one of its values is None."
+            f"Invalid patch_response object or one of its required values is None. Object: {patch_response}"
         )
-        logger.debug(f"TransformerMetadata: {metadata}")
+        raise ValueError(
+            "Invalid patch_response object or one of its required values is None."
+        )
+
+    metadata: TransformerMetadata = patch_response.TransformerMetadata
+    required_metadata_attrs = ["llm_name", "llm_version", "llm_flavor"]
+    if metadata is None or any(
+        getattr(metadata, attr, None) is None for attr in required_metadata_attrs
+    ):
+        logger.error(
+            f"Invalid transformer_metadata object or one of its values is None. Metadata: {metadata}"
+        )
         raise ValueError(
             "Invalid transformer_metadata object or one of its values is None."
         )
@@ -220,8 +286,7 @@ async def map_patchresponse_as_cloudevent(patch_response: PatchResponse) -> Clou
         "time": get_current_timestamp(),
     }
 
-    metadata = patch_response.TransformerMetadata
-
+    # Ensure metadata is correctly structured in the data payload
     data = {
         "executable_name": patch_response.executable_name,
         "patch_snippet_base64": patch_response.patch_snippet_base64,
@@ -248,15 +313,25 @@ async def map_patchresponses_as_cloudevents(
     Returns:
         List[CloudEvent]: List of CloudEvent objects created from the PatchResponse objects.
     """
+    tasks = [map_patchresponse_as_cloudevent(pr) for pr in patch_responses]
+
     if len(patch_responses) > concurrency_threshold:
-        # Run in parallel
-        tasks = [map_patchresponse_as_cloudevent(i) for i in patch_responses]
-        results = await asyncio.gather(*tasks)
+        # Run in parallel using asyncio.gather
+        results = await asyncio.gather(*tasks, return_exceptions=True)
     else:
         # Run sequentially
-        results = [await map_patchresponse_as_cloudevent(i) for i in patch_responses]
+        results = []
+        for task in tasks:
+            try:
+                result = await task
+                results.append(result)
+            except Exception as e:
+                # Log error and append exception or handle as needed
+                logger.error(f"Error mapping patch response to CloudEvent: {e}")
+                results.append(e)  # Or append None, or filter out errors
 
-    return results
+    # Filter out potential exceptions if they were gathered
+    return [res for res in results if isinstance(res, CloudEvent)]
 
 
 def on_consume_cpg_scan_result(cloud_event_str: str) -> None:
@@ -265,14 +340,20 @@ def on_consume_cpg_scan_result(cloud_event_str: str) -> None:
     It uses the globally stored event_loop to schedule a call to
     async_queue.put_nowait in a thread‑safe manner.
     """
-    logger.info(f"in on_consume_cpg_scan_result received {cloud_event_str}")
+    logger.info("Received CPG scan result message, scheduling for async processing.")
+    logger.debug(f"Raw CPG scan result message: {cloud_event_str}")
     # Schedule adding the event to the async queue.
     # Use call_soon_threadsafe so that this function can be safely called
     # from threads outside the event loop.
     global event_loop
-    event_loop.call_soon_threadsafe(
-        async_cpg_scan_results_queue.put_nowait, cloud_event_str
-    )
+    if event_loop and event_loop.is_running():
+        event_loop.call_soon_threadsafe(
+            async_cpg_scan_results_queue.put_nowait, cloud_event_str
+        )
+    else:
+        logger.error(
+            "Event loop not available or not running. Cannot schedule CPG scan result processing."
+        )
 
 
 async def produce_output(
@@ -283,32 +364,46 @@ async def produce_output(
 ) -> None:
 
     async def produce_event(event: CloudEvent) -> None:
-        # flake8 flags the following as F821 because it doesn't recognize the global variable
-        logger.debug(f"Producing on Topic: {patch_response_output_topic}")  # noqa: F821
-        logger.debug(f"Producing CloudEvent: {event}")
-        await message_broker_client.publish(
-            patch_response_output_topic, to_json(event).decode("utf-8")  # noqa: F821
-        )
+        try:
+            logger.debug(f"Producing on Topic: {patch_response_output_topic}")
+            logger.debug(f"Producing CloudEvent: {event}")
+            event_json = to_json(event).decode("utf-8")
+            await message_broker_client.publish(patch_response_output_topic, event_json)
+            logger.info(
+                f"Successfully produced CloudEvent for {event['subject']} to {patch_response_output_topic}"
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to produce CloudEvent to {patch_response_output_topic}: {e}",
+                exc_info=True,
+            )
 
     patch_response_cloud_events: List[CloudEvent] = (
-        await map_patchresponses_as_cloudevents(patch_responses)
+        await map_patchresponses_as_cloudevents(patch_responses, concurrency_threshold)
     )
 
+    if not patch_response_cloud_events:
+        logger.warning(
+            "No valid CloudEvents generated from patch responses. Nothing to produce."
+        )
+        return
+
     logger.info(f"Producing {len(patch_response_cloud_events)} CloudEvents.")
+    tasks = [produce_event(event) for event in patch_response_cloud_events]
+
     if len(patch_response_cloud_events) > concurrency_threshold:
         # Run in parallel using asyncio.gather
-        tasks = [produce_event(event) for event in patch_response_cloud_events]
         await asyncio.gather(*tasks)
     else:
         # Run sequentially
-        for event in patch_response_cloud_events:
-            await produce_event(event)
+        for task in tasks:
+            await task
 
 
 # Base interface for any LLM implementation.
 class BaseLLM(ABC):
     @abstractmethod
-    def generate(self, prompt: str) -> Dict:
+    async def generate(self, prompt: str) -> Dict:  # Made generate async
         """
         Generate a response based on the given prompt.
         Returns a dictionary containing:
@@ -333,11 +428,12 @@ class ApiLLM(BaseLLM):
         self.endpoint = endpoint
         self.temperature = temperature
         self.top_p = top_p
+        # Initialize OpenAI client once per instance
+        self.client = OpenAI(base_url=self.endpoint, api_key=self.api_key)
 
     async def generate(self, prompt: str) -> Dict[str, str]:
         response_text = await self.request_completion_http(
-            api_key=self.api_key,
-            base_url=self.endpoint,
+            # No need to pass client details again, use self.client
             model=self.name,
             user_prompt=prompt,
             temperature=self.temperature,
@@ -347,20 +443,19 @@ class ApiLLM(BaseLLM):
 
     async def request_completion_http(
         self,
-        api_key: str,
-        base_url: str,
         model: str,
-        # system_prompt: str,
         user_prompt: str,
         temperature: float,
         top_p: float,
     ) -> str:
-        client = OpenAI(base_url=base_url, api_key=api_key)
+        # Use the instance's client
+        # client = OpenAI(base_url=base_url, api_key=api_key) # Removed, use self.client
 
         try:
             # Here we concatenate the full prompt as the user prompt.
             # This if fine as we are not performing few shot or chain of thought prompting
-            completion = client.chat.completions.create(
+            completion = await asyncio.to_thread(  # Use to_thread for blocking I/O
+                self.client.chat.completions.create,
                 model=model,
                 temperature=temperature,
                 top_p=top_p,
@@ -371,22 +466,34 @@ class ApiLLM(BaseLLM):
                     }
                 ],
             )
+            completion_str = completion.choices[0].message.content
+
         except openai.NotFoundError as e:
             # Models sometimes get deprecated
             logger.error(f"Route provider for Model not found: {model}. Error: {e}")
             unreachable_models.add(model)
             return CONST_NO_RESPONSE
-
-        # TODO handle out of quota errors here
-
-        completion_str = ""
-        try:
-            completion_str = completion.choices[0].message.content
+        except openai.APIConnectionError as e:
+            logger.error(f"API connection error for model {model}: {e}")
+            unreachable_models.add(model)  # Mark as potentially unreachable
+            return CONST_NO_RESPONSE
+        except openai.RateLimitError as e:
+            logger.error(f"Rate limit exceeded for model {model}: {e}")
+            # Consider retry logic here or marking as temporarily unavailable
+            unreachable_models.add(model)  # Mark as potentially unreachable
+            return CONST_NO_RESPONSE
         except Exception as e:
-            # TODO expand error handling
-            logger.error(f"Error returned from Model Router API: {e}")
+            logger.error(
+                f"Error returned from Model Router API for model {model}: {e}",
+                exc_info=True,
+            )
+            unreachable_models.add(model)  # Mark as potentially unreachable
+            return CONST_NO_RESPONSE
 
-        logger.debug(f"Completion: {completion}")
+        logger.info(
+            f"Completion received from Model Router API for {model}. Full completion in Debug Log"
+        )
+        logger.debug(f"Completion for {model}: {completion}")
 
         return completion_str if completion_str else CONST_NO_RESPONSE
 
@@ -396,8 +503,10 @@ class InMemoryLLM(BaseLLM):
         self.name = name
         self.model = model  # Could be a loaded model in a real scenario.
 
-    def generate(self, prompt: str) -> Dict:
+    async def generate(self, prompt: str) -> Dict:  # Made async
         # Simulate in-memory generation; replace with a real call in production.
+        # If the actual model call is blocking, use asyncio.to_thread
+        await asyncio.sleep(0.1)  # Simulate async work
         response_text = f"In-memory response for prompt '{prompt}' from {self.name}"
         return {"llm_name": self.name, "response": response_text}
 
@@ -410,7 +519,7 @@ class LLMStrategy(ABC):
         pass
 
     @abstractmethod
-    async def generate(self, prompt: str) -> List[Dict]:
+    async def generate(self, prompt: str) -> List[Dict]:  # Made async
         """Generate responses from all registered LLMs based on the prompt."""
         pass
 
@@ -421,18 +530,40 @@ class ApiLLMStrategy(LLMStrategy):
         self.llms: List[ApiLLM] = []
 
     def register(self, llm: ApiLLM):
-        self.llms.append(llm)
+        if isinstance(llm, ApiLLM):
+            self.llms.append(llm)
+        else:
+            logger.warning(
+                f"Attempted to register non-ApiLLM ({type(llm)}) with ApiLLMStrategy. Skipping."
+            )
 
-    async def generate(self, prompt: str) -> List[Dict]:
-        responses = []
+    async def generate(self, prompt: str) -> List[Dict]:  # Made async
+        tasks = []
         for llm in self.llms:
             if llm.name not in unreachable_models:
-                responses.append(await llm.generate(prompt))
-                logger.info(
-                    "Waiting for 1.0 seconds to avoid triggering API rate limits."
+                tasks.append(llm.generate(prompt))  # llm.generate is now async
+            else:
+                logger.warning(f"Skipping unreachable model: {llm.name}")
+
+        responses = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Process results, filter out exceptions or handle them
+        final_responses = []
+        for i, response in enumerate(responses):
+            original_llm_name = self.llms[i].name  # Assuming order is preserved
+            if isinstance(response, Exception):
+                logger.error(
+                    f"Error generating response from {original_llm_name}: {response}"
                 )
-                await asyncio.sleep(1.0)
-        return responses
+                # Optionally add a placeholder response or mark as failed
+            elif isinstance(response, dict):
+                final_responses.append(response)
+            else:
+                logger.warning(
+                    f"Unexpected result type from {original_llm_name}: {type(response)}"
+                )
+
+        return final_responses
 
 
 # Concrete strategy for in-memory LLMs.
@@ -441,13 +572,35 @@ class InMemoryLLMStrategy(LLMStrategy):
         self.llms: List[InMemoryLLM] = []
 
     def register(self, llm: InMemoryLLM):
-        self.llms.append(llm)
+        if isinstance(llm, InMemoryLLM):
+            self.llms.append(llm)
+        else:
+            logger.warning(
+                f"Attempted to register non-InMemoryLLM ({type(llm)}) with InMemoryLLMStrategy. Skipping."
+            )
 
-    def generate(self, prompt: str) -> List[Dict]:
-        responses = []
-        for llm in self.llms:
-            responses.append(llm.generate(prompt))
-        return responses
+    async def generate(self, prompt: str) -> List[Dict]:  # Made async
+        tasks = [llm.generate(prompt) for llm in self.llms]  # generate is now async
+        responses = await asyncio.gather(
+            *tasks, return_exceptions=True
+        )  # Handle potential errors
+
+        # Process results, filter out exceptions or handle them
+        final_responses = []
+        for i, response in enumerate(responses):
+            original_llm_name = self.llms[i].name  # Assuming order is preserved
+            if isinstance(response, Exception):
+                logger.error(
+                    f"Error generating response from {original_llm_name}: {response}"
+                )
+            elif isinstance(response, dict):
+                final_responses.append(response)
+            else:
+                logger.warning(
+                    f"Unexpected result type from {original_llm_name}: {type(response)}"
+                )
+
+        return final_responses
 
 
 # Facade client that uses a strategy to dispatch the prompt.
@@ -455,13 +608,15 @@ class LLMClient:
     def __init__(self):
         # Mapping of strategy names to strategy instances.
         self.strategies: Dict[str, LLMStrategy] = {}
-        self.active_strategy: LLMStrategy
+        # Initialize active_strategy to None or a default
+        self.active_strategy: Optional[LLMStrategy] = None  # Made optional
 
     def register_strategy(self, name: str, strategy: LLMStrategy):
         """
         Register a strategy instance with a given name.
         """
         self.strategies[name] = strategy
+        logger.info(f"Registered LLM strategy: {name}")
 
     def set_strategy(self, name: str):
         """
@@ -469,22 +624,31 @@ class LLMClient:
         """
         if name in self.strategies:
             self.active_strategy = self.strategies[name]
+            logger.info(f"Set active LLM strategy to: {name}")
         else:
+            logger.error(f"Strategy '{name}' is not registered.")
             raise ValueError(f"Strategy '{name}' is not registered.")
 
-    async def generate(self, prompt: str) -> List[Dict[str, str]]:
+    async def generate(self, prompt: str) -> List[Dict[str, str]]:  # Made async
         """
         Dispatch the prompt to the active strategy and return the structured responses.
         """
         if not self.active_strategy:
-            raise Exception(
+            logger.error(
                 "No active strategy set. Please set a strategy using set_strategy()."
             )
+            # Raise specific exception
+            raise RuntimeError(
+                "No active strategy set. Please set a strategy using set_strategy()."
+            )
+        # active_strategy.generate is now async
         return await self.active_strategy.generate(prompt)
 
 
 async def init_llm_client(
-    models: List[str], model_router_api_key: str, model_router_base_url
+    models: List[str],
+    model_router_api_key: str,
+    model_router_base_url: str,  # Added type hint
 ) -> LLMClient:
     """
     Initialize and configure an LLMClient with API and in-memory strategies.
@@ -500,6 +664,9 @@ async def init_llm_client(
     Returns:
         LLMClient: A configured LLMClient instance with the registered strategies.
     """
+    if not all([models, model_router_api_key, model_router_base_url]):
+        logger.error("Missing required parameters for LLM client initialization.")
+        raise ValueError("Models list, API key, and base URL are required.")
 
     client = LLMClient()
 
@@ -508,90 +675,156 @@ async def init_llm_client(
     in_memory_strategy = InMemoryLLMStrategy()
 
     # Register LLMs with their respective strategies.
-    len_models = len(models)
-    for i in range(len_models):
-        api_strategy.register
+    # len_models = len(models) # Not needed directly
+    logger.info(f"Registering {len(models)} API models...")
+    for model_name in models:
+        # api_strategy.register # This line did nothing
         api_strategy.register(
             ApiLLM(
-                name=models[i],
+                name=model_name,
                 api_key=model_router_api_key,
                 endpoint=model_router_base_url,
+                # Consider making temperature/top_p configurable per model if needed
             )
         )
+    logger.info("API models registered.")
 
-    # TODO not yet implemented
+    # TODO not yet implemented - Register in-memory models if needed
+    logger.info("Registering placeholder in-memory model...")
     in_memory_strategy.register(InMemoryLLM(name="LocalModel", model="dummy_model"))
+    logger.info("In-memory model registered.")
 
     # Register strategies with the client.
     client.register_strategy("api", api_strategy)
     client.register_strategy("in_memory", in_memory_strategy)
 
+    # Optionally set a default strategy here
+    # client.set_strategy("api")
+
     return client
 
 
-async def create_patch_responses(
-    raw_responses: List[Dict[str, str]],
-    source_filename_or_program_name_under_consideration_unique_id: List[str],
-    concurrency_threshold: int = 10,
-) -> List[PatchResponse]:
-    """
-    Creates patch responses from the provided raw responses and their associated unique identifiers.
-    Parameters:
-        raw_responses (List[Dict[str, str]]): A list of dictionaries containing raw response data.
-        source_filename_or_program_name_under_consideration_unique_id (List[str]):
-            A list of unique identifiers corresponding to each raw response, such as source filenames
-            or program names.
-        concurrency_threshold (int, optional): The maximum number of raw responses to process
-            sequentially. If the number of raw responses exceeds this threshold, processing is
-            executed in parallel. Defaults to 10.
-    Returns:
-        List[PatchResponse]: A list of patch responses generated from the raw responses.
-    """
-    if len(raw_responses) > concurrency_threshold:
-        # Run in parallel
-        tasks = [
-            create_patch_response(x[0], x[1])
-            for x in zip(
-                raw_responses,
-                source_filename_or_program_name_under_consideration_unique_id,
-            )
-        ]
-        results = await asyncio.gather(*tasks)
-    else:
-        # Run sequentially
-        results = [
-            await create_patch_response(x[0], x[1])
-            for x in zip(
-                raw_responses,
-                source_filename_or_program_name_under_consideration_unique_id,
-            )
-        ]
-
-    return results
-
-
+# --- create_patch_responses needs update to handle concurrency correctly ---
 async def create_patch_response(
     raw_response: Dict[str, str],
     program_name_under_consideration_uid: str,
 ) -> PatchResponse:
     """
-    Create a PatchRequest objects from the raw response.
+    Create a PatchResponse object from a single raw LLM response.
     """
-    unwrapped_response = unwrap_raw_llm_response(raw_response["response"])
-    updated_response = unwrapped_response
-    _llm_name = raw_response["llm_name"][
-        raw_response["llm_name"].index("/") + 1 : raw_response["llm_name"].index(":")
-    ]
-    _llm_flavor = raw_response["llm_name"][: raw_response["llm_name"].index("/")]
+    # Validate raw_response structure
+    if (
+        not isinstance(raw_response, dict)
+        or "response" not in raw_response
+        or "llm_name" not in raw_response
+    ):
+        logger.error(f"Invalid raw_response format: {raw_response}")
+        # Return a failed PatchResponse or raise an error
+        # For now, creating a failed response
+        metadata = TransformerMetadata(
+            llm_name="unknown", llm_flavor="unknown", llm_version="unknown"
+        )
+        return PatchResponse(
+            program_name_under_consideration_uid.removesuffix(".c"),
+            "",  # No patch snippet
+            metadata,
+            status="fail",
+        )
+
+    unwrapped_response = unwrap_raw_llm_response(
+        raw_response.get("response", CONST_NO_RESPONSE)
+    )
+    # updated_response = unwrapped_response # Redundant assignment
+
+    _llm_name_full = raw_response.get("llm_name", "unknown/unknown")
+
+    # Improved parsing for llm name and flavor
+    try:
+        _llm_flavor, _llm_specific = _llm_name_full.split("/", 1)
+        # Further split specific name from potential tag/version if needed
+        if ":" in _llm_specific:
+            _llm_name = _llm_specific.split(":", 1)[0]
+        else:
+            _llm_name = _llm_specific
+    except ValueError:
+        logger.warning(
+            f"Could not parse LLM name/flavor from '{_llm_name_full}'. Using defaults."
+        )
+        _llm_name = _llm_name_full  # Use full name if parsing fails
+        _llm_flavor = "unknown"
+
     metadata: TransformerMetadata = TransformerMetadata(
-        llm_name=_llm_name, llm_flavor=_llm_flavor, llm_version="not available"
+        llm_name=_llm_name,
+        llm_flavor=_llm_flavor,
+        llm_version="not available",  # Consider extracting version if present
     )
+
+    # Encode the unwrapped response
+    patch_snippet_base64 = base64.b64encode(unwrapped_response.encode("utf-8")).decode(
+        "utf-8"
+    )
+
+    # Determine status based on whether a meaningful response was generated
+    status = (
+        "success"
+        if unwrapped_response != CONST_NO_RESPONSE and unwrapped_response
+        else "fail"
+    )
+
     return PatchResponse(
-        program_name_under_consideration_uid.removesuffix(".c"),
-        base64.b64encode(updated_response.encode("utf-8")).decode("utf-8"),
+        program_name_under_consideration_uid.removesuffix(
+            ".c"
+        ),  # Ensure correct executable name
+        patch_snippet_base64,
         metadata,
-        status="success" if updated_response != CONST_NO_RESPONSE else "fail",
+        status=status,
     )
+
+
+async def create_patch_responses(
+    raw_responses: List[Dict[str, str]],
+    source_filename_or_program_name_under_consideration_unique_id: str,
+) -> List[PatchResponse]:
+    """
+    Creates patch responses from a list of raw
+    responses for a SINGLE source file/program.
+
+    Parameters:
+        raw_responses (List[Dict[str, str]]): A list of
+          dictionaries containing raw response data from
+          different LLMs for the same input.
+        source_filename_or_program_name_under_consideration_unique_id (str):
+            The unique identifier (e.g., source filename)
+            corresponding to ALL raw responses in the list.
+        concurrency_threshold (int, optional): This parameter
+        is less relevant here as mapping is usually fast. Kept for
+        signature consistency but not used for concurrency logic
+        within this function.
+
+    Returns:
+        List[PatchResponse]: A list of patch responses generated from the raw responses.
+    """
+    if not isinstance(raw_responses, list):
+        logger.error("raw_responses must be a list.")
+        return []
+
+    tasks = [
+        create_patch_response(
+            response, source_filename_or_program_name_under_consideration_unique_id
+        )
+        for response in raw_responses
+    ]
+
+    # Mapping is generally lightweight, asyncio.gather might add overhead for small lists.
+    # Decide based on typical list size or profile if needed.
+    # Running sequentially for simplicity unless proven bottleneck.
+    results = []
+    for task in tasks:
+        # Since create_patch_response is now async (due to potential future async ops)
+        result = await task
+        results.append(result)
+
+    return results
 
 
 def init_message_broker(
@@ -602,109 +835,280 @@ def init_message_broker(
     Returns:
         MessageBrokerClient: The configured MessageBrokerClient ready for use.
     """
-    message_broker_client: Final[MessageBrokerClient] = MessageBrokerClient(
-        message_broker_host,
-        message_broker_port,
-        logger,
+    logger.info(
+        f"Initializing Message Broker Client for {message_broker_host}:{message_broker_port}"
     )
-    return message_broker_client
+    try:
+        message_broker_client: Final[MessageBrokerClient] = MessageBrokerClient(
+            message_broker_host,
+            message_broker_port,
+            logger,
+        )
+        # Consider adding a connection check/ping here if the client supports it
+        logger.info("Message Broker Client initialized.")
+        return message_broker_client
+    except Exception as e:
+        logger.error(f"Failed to initialize Message Broker Client: {e}", exc_info=True)
+        # Depending on requirements, either raise the exception or handle gracefully
+        raise  # Re-raise the exception to indicate failure
 
 
 async def main():
     global config, logger
     global event_loop
+    global executable_name_to_cpg_scan_result_map  # Ensure map is accessible
 
+    # --- Configuration Loading ---
     config_full_path = os.environ.get(CONST_LLM_DISPATCH_CONFIG)
-
     if not config_full_path:
-        logger.error(
+        # Use default logger before config is loaded
+        logging.basicConfig(level=logging.INFO)
+        logging.error(
             f"Error: The environment variable {CONST_LLM_DISPATCH_CONFIG} is not set or is empty."
         )
         sys.exit(1)
 
-    config = load_config(config_full_path)
-    logger = init_logging(config.logging_config, config.appName)
-
-    # LLM_DISPATCH_START_TIMESTAMP: Final[str] = get_current_timestamp()
-
-    # removed from openrouter "openai/gpt-4o-mini:free",
-    # models = [
-    # "mistralai/mistral-small-3.1-24b-instruct:free",
-    # "meta-llama/llama-3.3-70b-instruct:free",
-    # "deepseek/deepseek-r1-zero:free",
-    # "google/gemini-2.5-pro-exp-03-25:free",
-    # ]
-
-    models = config.models
-    logger.info(f"Models: {models}")
-
-    model_router_base_url = os.environ.get("MODEL_ROUTER_BASE_URL", "CHANGE_ME")
-    model_router_api_key = os.environ.get("MODEL_ROUTER_API_KEY", "CHANGE_ME")
-
-    client: LLMClient = await init_llm_client(
-        models, model_router_api_key, model_router_base_url
-    )
-
-    # Set active strategy at runtime.
-    client.set_strategy("api")  # Change to "in_memory" to use the in-memory strategy.
-
-    event_loop = asyncio.get_running_loop()
-
-    message_broker_client: Final[MessageBrokerClient] = init_message_broker(
-        config.message_broker_host,
-        config.message_broker_port,
-        logger,
-    )
-
-    # subscribe to topic
-    message_broker_client.consume(
-        config.cpg_scan_result_input_topic, on_consume_cpg_scan_result
-    )
-
-    async def process_file(filename: str, config, client, message_broker_client):
-        prompt: str = await full_prompt(
-            config.system_prompt_full_path,
-            config.user_prompt_full_path,
-            os.path.join(config.input_codebase_full_path, filename),
+    try:
+        config = load_config(config_full_path)
+        logger = init_logging(config.logging_config, config.appName)
+        logger.info(f"Configuration loaded successfully from {config_full_path}")
+    except Exception as e:
+        logging.error(
+            f"Failed to load configuration or initialize logging: {e}", exc_info=True
         )
-        responses = await client.generate(prompt)
-        patch_responses: List[PatchResponse] = await create_patch_responses(
-            responses, [filename] * len(responses)
+        sys.exit(1)
+
+    # --- Environment Variable Checks ---
+    model_router_base_url = os.environ.get("MODEL_ROUTER_BASE_URL")
+    model_router_api_key = os.environ.get("MODEL_ROUTER_API_KEY")
+
+    if not model_router_base_url or model_router_base_url == "CHANGE_ME":
+        logger.error(
+            "MODEL_ROUTER_BASE_URL environment variable not set or is default."
         )
-        await produce_output(
-            config.message_broker_topics["response"],
-            patch_responses,
-            message_broker_client,
+        sys.exit(1)
+    if not model_router_api_key or model_router_api_key == "CHANGE_ME":
+        logger.error("MODEL_ROUTER_API_KEY environment variable not set or is default.")
+        sys.exit(1)
+
+    # --- Initialization ---
+    try:
+        event_loop = asyncio.get_running_loop()
+
+        models = config.models
+        logger.info(f"Configured Models: {models}")
+
+        client: LLMClient = await init_llm_client(
+            models, model_router_api_key, model_router_base_url
+        )
+        client.set_strategy("api")  # Set default strategy
+
+        message_broker_client: Final[MessageBrokerClient] = init_message_broker(
+            config.message_broker_host,
+            config.message_broker_port,
+            logger,
+        )
+    except Exception as e:
+        logger.error(f"Initialization failed: {e}", exc_info=True)
+        sys.exit(1)
+
+    # --- Start CPG Consumer Task ---
+    logger.info(
+        f"Starting CPG scan result consumer for topic: {config.cpg_scan_result_input_topic}"
+    )
+    consumer_task = asyncio.create_task(cpg_scan_result_consumer())
+    try:
+        # subscribe to topic
+        message_broker_client.consume(
+            config.cpg_scan_result_input_topic, on_consume_cpg_scan_result
+        )
+        logger.info(f"Subscribed to topic: {config.cpg_scan_result_input_topic}")
+    except Exception as e:
+        logger.error(
+            f"Failed to subscribe to topic {config.cpg_scan_result_input_topic}: {e}",
+            exc_info=True,
+        )
+        consumer_task.cancel()  # Stop the consumer if subscription fails
+        sys.exit(1)
+
+    # --- Define File Processing Logic ---
+    async def process_file(
+        filename: str,
+        config: LLMDispatchSvcConfig,
+        client: LLMClient,
+        message_broker_client: MessageBrokerClient,
+    ):
+        logger.info(f"Processing file: {filename}")
+        input_c_program_full_path = os.path.join(
+            config.input_codebase_full_path, filename
         )
 
-    filenames: List[str] = []
-    for filename in os.listdir(config.input_codebase_full_path):
-        if not filename.endswith(".c"):
-            # only fuzzing service yet supports makefile projects
-            logger.info(
-                f"{config.appName} does not yet support makefile projects, Skipping directory: {filename}"
+        # --- Get CPG Context ---
+        # Derive executable name (assuming it's filename without .c)
+        executable_name = filename.removesuffix(".c")
+        cpg_context: Optional[CpgScanResult] = (
+            executable_name_to_cpg_scan_result_map.get(executable_name)
+        )
+
+        if cpg_context:
+            logger.info(f"Found CPG context for {executable_name}")
+        else:
+            # Decide behavior: skip processing, process without context, or wait?
+            # Current implementation proceeds without context.
+            logger.warning(
+                f"No CPG context found for {executable_name} in map. Proceeding without context."
             )
-            continue
-        filenames.append(filename)
+            # You might want to add a check here to only proceed if context is required/available
 
-    tasks = [
-        process_file(filename, config, client, message_broker_client)
-        for filename in filenames
-    ]
-    await asyncio.gather(*tasks)
+        # --- Generate Prompt ---
+        try:
+            prompt: str = await full_prompt(
+                config.system_prompt_full_path,
+                config.user_prompt_full_path,
+                input_c_program_full_path,
+                cpg_context,  # Pass the retrieved context (or None)
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to create full prompt for {filename}: {e}", exc_info=True
+            )
+            return  # Skip processing this file
 
-    # LLM_DISPATCH_END_TIMESTAMP: Final[str] = get_current_timestamp()
-    # time_delta = datetime.fromisoformat(
-    #     LLM_DISPATCH_END_TIMESTAMP
-    # ) - datetime.fromisoformat(LLM_DISPATCH_START_TIMESTAMP)
-    # logger.info(f"Total Processing Time Elapsed: {time_delta}")
-    # logger.info("Processing complete, exiting.")
+        if not prompt:
+            logger.error(
+                f"Generated prompt is empty for {filename}. Skipping LLM generation."
+            )
+            return
 
-    # TODO finish making event driven
-    # Keep the program running indefinitely, waiting for more events.
-    await asyncio.Future()  # This future will never complete.
+        # --- Generate Responses from LLMs ---
+        try:
+            logger.info(f"Generating responses for {filename} using {len(client.active_strategy.llms)} LLMs...")  # type: ignore
+            responses = await client.generate(prompt)
+            logger.info(f"Received {len(responses)} raw responses for {filename}.")
+        except Exception as e:
+            logger.error(
+                f"Failed to generate responses for {filename}: {e}", exc_info=True
+            )
+            return  # Skip processing this file
+
+        # --- Create Patch Responses ---
+        if not responses:
+            logger.warning(
+                f"No responses generated for {filename}. Skipping output production."
+            )
+            return
+
+        try:
+            # Pass the single filename/id corresponding to these responses
+            patch_responses: List[PatchResponse] = await create_patch_responses(
+                responses, filename  # Pass filename as the identifier
+            )
+            logger.info(
+                f"Created {len(patch_responses)} PatchResponse objects for {filename}."
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to create patch responses for {filename}: {e}", exc_info=True
+            )
+            return  # Skip processing this file
+
+        # --- Produce Output ---
+        if not patch_responses:
+            logger.warning(
+                f"No valid patch responses created for {filename}. Skipping output production."
+            )
+            return
+
+        try:
+            output_topic = config.message_broker_topics.get("response")
+            if not output_topic:
+                logger.error("Response topic not configured in message_broker_topics.")
+                return
+            await produce_output(
+                output_topic,
+                patch_responses,
+                message_broker_client,
+            )
+            logger.info(f"Output produced for {filename} to topic {output_topic}.")
+        except Exception as e:
+            logger.error(f"Failed to produce output for {filename}: {e}", exc_info=True)
+            # Continue to next file
+
+    # --- Process Files ---
+    filenames: List[str] = []
+    if not os.path.isdir(config.input_codebase_full_path):
+        logger.error(
+            f"Input codebase path is not a valid directory: {config.input_codebase_full_path}"
+        )
+        # Clean up before exiting
+        consumer_task.cancel()
+        await asyncio.sleep(1)  # Allow cancellation to process
+        sys.exit(1)
+
+    # Allow some time for connections and potential initial messages
+    logger.info(
+        f"Allowing {str(config.cpg_gen_wait_time)}s for code property graph generation and message consumption..."
+    )
+    await asyncio.sleep(config.cpg_gen_wait_time)
+    logger.info("Initial wait complete. Proceeding with file processing.")
+
+    for item in os.listdir(config.input_codebase_full_path):
+        item_path = os.path.join(config.input_codebase_full_path, item)
+        if item.endswith(".c") and os.path.isfile(item_path):
+            filenames.append(item)
+        elif os.path.isdir(item_path):
+            # Log skipping directories specifically
+            logger.info(
+                f"{config.appName} processes only .c files directly in the input path. Skipping directory: {item}"
+            )
+        else:
+            # Log skipping other file types
+            logger.info(f"Skipping non-.c file: {item}")
+
+    if not filenames:
+        logger.warning(
+            f"No .c files found in {config.input_codebase_full_path}. Nothing to process."
+        )
+    else:
+        logger.info(f"Found {len(filenames)} .c files to process: {filenames}")
+        # Create tasks for processing each file
+        tasks = [
+            process_file(filename, config, client, message_broker_client)
+            for filename in filenames
+        ]
+        # Run tasks concurrently
+        await asyncio.gather(*tasks)
+        logger.info("Finished processing all found .c files.")
+
+    # --- Keep Running (Event-Driven Part) ---
+    # The current file processing logic runs once at startup.
+    # To make it truly event-driven based on CPG results, the logic inside `process_file`
+    # would need to be triggered *by* the `cpg_scan_result_consumer` after a result is processed,
+    # potentially using the `executable_name` to find the corresponding source file.
+    # The current structure processes all files found initially and uses CPG results if available at that time.
+
+    logger.info(
+        "Initial file processing complete. Service running, waiting for new CPG scan results..."
+    )
+    # Keep the program running to allow the consumer task to continue receiving messages.
+    # Wait for the consumer task to finish (which it won't unless cancelled or an error occurs)
+    try:
+        await consumer_task  # Keep running until consumer stops or is cancelled
+    except asyncio.CancelledError:
+        logger.info("Consumer task cancelled.")
+    except Exception as e:
+        logger.error(f"Consumer task exited with error: {e}", exc_info=True)
+
+    logger.info("Shutting down.")
 
 
 if __name__ == "__main__":
-    # Run the event loop
-    asyncio.run(main())
+    try:
+        # Run the event loop
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("Interrupted by user. Exiting.")
+    except Exception as e:
+        # Catch top-level exceptions during startup/shutdown
+        logging.error(f"Unhandled exception in main execution: {e}", exc_info=True)
+        sys.exit(1)

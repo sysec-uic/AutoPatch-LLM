@@ -293,5 +293,12 @@ async def main():
 
 
 if __name__ == "__main__":
-    # Run the event loop
-    asyncio.run(main())
+    try:
+        # Run the event loop
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("Interrupted by user. Exiting.")
+    except Exception as e:
+        # Catch top-level exceptions during startup/shutdown
+        logging.error(f"Unhandled exception in main execution: {e}", exc_info=True)
+        sys.exit(1)

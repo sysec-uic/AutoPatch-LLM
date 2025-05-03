@@ -1,4 +1,4 @@
-# **AutoPatch: LLM Based Automated Memory Safety Bug (CVE) Patching with Fuzzing, Address Sanitization, and Code Property Graphs** <!-- omit in toc -->
+# **✨ AutoPatch: LLM Based Automated Memory Safety Bug (CWE) Patching with Fuzzing, Address Sanitization, and Code Property Graphs** <!-- omit in toc -->
 
 Lead Developer: Robert D. Hernandez <https://www.linkedin.com/in/robhernandez5/>
 
@@ -7,6 +7,7 @@ Lead Developer: Robert D. Hernandez <https://www.linkedin.com/in/robhernandez5/>
 - [Introduction](#introduction)
   - [Features](#features)
 - [How It Works](#how-it-works)
+- [LLM Performance Comparison so far](#llm-performance-comparison-so-far)
 - [Pre-requisites](#pre-requisites)
 - [How to Run](#how-to-run)
 - [Devtools](#devtools)
@@ -35,13 +36,13 @@ High level system design diagram:
 
 ## Introduction  
 
-
 **AutoPatch**: is an end-to-end GenAI-assisted tool designed to automatically detect and patch bugs in C code by performing vulnerability detection, vulnerability patching, and evaluation of patches for real-world C programs.
 
-By combining **Google's Address Sanitizer (ASan)**, **American Fuzzy Lop (AFL++)** and **a competing ensemble of Large Language Models**, AutoPatch targets low level memory safety bugs.  Identifying and resolving memory safety bugs such as Use After Free, Double Free, and Buffer Overflow.
+By combining **Google's Address Sanitizer (ASan)**, **American Fuzzy Lop (AFL++)** **Code Property Graphs** and we evaluate the feasibility of **various Large Language Models** for additional research towards automatica and sound program repair. AutoPatch targets low level memory safety bugs.  Identifying and resolving memory safety bugs such as Use After Free, Double Free, and Buffer Overflow.
 
 **Method:**
-1. **Vulnerability detection** through fuzzing and static analysis (address sanitizer, [WIP]code property graphs).
+
+1. **Vulnerability detection** through fuzzing with address sanitizer instrumentation and coverage boosting with code property graphs.
 2. **Patching**: sourcing the buggy source code, crash instances, and static analysis to query LLMs to generate a patch.
 3. **Evaluation**: sourcing the potential patch (2) and the identified trigger inputs (1) to test the patch’s success.
 
@@ -65,6 +66,29 @@ Theory tells us that creating bug-free programs is nearly impossible and proving
    Issues detected by ASan and AFL++ are passed to a competing ensemble of LLMs, which each generate fixes.  
 4. **Iterative Process:**  
    The patched code is retested with crashes conditions generated with AFL++ to ensure reliability.  Potential patches are surfaced to the user for human evaluation.
+
+## LLM Performance Comparison so far
+
+In C programming, memory safety bugs often result in distinct exit codes or crash
+behaviors that help diagnose issues. A use-after-free typically leads to segmentation
+faults (exit code 139 on Unix-like systems) because the program accesses memory
+that has been deallocated, resulting in an invalid memory reference. A double
+free usually triggers an abort signal (exit code 134) as memory allocators like glibc
+detect corruption during a second attempt to free the same pointer, intentionally
+terminating the program to prevent exploitation.
+
+Buffer overflows vary: stack-based buffer overflows often cause segmentation
+faults (exit code 139) due to corruption of the stack frame or overwriting control
+data like return addresses; heap-based buffer overflows can cause a segmentation
+fault or an abort if the overflow corrupts allocator metadata, while global (static)
+buffer overflows similarly result in segmentation faults when the program reads
+or writes outside the bounds of static memory regions. In all cases, signals like
+SIGSEGV (segmentation fault) or SIGABRT (abort) and their corresponding
+exit codes provide critical clues during debugging.
+Thus, in the context of evaluation AutoPatch considers 0 and 1 exit codes as
+”graceful exits” and not memory safety bugs.
+
+![LLM Performance So Far](./docs/images/llm-perf-so-far.png)
 
 ## Pre-requisites
 
@@ -95,7 +119,6 @@ Theory tells us that creating bug-free programs is nearly impossible and proving
 
 ![Developer Experience Diagram AutoPatch v0.6.1](./docs/Diagrams/autopatch-devtools-v.0.6.1.drawio.svg)
 
-
 ## Versioning Strategy
 
 This project will use semantic versioning with following rules:
@@ -125,5 +148,4 @@ PATCH version increments when a backward compatible bugfix is introduced.
 
 - **Memory Safety Bug**: a vulnerability in which memory is accessed or written in a way that violates the logic (intention) or safety of the program, or performs actions outside of the permitted memory of that program. Common examples include buffer overflow, memory leaks, and use after free. If these vulnerabilities can be exposed by specific input by a user, they can be exploited.
 - **Address Sanitizer**: a compilation tool that is capable of improving recognition of memory safety bugs beyond the base compiler. Utilized by a command line argument at compilation time, and can be added as an argument in afl compilation. ASan is the alias commonly used.
-- **Bug Log**: the log made at compile time of a program, contains the output (warnings, errors, or ASan messages depending on the compilation context) of the compilation.
 - **Fuzzer**: a tool that seeks to find all the control flow areas of a program that takes input (via file or stdin) by mutating the input, and logs any crashes or hangs. For more detailed information on fuzzing, refer to docs/QuickStart.md.

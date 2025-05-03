@@ -91,7 +91,6 @@ class MessageBrokerClient:
                 f"{self.__class__.__name__} - Message received on topic {message.topic}: {message.payload}"
             )
             self.logger.info("Message received on topic: " + message.topic)
-            self.logger.debug("Message received: ", message.payload.decode("utf-8"))
 
             self.trigger_event(
                 self.topic_to_message_callback_map.get(message.topic, None),
