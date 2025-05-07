@@ -616,14 +616,13 @@ async def prep_programs_for_evaluation(
     for program_name in os.listdir(input_codebase_path):
         fully_qualified_file_path = os.path.join(input_codebase_path, program_name)
         if os.path.isdir(fully_qualified_file_path):
-            logger.info(
-                "Patch Evaluation Service does not yet support complex project directories."
-            )
-            logger.info(f"Skipping directory: {fully_qualified_file_path}")
+            program_name_no_suffix = program_name
             continue
+        else:
+            program_name_no_suffix = program_name.removesuffix(".c")
         # add the programs to the collection of executables to evaluate
         if program_name != "":
-            executables.add(program_name.removesuffix(".c"))
+            executables.add(program_name_no_suffix)
             results[program_name] = dict()
             results[program_name]["total_crashes"] = 0
             results[program_name]["patched_crashes"] = 0
