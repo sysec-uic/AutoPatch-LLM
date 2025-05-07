@@ -605,70 +605,30 @@ def on_consume_crash_detail(crash_detail_as_cloud_event_str: str) -> None:
 
 
 async def prep_programs_for_evaluation(
-    executables_full_path: str,
-    patched_codes_directory_path: str,
-    compiler_tool_full_path: str,
-    compiler_warning_flags: str,
-    compiler_feature_flags: str,
-    compile_timeout: int,
-    make_tool_full_path: str,
+    input_codebase_path: str,
 ) -> Tuple[set[str], Dict[str, Dict[str, int]]]:
 
     # list of files to consider for evaluation and a dict for the results of each
     executables = set()
     results: Dict[str, Dict[str, int]] = dict()
-    executable_name = ""
+
     # iterate through the patched codes directory
-    for file_name in os.listdir(patched_codes_directory_path):
-        fully_qualified_file_path = os.path.join(
-            patched_codes_directory_path, file_name
-        )
-        # if the file is a directory
-
+    for program_name in os.listdir(input_codebase_path):
+        fully_qualified_file_path = os.path.join(input_codebase_path, program_name)
         if os.path.isdir(fully_qualified_file_path):
-            logger.info(f"Compiling project directory: {fully_qualified_file_path}")
-
-            output_executable_fully_qualified_path = os.path.join(
-                executables_full_path, file_name
+            logger.info(
+                "Patch Evaluation Service does not yet support complex project directories."
             )
-
-            # compile using shared make_compile
-            compiled = make_compile(
-                fully_qualified_file_path,
-                output_executable_fully_qualified_path,
-                compiler_tool_full_path,
-                make_tool_full_path,
-                logger,
-            )
-            # log errors and continue
-            if not compiled:
-                logger.error(
-                    f"Make compilation of project directory {fully_qualified_file_path} failed."
-                )
-                continue
-            executable_name = file_name
-        else:
-            # compile the file
-            logger.info(f"Compiling: {fully_qualified_file_path}")
-            executable_name = compile_file(
-                fully_qualified_file_path,
-                file_name,
-                executables_full_path,
-                compiler_tool_full_path,
-                compiler_warning_flags,
-                compiler_feature_flags,
-                compile_timeout,
-            )
-
-        # if the compilation was successful, then add the executable path to the list of executables to run
-        if executable_name != "":
-            executables.add(executable_name)
-            results[executable_name] = dict()
-            results[executable_name]["total_crashes"] = 0
-            results[executable_name]["patched_crashes"] = 0
+            logger.info(f"Skipping directory: {fully_qualified_file_path}")
+            continue
+        # add the programs to the collection of executables to evaluate
+        if program_name != "":
+            executables.add(program_name.removesuffix(".c"))
+            results[program_name] = dict()
+            results[program_name]["total_crashes"] = 0
+            results[program_name]["patched_crashes"] = 0
 
     return (executables, results)
-
 
 async def process_crash_detail_item(item):
     """Asynchronously process an item."""
@@ -757,15 +717,7 @@ async def main():
     # create task for prepping patched codes for eval
 
     task = asyncio.create_task(
-        prep_programs_for_evaluation(
-            config.executables_full_path,
-            config.patched_codes_path,
-            config.compiler_tool_full_path,
-            config.compiler_warning_flags,
-            config.compiler_feature_flags,
-            config.compile_timeout,
-            config.make_tool_full_path,
-        )
+        prep_programs_for_evaluation(config.input_codebase_full_path)
     )
 
     event_loop = asyncio.get_running_loop()
