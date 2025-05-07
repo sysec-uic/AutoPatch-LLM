@@ -21,7 +21,7 @@ This project is funded by [Google](https://google.com/) and the [National Scienc
 
 High level system design diagram:
 
-![High Level System Diagram AutoPatch v0.7.3](./docs/Diagrams/autopatch-v.0.7.3.drawio.svg)
+![High Level System Diagram AutoPatch v0.9.0](./docs/Diagrams/autopatch-v.0.9.0.drawio.svg)
 
 ## CI Status
 
