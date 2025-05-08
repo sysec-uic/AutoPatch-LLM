@@ -1,4 +1,4 @@
-# **✨ AutoPatch: LLM Based Automated Memory Safety Bug (CWE) Patching with Fuzzing, Address Sanitization, and Code Property Graphs** <!-- omit in toc -->
+# **✨ AutoPatch: LLM Based Automated Memory Safety Bug (CWE) Patching in C with Fuzzing, Address Sanitization, and Code Property Graphs** <!-- omit in toc -->
 
 Lead Developer: Robert D. Hernandez <https://www.linkedin.com/in/robhernandez5/>
 
@@ -131,7 +131,7 @@ PATCH version increments when a backward compatible bugfix is introduced.
 
 ![`2025-02-25 02:53:34,846 - autopatch.fuzzing-service - INFO - Logger initialized successfully.`](docs/images/structured-logging.png)
 
-- Uses structured logging via the python stdlib interface which is forward compatible with OTEL.  By default:
+- Uses structured logging via the python stdlib interface which is forward compatible with OpenTelemtry and Cloud Logging.  By default:
   - INFO and ERROR messages use a Console handler capturing stdout and stderr
   - DEBUG messages are logged to files.  The default config works out of the box with the dev container.  Update the file path in a service's `logging-config.json` to `/app/logs/debug.log` if running in a docker compose or kubernetes context
 
