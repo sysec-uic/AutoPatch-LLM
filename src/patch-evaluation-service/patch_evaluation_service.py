@@ -107,7 +107,6 @@ async def run_file_async(
         return signal_code
 
 
-# TODO extract this into autopatchshared
 def compile_file(
     source_file_full_path: str,
     output_dir_path: str,
@@ -150,7 +149,6 @@ def compile_file(
         return ""
 
 
-# TODO convert to pandas
 def write_crashes_csv(
     crash_detail: CrashDetail,
     patch_base64_str: str,
@@ -221,7 +219,6 @@ def write_crashes_csv(
         f.write(line)
 
 
-# TODO add MQTT publish
 async def log_crash_information(
     results_path: str,
     executable_name: str,
