@@ -689,7 +689,6 @@ async def init_llm_client(
         )
     logger.info("API models registered.")
 
-    # TODO not yet implemented - Register in-memory models if needed
     logger.info("Registering placeholder in-memory model...")
     in_memory_strategy.register(InMemoryLLM(name="LocalModel", model="dummy_model"))
     logger.info("In-memory model registered.")
