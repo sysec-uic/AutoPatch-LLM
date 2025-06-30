@@ -38,7 +38,7 @@ High level system design diagram:
 
 **AutoPatch**: is an end-to-end GenAI-assisted tool designed to automatically detect and patch bugs in C code by performing vulnerability detection, vulnerability patching, and evaluation of patches for real-world C programs.
 
-By combining **Google's Address Sanitizer (ASan)**, **American Fuzzy Lop (AFL++)** **Code Property Graphs** and we evaluate the feasibility of **various Large Language Models** for additional research towards automatica and sound program repair. AutoPatch targets low level memory safety bugs.  Identifying and resolving memory safety bugs such as Use After Free, Double Free, and Buffer Overflow.
+By combining **Google's Address Sanitizer (ASan)**, **American Fuzzy Lop (AFL++) and Code Property Graphs** and we evaluate the feasibility of **various Large Language Models** for additional research towards automatic and sound program repair. AutoPatch targets low level memory safety bugs.  Identifying and resolving memory safety bugs such as Use After Free, Double Free, and Buffer Overflow.
 
 **Method:**
 
