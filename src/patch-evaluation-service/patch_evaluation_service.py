@@ -252,8 +252,6 @@ async def log_crash_information(
         )
 
 
-# TODO This assumes the batch run is complete,
-# update to run after each eval and not assume a batch is complete
 def log_results(results: dict, results_path: str) -> None:
     """
     logs the results of the entire run (all files tested)
@@ -390,7 +388,6 @@ async def handle_ready(
         config.executables_full_path, "tmp", patch_response.executable_name + ".c"
     )
 
-    # todo delete this file after the run
     with open(patched_filename, "w") as f:
         f.write(patch_file_as_str)
 
@@ -413,7 +410,6 @@ async def handle_ready(
         config.run_timeout,
     )
 
-    # TODO add LLM context, rename to produce output
     # log the crash information to that executables dedicated csv file
     logger.info(f"Result of running file {uid}: {return_code}.")
     await log_crash_information(
@@ -431,8 +427,6 @@ async def handle_ready(
     results[uid + ".c"]["total_crashes"] += 1
     if return_code == 0 or return_code == 1:
         results[uid + ".c"]["patched_crashes"] += 1
-    # log the batched results
-    # log_results(results, config.patch_eval_results_full_path)
     logger.info("Simulating logging the batched results")
     logger.info("Results: " + str(results))
 
