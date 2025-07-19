@@ -13,6 +13,8 @@ Edit this file and rebuild the container or source the vars using `$ . ./.devcon
 
 ## Using bind mounts
 
+BIND MOUNT PERMISSION ISSUES ARE A COMMONLY KNOWN ISSUE WITH DOCKER OUTSIDE OF DOCKER WITH COMMONLY KNOWN WORKAROUNDS THAT WE DID NOT AIM TO SOLVE FOR IN THIS PROJECT REPOSITORY AT THIS TIME. DETAILS ON HOW TO BUILD TOWARDS ENABLING BIND MOUNTS BELOW, ALSO CONSIDER DOCKER-IN-DOCKER FEATURE OF VSCODE.  OTHERWISE FEEL FREE TO SKIP THE FOLLOWING SECTION.
+
 By default the devcontainer will run as the "vscode" user.
 
 The service will itself run under the "appuser" user that exists only inside the service's container.  
