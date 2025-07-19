@@ -5,6 +5,7 @@ LABEL org.opencontainers.image.description="Code Property Graph Service"
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+# hadolint ignore=DL3008
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         openjdk-21-jdk-headless \
@@ -16,6 +17,7 @@ FROM base AS joern-builder
 ENV DEBIAN_FRONTEND=noninteractive
 
 
+# hadolint ignore=DL3008
 RUN apt-get install -y --no-install-recommends \
         ca-certificates=20240203 \
         curl=8.5.0-2ubuntu10.6 \
