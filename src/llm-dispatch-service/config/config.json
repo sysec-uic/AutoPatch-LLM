@@ -1,6 +1,6 @@
 {
     "appName": "autopatch.llm-dispatch-service",
-    "appVersion": "0.9.0-beta",
+    "appVersion": "0.9.1-beta",
     "appDescription": "A system for managing and dispatching requests to various language models.",
     "cpg_gen_wait_time": 240,
     "cpg_scan_result_input_topic" : "autopatch/cpg-scan-result",

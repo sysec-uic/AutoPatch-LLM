@@ -1,6 +1,6 @@
 {
     "appname": "autopatch.fuzzing-service",
-    "version": "0.9.0-beta",
+    "version": "0.9.1-beta",
     "logging_config" : "config/logging-config.json",
     "concurrency_threshold": 10,
     "message_broker_host": "mosquitto",
