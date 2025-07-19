@@ -1,6 +1,6 @@
 [project]
 name = 'autopatchdatatypes'
-version = '0.9.0'
+version = '0.9.1'
 description = 'Shared data types for the autopatch project'
 authors = [
     { name = 'Robert D. Hernandez', email = 'rherna70@uic.edu' }

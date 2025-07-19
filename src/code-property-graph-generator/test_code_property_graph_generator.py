@@ -12,7 +12,7 @@ from cpg_svc_config import CpgSvcConfig
 
 def mock_CpgSvcConfig() -> CpgSvcConfig:
     mock_config = {
-        "version": "0.5.0-alpha",
+        "version": "0.9.1-beta",
         "appname": "autopatch.code-property-graph-generator",
         "logging_config": "/workspace/AutoPatch-LLM/src/code-property-graph-generator/config/dev-logging-config.json",
         "scan_tool_full_path": "/opt/joern/joern-cli/joern-scan",
