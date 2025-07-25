@@ -26,7 +26,7 @@ from fuzzing_service import (
 
 def mock_FuzzSvcConfig() -> FuzzSvcConfig:
     mock_config = {
-        "version": "0.9.0-beta",
+        "version": "0.9.1-beta",
         "appname": "autopatch.fuzzing-service",
         "logging_config": "config/logging-config.json",
         "concurrency_threshold": 10,

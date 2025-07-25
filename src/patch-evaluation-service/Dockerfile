@@ -10,25 +10,26 @@ RUN apt-get update && \
 FROM base AS python-builder
 
 RUN apt-get install -y --no-install-recommends \
-        python3-pip=24.0+dfsg-1ubuntu1.1
+        python3-pip=24.0+dfsg-1ubuntu1.2
 
 WORKDIR /deps
 
 COPY requirements.txt .
 
-COPY autopatchdatatypes-0.9.0-py3-none-any.whl .
-COPY autopatchshared-0.9.0-py3-none-any.whl .
-COPY autopatchpubsub-0.9.0-py3-none-any.whl .
+COPY autopatchdatatypes-0.9.1-py3-none-any.whl .
+COPY autopatchshared-0.9.1-py3-none-any.whl .
+COPY autopatchpubsub-0.9.1-py3-none-any.whl .
 
 RUN pip install --break-system-packages --no-cache-dir -r requirements.txt
 
 # Stage 3: Final runtime image
 FROM base AS final
 
+# hadolint ignore=DL3008
 RUN apt-get install -y --no-install-recommends \
         gcc=4:13.2.0-7ubuntu1 \
         gcc-multilib=4:13.2.0-7ubuntu1 \
-        libc6-dev-i386=2.39-0ubuntu8.4 && \
+        libc6-dev-i386 && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

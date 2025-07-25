@@ -85,13 +85,13 @@ A background task (`map_updater`) constantly checks if, for any given program na
 
 This acts like a dispatcher, waiting until it has both the problem description and a proposed solution before starting the test.
 
-**Step 5: Compile the Patched Code**
+**Step 3: Compile the Patched Code**
 
 The temporary C file containing the patched code needs to be compiled into an executable program. The service uses a standard C compiler (like GCC, specified in the configuration `compiler_tool_full_path`) for this, unlike the fuzzing service using `afl-gcc` or `afl-clang` we do not need to instrument the code during patch evaluation.
 
 This step checks if the AI's suggested code is even valid C code that can be turned into a runnable program.
 
-**Step 6: Run the Patched Code with Crash Input**
+**Step 4: Run the Patched Code with Crash Input**
 
 If the patched code compiled successfully, the service now runs the new executable. Importantly, it feeds the executable the *exact same input* that caused the original crash (from the `CrashDetail`).
 * It decodes the `base64_message` from the `CrashDetail` back into the raw crash input (bytes).
@@ -101,7 +101,7 @@ If the patched code compiled successfully, the service now runs the new executab
 
 This step directly checks if the patch prevented the crash under the original conditions.
 
-**Step 7: Log the Evaluation Result**
+**Step 5: Log the Evaluation Result**
 
 Finally, the service records the outcome of the evaluation. It logs key information, typically to a CSV file (`/app/data/<program_name>.csv`):
 * Timestamp
