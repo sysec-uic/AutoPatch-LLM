@@ -20,6 +20,7 @@ services:
     working_dir: /app
   autopatch-code-property-graph-generator:
     image: ghcr.io/sysec-uic/autopatch-llm/code-property-graph-generator:0.9.1
+    profiles: ["code_prop"]
     networks:
       - autopatch-llm_autopatch-docker-network
     build: ./src/code-property-graph-generator
@@ -34,6 +35,7 @@ services:
     working_dir: /app
   autopatch-fuzzing-service:
     image: ghcr.io/sysec-uic/autopatch-llm/fuzzing-service:0.9.1
+    profiles: ["fuzz"]
     networks:
       - autopatch-llm_autopatch-docker-network
     build: ./src/fuzzing-service
@@ -48,6 +50,8 @@ services:
       - ./assets/input_codebase:/app/input_codebase:ro
       - ./src/fuzzing-service/seed_input:/app/seed_input:ro
     working_dir: /app
+    
+
   autopatch-patch-evaluation-service:
     image: ghcr.io/sysec-uic/autopatch-llm/patch-evaluation-service:0.9.1
     networks:
