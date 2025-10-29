@@ -9,13 +9,14 @@ from abc import ABC, abstractmethod
 from typing import Dict, Final, List, Optional, Set
 
 import openai
-from autopatchdatatypes import CpgScanResult, PatchResponse, TransformerMetadata
-from autopatchpubsub import MessageBrokerClient
-from autopatchshared import get_current_timestamp, init_logging, load_config_as_json
 from cloudevents.conversion import to_json
 from cloudevents.http import CloudEvent
 from llm_dispatch_svc_config import LLMDispatchSvcConfig
 from openai import OpenAI
+
+from autopatchdatatypes import CpgScanResult, PatchResponse, TransformerMetadata
+from autopatchpubsub import MessageBrokerClient
+from autopatchshared import get_current_timestamp, init_logging, load_config_as_json
 
 async_cpg_scan_results_queue = asyncio.Queue()
 event_loop: asyncio.AbstractEventLoop

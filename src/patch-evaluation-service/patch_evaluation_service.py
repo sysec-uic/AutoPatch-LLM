@@ -12,6 +12,7 @@ from typing import Dict, Final, Set, Tuple
 from autopatchdatatypes import CrashDetail, PatchResponse, TransformerMetadata
 from autopatchpubsub import MessageBrokerClient
 from autopatchshared import get_current_timestamp, init_logging, load_config_as_json
+
 from patch_eval_config import PatchEvalConfig
 
 # this is the name of the environment variable that will be used point to the configuration map file to load

@@ -80,6 +80,16 @@ services:
       - ./mosquitto/config:/mosquitto/config
       - ./mosquitto/data:/mosquitto/data:rw
       - ./mosquitto/log:/mosquitto/log:rw
+  template-service:
+    build: ./src/template-service
+    container_name: template-service
+    profiles: ["template-service"]
+    env_file:
+      - ./src/template-service/.env
+    # Mount Docker socket for nested docker control
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
 
 networks:
   autopatch-llm_autopatch-docker-network:

@@ -10,6 +10,8 @@ RUN apt-get update && \
 FROM base AS python-builder
 
 RUN apt-get install -y --no-install-recommends \
+        # the follwing version is missing 
+        #please change it to ...ubuntu1.3
         python3-pip=24.0+dfsg-1ubuntu1.2
 
 WORKDIR /deps

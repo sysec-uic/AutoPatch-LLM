@@ -3,6 +3,7 @@ import subprocess
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 from autopatchshared import make_compile
 
 

@@ -9,9 +9,10 @@ from typing import Dict
 from unittest import mock
 
 import paho.mqtt.client as mqtt_client
-import patch_evaluation_service
 import pytest
 from autopatchdatatypes import CrashDetail
+
+import patch_evaluation_service
 from patch_eval_config import PatchEvalConfig
 
 # Import the functions and globals

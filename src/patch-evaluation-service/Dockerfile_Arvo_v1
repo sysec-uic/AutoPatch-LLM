@@ -13,7 +13,7 @@ RUN apt-get update && \
 FROM base AS python-builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        python3-pip=24.0+dfsg-1ubuntu1.2 && \
+        python3-pip=24.0+dfsg-1ubuntu1.3 && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /deps
