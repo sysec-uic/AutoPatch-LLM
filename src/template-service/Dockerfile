@@ -15,13 +15,23 @@ RUN apt-get update && \
         git && \
     rm -rf /var/lib/apt/lists/*
 # Stage 1: Python deps
+# Stage 1: Python deps
 FROM base AS python-builder
 
 ENV PYTHONUNBUFFERED=1
 WORKDIR /deps
 
+# Copy wheels + requirements into the image
+COPY autopatchdatatypes-0.9.1-py3-none-any.whl .
+COPY autopatchshared-0.9.1-py3-none-any.whl .
+COPY autopatchpubsub-0.9.1-py3-none-any.whl .
 COPY requirements.txt .
-RUN pip install --break-system-packages --no-cache-dir -r requirements.txt
+
+RUN pip install --break-system-packages --no-cache-dir \
+    ./autopatchdatatypes-0.9.1-py3-none-any.whl \
+    ./autopatchshared-0.9.1-py3-none-any.whl \
+    ./autopatchpubsub-0.9.1-py3-none-any.whl \
+    -r requirements.txt
 
 # Stage 2: Final runtime image
 FROM base AS final

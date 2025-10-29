@@ -1,2 +1,7 @@
+autopatchdatatypes-0.9.1-py3-none-any.whl
+autopatchshared-0.9.1-py3-none-any.whl
+autopatchpubsub-0.9.1-py3-none-any.whl
+paho-mqtt==2.1.0
+cloudevents==1.11.0
 python-dotenv>=1.0.0
 docker>=6.1.3

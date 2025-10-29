@@ -87,6 +87,8 @@ services:
     env_file:
       - ./src/template-service/.env
     # Mount Docker socket for nested docker control
+    networks:
+      - autopatch-llm_autopatch-docker-network
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
