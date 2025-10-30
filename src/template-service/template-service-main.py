@@ -9,7 +9,6 @@ from typing import Final
 
 from cloudevents.conversion import to_json
 from cloudevents.http import CloudEvent
-
 from autopatchpubsub import MessageBrokerClient
 from autopatchshared import get_current_timestamp, init_logging
 
@@ -19,7 +18,7 @@ from autopatchshared import get_current_timestamp, init_logging
 CONST_TEMPLATE_SVC_CONFIG: Final[str] = "TEMPLATE_SVC_CONFIG"
 
 # ----------------------------------------------------------------------
-# Globals
+# Globals check github
 # ----------------------------------------------------------------------
 logger = logging.getLogger(__name__)
 message_broker_client: MessageBrokerClient = None
@@ -46,10 +45,10 @@ async def send_test_event():
     event = CloudEvent(attributes, data)
     payload = to_json(event).decode("utf-8")
 
-    logger.info(f"📤 Sending CloudEvent to topic: autopatch/template-service/out")
+    logger.info(f"Sending CloudEvent to topic: autopatch/template-service/out")
     print(json.dumps(data, indent=2))
     await message_broker_client.publish("autopatch/template-service/out", payload)
-    logger.info("✅ Test CloudEvent published successfully.")
+    logger.info("Test CloudEvent published successfully.")
 
 
 # ----------------------------------------------------------------------
@@ -87,7 +86,7 @@ async def main():
         )
         payload = to_json(event).decode("utf-8")
         await message_broker_client.publish("autopatch/template-service/out", payload)
-        logger.info(f"💓 Heartbeat #{counter} published.")
+        logger.info(f"Heartbeat #{counter} published.")
         print(json.dumps(heartbeat_data, indent=2))
         counter += 1
         await asyncio.sleep(10)
